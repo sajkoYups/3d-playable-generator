@@ -120,7 +120,19 @@ export function EditorCanvas() {
               onPointerUp={onPointerUp}
             >
               {screen && (
-                <div className="absolute inset-0" style={backgroundToStyle(screen.background, orientation) as CSSProperties} />
+                <div className="absolute inset-0 overflow-hidden" style={backgroundToStyle(screen.background, orientation) as CSSProperties}>
+                  {screen.videoUrl ? (
+                    <video
+                      key={screen.videoUrl}
+                      src={screen.videoUrl}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : null}
+                </div>
               )}
               {stage === "gameplay" && (
                 <div

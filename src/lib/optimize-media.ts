@@ -17,7 +17,13 @@ export type OptimizedMedia = {
 
 function run(cmd: string, args: string[]) {
   return new Promise<void>((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: "ignore" });
+    const child = spawn(cmd, args, {
+      stdio: "ignore",
+      env: {
+        ...process.env,
+        PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ""}`,
+      },
+    });
     child.on("error", reject);
     child.on("close", (code) => {
       if (code === 0) resolve();

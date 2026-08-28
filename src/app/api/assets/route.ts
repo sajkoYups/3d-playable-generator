@@ -129,9 +129,9 @@ export async function POST(req: NextRequest) {
       optimizedUrl = stored.url;
       fileType = optimized.contentType;
       optimizedSize = optimized.optimizedSize;
-      warnLarge = true;
-      extraWarning = "Video is usually too large for playable size caps.";
-      if (!optimized.usedFfmpeg) extraWarning += " ffmpeg not found; original file stored.";
+      warnLarge = optimized.warnLarge;
+      if (!optimized.usedFfmpeg) extraWarning = "ffmpeg not found; original file stored.";
+      else if (optimized.warnLarge) extraWarning = "Video is large and may increase export size."
     }
   } catch (err) {
     return NextResponse.json(

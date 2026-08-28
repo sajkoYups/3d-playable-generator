@@ -19,7 +19,14 @@ import {
   resolveRuntimeUrl,
   tintCarMaterials,
 } from "@/playable-runtime/models/assets";
-import { parkingCells, parkingOccupied, repairParkingCars } from "@/playable-runtime/engines/parking-jam/layout";
+import {
+  listParkingRounds,
+  parkingCells,
+  parkingCoinsTotal,
+  parkingOccupied,
+  repairParkingCars,
+} from "@/playable-runtime/engines/parking-jam/layout";
+import { createPayoutHud, DEFAULT_COIN_URL } from "@/playable-runtime/engines/parking-jam/payout";
 
 type CarActor = {
   spec: ParkingCar;
@@ -75,16 +82,32 @@ export function createParkingJamEngine(): Playable3DEngine {
   const wheelRadius = 0.28;
   let buildGen = 0;
   let slideAnim: SlideAnim | null = null;
+  let roundIndex = 0;
+  let playAllRounds = true;
+  let earned = 0;
+  let lastEditorRoundIndex: number | null = null;
+  const hud = createPayoutHud();
 
-  function parkingLayoutKey(cfg: ParkingJamConfig) {
+  function liveRound(cfg = config!) {
+    const rounds = listParkingRounds(cfg);
+    const index = Math.max(0, Math.min(roundIndex, rounds.length - 1));
+    return { round: rounds[index], index, total: rounds.length };
+  }
+
+  function parkingLayoutKey(cfg: ParkingJamConfig, idx: number, playAll: boolean) {
+    const rounds = listParkingRounds(cfg);
+    const i = Math.max(0, Math.min(idx, rounds.length - 1));
+    const round = rounds[i];
     return JSON.stringify({
       lot: cfg.lotTextureUrl,
       grass: cfg.grassTextureUrl,
       pavement: cfg.pavementTextureUrl,
       model: cfg.carModelUrl,
-      cols: cfg.gridCols,
-      rows: cfg.gridRows,
-      cars: cfg.cars.map((c) => ({
+      round: i,
+      playAll,
+      cols: round.gridCols,
+      rows: round.gridRows,
+      cars: round.cars.map((c) => ({
         id: c.id,
         col: c.col,
         row: c.row,
@@ -96,8 +119,9 @@ export function createParkingJamEngine(): Playable3DEngine {
   }
 
   function worldOf(col: number, row: number, length: number, axis: "h" | "v") {
-    const x = (col + (axis === "h" ? (length - 1) / 2 : 0) - (config!.gridCols - 1) / 2) * cell;
-    const z = (row + (axis === "v" ? (length - 1) / 2 : 0) - (config!.gridRows - 1) / 2) * cell;
+    const { round } = liveRound();
+    const x = (col + (axis === "h" ? (length - 1) / 2 : 0) - (round.gridCols - 1) / 2) * cell;
+    const z = (row + (axis === "v" ? (length - 1) / 2 : 0) - (round.gridRows - 1) / 2) * cell;
     return { x, z };
   }
 
@@ -115,12 +139,44 @@ export function createParkingJamEngine(): Playable3DEngine {
     }
   }
 
+  function syncHud() {
+    if (!config) return;
+    const url = resolveRuntimeUrl(config.coinImageUrl, ctx?.assets ?? {}) || DEFAULT_COIN_URL;
+    hud.setCoinUrl(url || DEFAULT_COIN_URL);
+    hud.setState(earned, parkingCoinsTotal(config));
+  }
+
   function finish(kind: "win" | "lose") {
     if (ended) return;
     ended = true;
     started = false;
+    if (kind === "lose") hud.cancel();
     if (kind === "win") onWin();
     else onLose();
+  }
+
+  function completeRound() {
+    if (!config || hud.busy()) return;
+    const { round, index, total } = liveRound();
+    const reward = round.coins;
+    const from = earned;
+    earned += reward;
+    const hasNext = playAllRounds && index < total - 1;
+    hud.setState(earned, parkingCoinsTotal(config));
+    hud.startPayout({
+      from,
+      to: earned,
+      reward,
+      nextRound: hasNext ? index + 2 : null,
+      onDone: (kind) => {
+        if (kind === "next") {
+          roundIndex = index + 1;
+          void rebuild();
+          return;
+        }
+        finish("win");
+      },
+    });
   }
 
   function tryMove(car: ParkingCar, dCol: number, dRow: number) {
@@ -128,9 +184,10 @@ export function createParkingJamEngine(): Playable3DEngine {
     if (car.axis === "v" && dCol) return false;
     const next = { ...car, col: car.col + dCol, row: car.row + dRow };
     const occ = parkingOccupied(state, car.id);
+    const { round } = liveRound();
     for (const [x, y] of parkingCells(next)) {
-      if (x < 0 || y < 0 || y >= config!.gridRows) return false;
-      if (x >= config!.gridCols) {
+      if (x < 0 || y < 0 || y >= round.gridRows) return false;
+      if (x >= round.gridCols) {
         if (car.isHero) return "exit";
         return false;
       }
@@ -170,7 +227,7 @@ export function createParkingJamEngine(): Playable3DEngine {
       toX: to.x,
       toZ: to.z,
       t: 0,
-      duration: Math.min(0.24, 0.07 * Math.max(1, cells)),
+      duration: Math.min(0.5, 0.14 * Math.max(1, cells)),
       distance,
       prevEased: 0,
       onDone,
@@ -206,8 +263,9 @@ export function createParkingJamEngine(): Playable3DEngine {
     if (!host || !config || !root) return;
     const gen = ++buildGen;
     const cfg = config;
+    const { round } = liveRound(cfg);
     const assets = ctx?.assets ?? {};
-    const exitRow = cfg.cars.find((c) => c.isHero)?.row ?? 2;
+    const exitRow = round.cars.find((c) => c.isHero)?.row ?? 2;
     const kind = libraryCarKind(cfg.carModelUrl || "sedan");
     const compactUrl = resolveRuntimeUrl(cfg.carModelUrl || "sedan", assets);
     const stretchedUrl = longCarUrl(cfg.carModelUrl || "sedan", assets);
@@ -226,10 +284,10 @@ export function createParkingJamEngine(): Playable3DEngine {
     const compactGltf = await loadTemplate(compactUrl);
     const longGltf = stretchedUrl === compactUrl ? compactGltf : await loadTemplate(stretchedUrl);
     let lotMap: Texture = createAsphaltTexture(
-      cfg.gridCols,
-      cfg.gridRows,
+      round.gridCols,
+      round.gridRows,
       exitRow,
-      zPad / (cfg.gridRows * cell + zPad * 2),
+      zPad / (round.gridRows * cell + zPad * 2),
     );
     const paintedLot = lotMap;
     if (lotUrl) {
@@ -260,15 +318,16 @@ export function createParkingJamEngine(): Playable3DEngine {
     cars = [];
     slideAnim = null;
     state = repairParkingCars(
-      cfg.cars.map((c) => ({ ...c })),
-      cfg.gridCols,
-      cfg.gridRows,
+      round.cars.map((c) => ({ ...c })),
+      round.gridCols,
+      round.gridRows,
     );
     moves = 0;
     ended = false;
+    syncHud();
 
-    const lotW = cfg.gridCols * cell;
-    const lotH = cfg.gridRows * cell;
+    const lotW = round.gridCols * cell;
+    const lotH = round.gridRows * cell;
     const lotDepth = lotH + zPad * 2;
 
     if (grassMap) {
@@ -356,7 +415,14 @@ export function createParkingJamEngine(): Playable3DEngine {
     name: "Parking Jam",
     initialize(init) {
       ctx = init;
-      config = ((init as EngineInitContext & { parkingJam?: ParkingJamConfig }).parkingJam) ?? null;
+      const extra = init as EngineInitContext & {
+        parkingJam?: ParkingJamConfig;
+        playAllRounds?: boolean;
+        parkingRoundIndex?: number;
+      };
+      config = extra.parkingJam ?? null;
+      playAllRounds = extra.playAllRounds !== false;
+      roundIndex = typeof extra.parkingRoundIndex === "number" ? extra.parkingRoundIndex : 0;
       if (!config) {
         config = {
           lotTextureUrl: "",
@@ -369,16 +435,22 @@ export function createParkingJamEngine(): Playable3DEngine {
           gridCols: 6,
           gridRows: 6,
           cars: [],
+          rounds: [],
+          coinImageUrl: "",
         };
       }
+      roundIndex = Math.max(0, Math.min(roundIndex, listParkingRounds(config).length - 1));
+      lastEditorRoundIndex = roundIndex;
       host = new ThreeHost(init.container);
       host.applyLighting(init.lighting);
       host.applyCamera(init.camera, init.orientation, host.camera.aspect);
       root = new Group();
       host.scene.add(root);
+      hud.mount(init.container);
+      syncHud();
       build();
       detach = attachPointer(host.canvas, (e) => {
-        if (!started || ended || slideAnim) return;
+        if (!started || ended || slideAnim || hud.busy()) return;
         if (e.kind === "down") {
           selected = pick(e.ndcX, e.ndcY) ?? null;
           if (selected) {
@@ -408,7 +480,7 @@ export function createParkingJamEngine(): Playable3DEngine {
               playSlide(actor, from, { x: parked.x + cell * 1.65, z: parked.z }, result.cells + 1, () => {
                 state = state.filter((c) => c.id !== car.id);
                 actor.group.visible = false;
-                finish("win");
+                completeRound();
               });
               selected = null;
               dragStart = null;
@@ -417,7 +489,7 @@ export function createParkingJamEngine(): Playable3DEngine {
             if (result.kind === "moved") {
               moves += 1;
               const to = worldOf(car.col, car.row, car.length, car.axis);
-              const limit = config.movesLimit;
+              const limit = liveRound().round.movesLimit;
               playSlide(actor, from, to, result.cells, () => {
                 if (moves >= limit) finish("lose");
               });
@@ -430,7 +502,10 @@ export function createParkingJamEngine(): Playable3DEngine {
     },
     start() {
       started = true;
-      host?.start((dt) => tickSlide(dt));
+      host?.start((dt) => {
+        tickSlide(dt);
+        hud.tick(performance.now());
+      });
     },
     pause() {
       started = false;
@@ -438,10 +513,14 @@ export function createParkingJamEngine(): Playable3DEngine {
     },
     reset() {
       started = true;
+      hud.cancel();
+      earned = 0;
+      if (playAllRounds) roundIndex = 0;
       build();
     },
     destroy() {
       detach?.();
+      hud.destroy();
       host?.destroy();
       host = null;
       ctx = null;
@@ -454,26 +533,41 @@ export function createParkingJamEngine(): Playable3DEngine {
     },
     setOptions(options) {
       const next = options.parkingJam as ParkingJamConfig | undefined;
-      if (next) {
-        const prev = config;
-        config = next;
-        if (!prev || parkingLayoutKey(prev) !== parkingLayoutKey(next)) {
+      const prevKey = config ? parkingLayoutKey(config, roundIndex, playAllRounds) : "";
+      if (next) config = next;
+      if (typeof options.playAllRounds === "boolean") playAllRounds = options.playAllRounds;
+      if (typeof options.parkingRoundIndex === "number" && config) {
+        const n = listParkingRounds(config).length;
+        const nextIdx = Math.max(0, Math.min(Math.floor(options.parkingRoundIndex), n - 1));
+        if (lastEditorRoundIndex !== null && nextIdx !== lastEditorRoundIndex) {
+          hud.cancel();
+          earned = 0;
+          roundIndex = nextIdx;
+        }
+        lastEditorRoundIndex = nextIdx;
+      }
+      if (config) {
+        const nextKey = parkingLayoutKey(config, roundIndex, playAllRounds);
+        if (!prevKey || prevKey !== nextKey) {
           void rebuild();
         } else {
+          const roundCars = liveRound().round.cars;
           for (const actor of cars) {
-            const spec = next.cars.find((c) => c.id === actor.spec.id);
+            const spec = roundCars.find((c) => c.id === actor.spec.id);
             if (!spec) continue;
             actor.spec = spec;
             const live = state.find((c) => c.id === spec.id);
             if (live) live.color = spec.color;
             tintCarMaterials(actor.group, spec.color);
           }
+          syncHud();
         }
       }
       if (ctx) applyLivePresentation(host, options, ctx);
     },
     resize(w, h) {
       host?.resize(w, h);
+      hud.resize();
     },
   };
 }

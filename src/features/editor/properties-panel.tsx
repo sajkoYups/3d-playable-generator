@@ -6,11 +6,31 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
-import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LightingPreset, type PlayableElement } from "@/types/project";
+import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData } from "@/types/project";
 import { MATCH_ITEMS, VEHICLES } from "@/lib/model-library";
+import { ensureParkingRounds, repairParkingCars, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n));
+}
+
+function clampInt(n: number, min: number, max: number, fallback: number) {
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
+
+function patchParkingRound(
+  updateData: (updater: (draft: ProjectData) => void) => void,
+  index: number,
+  patch: (round: ParkingRound, jam: ParkingJamConfig) => void,
+) {
+  updateData((d) => {
+    const jam = d.gameplay.parkingJam;
+    ensureParkingRounds(jam);
+    const i = Math.max(0, Math.min(index, jam.rounds.length - 1));
+    patch(jam.rounds[i], jam);
+    syncParkingRound(jam, i);
+  });
 }
 
 function BackgroundEditor({
@@ -70,6 +90,8 @@ function GameplaySettings() {
   const templateId = useEditorStore((s) => s.templateId);
   const orientation = useEditorStore((s) => s.orientation);
   const updateData = useEditorStore((s) => s.updateData);
+  const parkingRoundIndex = useEditorStore((s) => s.parkingRoundIndex);
+  const setParkingRoundIndex = useEditorStore((s) => s.setParkingRoundIndex);
   const cam = data.gameplay.camera[orientation];
 
   return (
@@ -261,8 +283,141 @@ function GameplaySettings() {
         <>
           <Separator />
           <h4 className="text-sm font-medium">Parking Jam</h4>
-          <Label>Moves limit</Label>
-          <Input type="number" value={data.gameplay.parkingJam.movesLimit} onChange={(e) => updateData((d) => { d.gameplay.parkingJam.movesLimit = Number(e.target.value) || 24; })} />
+          {(() => {
+            const jam = data.gameplay.parkingJam;
+            const rounds = jam.rounds.length
+              ? jam.rounds
+              : [{ gridCols: jam.gridCols, gridRows: jam.gridRows, movesLimit: jam.movesLimit, coins: 50, cars: jam.cars }];
+            const roundIdx = Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
+            const round = rounds[roundIdx];
+            return (
+              <>
+                <Label>Rounds</Label>
+                <p className="text-[11px] text-muted">Up to 9. The playable plays them in order. Preview shows the selected round.</p>
+                <div className="flex flex-wrap gap-1">
+                  {rounds.map((_, i) => (
+                    <Button
+                      key={i}
+                      size="sm"
+                      variant={i === roundIdx ? "default" : "outline"}
+                      onClick={() => setParkingRoundIndex(i)}
+                    >
+                      {i + 1}
+                    </Button>
+                  ))}
+                  {rounds.length < 9 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        let nextIndex = rounds.length;
+                        updateData((d) => {
+                          const j = d.gameplay.parkingJam;
+                          ensureParkingRounds(j);
+                          if (j.rounds.length >= 9) return;
+                          const last = j.rounds[j.rounds.length - 1];
+                          j.rounds.push({
+                            gridCols: last.gridCols,
+                            gridRows: last.gridRows,
+                            movesLimit: last.movesLimit,
+                            coins: last.coins,
+                            cars: last.cars.map((c) => ({ ...c })),
+                          });
+                          nextIndex = j.rounds.length - 1;
+                          syncParkingRound(j, nextIndex);
+                        });
+                        setParkingRoundIndex(nextIndex);
+                      }}
+                    >
+                      Add
+                    </Button>
+                  )}
+                </div>
+                {rounds.length > 1 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      let nextIndex = Math.max(0, roundIdx - 1);
+                      updateData((d) => {
+                        const j = d.gameplay.parkingJam;
+                        ensureParkingRounds(j);
+                        if (j.rounds.length <= 1) return;
+                        j.rounds.splice(roundIdx, 1);
+                        nextIndex = Math.min(roundIdx, j.rounds.length - 1);
+                        syncParkingRound(j, nextIndex);
+                      });
+                      setParkingRoundIndex(nextIndex);
+                    }}
+                  >
+                    Remove round {roundIdx + 1}
+                  </Button>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Moves limit</Label>
+                    <Input
+                      type="number"
+                      min={8}
+                      max={80}
+                      value={round.movesLimit}
+                      onChange={(e) =>
+                        patchParkingRound(updateData, roundIdx, (r) => {
+                          r.movesLimit = clampInt(Number(e.target.value), 8, 80, 24);
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Coins</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={9999}
+                      value={round.coins}
+                      onChange={(e) =>
+                        patchParkingRound(updateData, roundIdx, (r) => {
+                          r.coins = clampInt(Number(e.target.value), 0, 9999, 50);
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Grid cols</Label>
+                    <Input
+                      type="number"
+                      min={4}
+                      max={8}
+                      value={round.gridCols}
+                      onChange={(e) =>
+                        patchParkingRound(updateData, roundIdx, (r) => {
+                          r.gridCols = clampInt(Number(e.target.value), 4, 8, 6);
+                          r.cars = repairParkingCars(r.cars, r.gridCols, r.gridRows);
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Grid rows</Label>
+                    <Input
+                      type="number"
+                      min={4}
+                      max={8}
+                      value={round.gridRows}
+                      onChange={(e) =>
+                        patchParkingRound(updateData, roundIdx, (r) => {
+                          r.gridRows = clampInt(Number(e.target.value), 4, 8, 6);
+                          r.cars = repairParkingCars(r.cars, r.gridCols, r.gridRows);
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </>
+            );
+          })()}
           <Label>Car model</Label>
           <div className="flex flex-wrap gap-1">
             {VEHICLES.map((v) => (
@@ -316,16 +471,24 @@ function GameplaySettings() {
             onChange={(url) => updateData((d) => { d.gameplay.parkingJam.grassTextureUrl = url; })}
           />
           <p className="text-[11px] text-muted">Leave empty to keep the Kenney defaults. Uploads replace that layer only.</p>
+          <AssetUrlField
+            label="Coin icon"
+            accept="image/*"
+            value={data.gameplay.parkingJam.coinImageUrl}
+            onChange={(url) => updateData((d) => { d.gameplay.parkingJam.coinImageUrl = url; })}
+          />
+          <p className="text-[11px] text-muted">Empty uses the default coin. Shown in the HUD and payout animation.</p>
           <p className="text-[11px] text-muted">Car colors</p>
-          {data.gameplay.parkingJam.cars.map((car) => (
+          {(data.gameplay.parkingJam.rounds[Math.max(0, Math.min(parkingRoundIndex, data.gameplay.parkingJam.rounds.length - 1))]?.cars
+            ?? data.gameplay.parkingJam.cars).map((car) => (
             <div key={car.id} className="flex items-center gap-2">
               <Label className="w-16 truncate text-xs">{car.isHero ? "Hero" : car.id}</Label>
               <input
                 type="color"
                 value={car.color}
                 onChange={(e) =>
-                  updateData((d) => {
-                    const target = d.gameplay.parkingJam.cars.find((c) => c.id === car.id);
+                  patchParkingRound(updateData, parkingRoundIndex, (r) => {
+                    const target = r.cars.find((c) => c.id === car.id);
                     if (target) target.color = e.target.value;
                   })
                 }

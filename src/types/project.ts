@@ -260,6 +260,24 @@ export const ParkingCarSchema = z.object({
 });
 export type ParkingCar = z.infer<typeof ParkingCarSchema>;
 
+const DefaultParkingCars: ParkingCar[] = [
+  { id: "hero", col: 0, row: 2, length: 2, axis: "h", color: "#e07a3d", isHero: true },
+  { id: "c1", col: 2, row: 0, length: 3, axis: "v", color: "#2bb5a0", isHero: false },
+  { id: "c2", col: 3, row: 1, length: 2, axis: "h", color: "#7c5cff", isHero: false },
+  { id: "c3", col: 4, row: 3, length: 3, axis: "v", color: "#e85d4c", isHero: false },
+  { id: "c4", col: 0, row: 5, length: 2, axis: "h", color: "#f3ede0", isHero: false },
+  { id: "c5", col: 1, row: 3, length: 2, axis: "v", color: "#3d7cff", isHero: false },
+];
+
+export const ParkingRoundSchema = z.object({
+  gridCols: z.number().int().min(4).max(8).default(6),
+  gridRows: z.number().int().min(4).max(8).default(6),
+  movesLimit: z.number().int().min(8).max(80).default(24),
+  coins: z.number().int().min(0).max(9999).default(50),
+  cars: z.array(ParkingCarSchema).default(DefaultParkingCars),
+});
+export type ParkingRound = z.infer<typeof ParkingRoundSchema>;
+
 export const ParkingJamConfigSchema = z.object({
   lotTextureUrl: z.string().default(""),
   grassTextureUrl: z.string().default(""),
@@ -270,14 +288,9 @@ export const ParkingJamConfigSchema = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
   gridCols: z.number().int().min(4).max(8).default(6),
   gridRows: z.number().int().min(4).max(8).default(6),
-  cars: z.array(ParkingCarSchema).default([
-    { id: "hero", col: 0, row: 2, length: 2, axis: "h", color: "#e07a3d", isHero: true },
-    { id: "c1", col: 2, row: 0, length: 3, axis: "v", color: "#2bb5a0", isHero: false },
-    { id: "c2", col: 3, row: 1, length: 2, axis: "h", color: "#7c5cff", isHero: false },
-    { id: "c3", col: 4, row: 3, length: 3, axis: "v", color: "#e85d4c", isHero: false },
-    { id: "c4", col: 0, row: 5, length: 2, axis: "h", color: "#f3ede0", isHero: false },
-    { id: "c5", col: 1, row: 3, length: 2, axis: "v", color: "#3d7cff", isHero: false },
-  ]),
+  cars: z.array(ParkingCarSchema).default(DefaultParkingCars),
+  rounds: z.array(ParkingRoundSchema).max(9).default([]),
+  coinImageUrl: z.string().default(""),
 });
 export type ParkingJamConfig = z.infer<typeof ParkingJamConfigSchema>;
 

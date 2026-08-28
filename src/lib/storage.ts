@@ -83,6 +83,7 @@ export async function readObjectBuffer(keyOrUrl: string): Promise<Buffer | null>
   }
 
   if (
+    keyOrUrl === "/coin.svg" ||
     keyOrUrl.startsWith("/demo-assets/") ||
     keyOrUrl.startsWith("/models/") ||
     keyOrUrl.startsWith("/kenney_car-kit/") ||

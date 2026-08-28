@@ -5,7 +5,7 @@ import { immer } from "zustand/middleware/immer";
 import type { Orientation, PlayableElement, ProjectData, TemplateId } from "@/types/project";
 import { ProjectDataSchema } from "@/types/project";
 import { createDefaultProjectData } from "@/lib/project-defaults";
-import { repairParkingCars } from "@/playable-runtime/engines/parking-jam/layout";
+import { ensureParkingRounds, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 
 export type EditorStage = "start" | "gameplay" | "end";
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -28,6 +28,7 @@ type EditorState = {
   past: HistoryEntry[];
   future: HistoryEntry[];
   hydrated: boolean;
+  parkingRoundIndex: number;
 
   hydrate: (payload: {
     projectId: string;
@@ -44,6 +45,7 @@ type EditorState = {
   pushHistory: () => void;
   undo: () => void;
   redo: () => void;
+  setParkingRoundIndex: (index: number) => void;
   updateData: (updater: (draft: ProjectData) => void, recordHistory?: boolean) => void;
   updateElement: (
     elementId: string,
@@ -79,6 +81,7 @@ export const useEditorStore = create<EditorState>()(
     past: [],
     future: [],
     hydrated: false,
+    parkingRoundIndex: 0,
 
     hydrate: (payload) =>
       set((state) => {
@@ -88,7 +91,9 @@ export const useEditorStore = create<EditorState>()(
         const parsed = ProjectDataSchema.safeParse(payload.data);
         state.data = parsed.success ? parsed.data : payload.data;
         const jam = state.data.gameplay.parkingJam;
-        jam.cars = repairParkingCars(jam.cars, jam.gridCols, jam.gridRows);
+        ensureParkingRounds(jam);
+        state.parkingRoundIndex = 0;
+        syncParkingRound(jam, 0);
         state.orientation = payload.defaultOrientation;
         state.hydrated = true;
         state.past = [];
@@ -123,6 +128,12 @@ export const useEditorStore = create<EditorState>()(
         state.saveStatus = status;
       }),
 
+    setParkingRoundIndex: (index) =>
+      set((state) => {
+        const n = state.data.gameplay.parkingJam.rounds.length;
+        state.parkingRoundIndex = Math.max(0, Math.min(index, Math.max(0, n - 1)));
+      }),
+
     pushHistory: () =>
       set((state) => {
         state.past.push(cloneData(state.data));
@@ -136,6 +147,8 @@ export const useEditorStore = create<EditorState>()(
         if (!prev) return;
         state.future.push(cloneData(state.data));
         state.data = prev;
+        const n = state.data.gameplay.parkingJam.rounds.length;
+        state.parkingRoundIndex = Math.max(0, Math.min(state.parkingRoundIndex, Math.max(0, n - 1)));
       }),
 
     redo: () =>
@@ -144,6 +157,8 @@ export const useEditorStore = create<EditorState>()(
         if (!next) return;
         state.past.push(cloneData(state.data));
         state.data = next;
+        const n = state.data.gameplay.parkingJam.rounds.length;
+        state.parkingRoundIndex = Math.max(0, Math.min(state.parkingRoundIndex, Math.max(0, n - 1)));
       }),
 
     updateData: (updater, recordHistory = true) =>

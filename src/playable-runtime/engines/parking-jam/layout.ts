@@ -1,4 +1,4 @@
-import type { ParkingCar } from "@/types/project";
+import type { ParkingCar, ParkingJamConfig, ParkingRound } from "@/types/project";
 
 export function parkingCells(car: ParkingCar): Array<[number, number]> {
   const cells: Array<[number, number]> = [];
@@ -43,3 +43,65 @@ export const DEFAULT_PARKING_CARS: ParkingCar[] = [
   { id: "c4", col: 0, row: 5, length: 2, axis: "h", color: "#f3ede0", isHero: false },
   { id: "c5", col: 1, row: 3, length: 2, axis: "v", color: "#3d7cff", isHero: false },
 ];
+
+export const DEFAULT_ROUND_COINS = 50;
+
+function roundCoins(value: number | undefined) {
+  if (!Number.isFinite(value)) return DEFAULT_ROUND_COINS;
+  return Math.min(9999, Math.max(0, Math.round(value as number)));
+}
+
+export function listParkingRounds(jam: ParkingJamConfig): ParkingRound[] {
+  if (jam.rounds?.length) {
+    return jam.rounds.slice(0, 9).map((r) => ({
+      gridCols: r.gridCols,
+      gridRows: r.gridRows,
+      movesLimit: r.movesLimit,
+      coins: roundCoins(r.coins),
+      cars: r.cars.map((c) => ({ ...c })),
+    }));
+  }
+  return [
+    {
+      gridCols: jam.gridCols,
+      gridRows: jam.gridRows,
+      movesLimit: jam.movesLimit,
+      coins: DEFAULT_ROUND_COINS,
+      cars: jam.cars.map((c) => ({ ...c })),
+    },
+  ];
+}
+
+export function parkingCoinsTotal(jam: ParkingJamConfig) {
+  return listParkingRounds(jam).reduce((sum, r) => sum + r.coins, 0);
+}
+
+export function ensureParkingRounds(jam: ParkingJamConfig) {
+  if (!jam.rounds.length) {
+    jam.rounds = [
+      {
+        gridCols: jam.gridCols,
+        gridRows: jam.gridRows,
+        movesLimit: jam.movesLimit,
+        coins: DEFAULT_ROUND_COINS,
+        cars: jam.cars.map((c) => ({ ...c })),
+      },
+    ];
+  }
+  jam.rounds = jam.rounds.slice(0, 9).map((r) => ({
+    gridCols: r.gridCols,
+    gridRows: r.gridRows,
+    movesLimit: r.movesLimit,
+    coins: roundCoins(r.coins),
+    cars: repairParkingCars(r.cars, r.gridCols, r.gridRows),
+  }));
+}
+
+export function syncParkingRound(jam: ParkingJamConfig, index: number) {
+  const round = jam.rounds[Math.max(0, Math.min(index, jam.rounds.length - 1))];
+  if (!round) return;
+  jam.cars = round.cars;
+  jam.gridCols = round.gridCols;
+  jam.gridRows = round.gridRows;
+  jam.movesLimit = round.movesLimit;
+}

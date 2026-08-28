@@ -28,6 +28,7 @@ export function collectAssetUrls(data: ProjectData): string[] {
   add(data.gameplay.parkingJam.lotTextureUrl);
   add(data.gameplay.parkingJam.pavementTextureUrl);
   add(data.gameplay.parkingJam.grassTextureUrl || "/kenney_road-textures/PNG/Retina/roadTexture_25.png");
+  add(data.gameplay.parkingJam.coinImageUrl || "/coin.svg");
   const carRef = resolveModelRef(data.gameplay.parkingJam.carModelUrl || "sedan");
   add(carRef.url);
   if (carRef.libraryId && carRef.libraryId !== "van" && carRef.libraryId !== "truck") {

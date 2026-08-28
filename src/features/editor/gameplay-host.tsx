@@ -12,6 +12,7 @@ export function GameplayHost({
   interactive = true,
   className,
   autoStart = true,
+  parkingRoundIndex = 0,
 }: {
   templateId: TemplateId;
   data: ProjectData;
@@ -19,13 +20,16 @@ export function GameplayHost({
   interactive?: boolean;
   className?: string;
   autoStart?: boolean;
+  parkingRoundIndex?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Playable3DEngine | null>(null);
   const dataRef = useRef(data);
   const orientationRef = useRef(orientation);
+  const parkingRoundIndexRef = useRef(parkingRoundIndex);
   dataRef.current = data;
   orientationRef.current = orientation;
+  parkingRoundIndexRef.current = parkingRoundIndex;
 
   useEffect(() => {
     if (!ref.current) return;
@@ -43,6 +47,8 @@ export function GameplayHost({
         tripleMatch: current.gameplay.tripleMatch,
         laneRunner: current.gameplay.laneRunner,
         parkingJam: current.gameplay.parkingJam,
+        playAllRounds: true,
+        parkingRoundIndex: parkingRoundIndexRef.current,
       } as object),
     } as never);
     const el = ref.current;
@@ -75,9 +81,12 @@ export function GameplayHost({
       tripleMatch: data.gameplay.tripleMatch,
       laneRunner: data.gameplay.laneRunner,
       parkingJam: data.gameplay.parkingJam,
+      playAllRounds: true,
+      parkingRoundIndex,
     });
   }, [
     orientation,
+    parkingRoundIndex,
     data.gameplay.camera,
     data.gameplay.lighting,
     data.gameplay.stackTower,

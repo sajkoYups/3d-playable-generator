@@ -506,6 +506,8 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
         { id: "c4", col: 0, row: 5, length: 2, axis: "h", color: "#f3ede0", isHero: false },
         { id: "c5", col: 1, row: 3, length: 2, axis: "v", color: "#3d7cff", isHero: false },
       ],
+      rounds: [],
+      coinImageUrl: "",
     },
     overlays: [
       imageEl(

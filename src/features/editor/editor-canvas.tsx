@@ -13,6 +13,7 @@ export function EditorCanvas() {
   const orientation = useEditorStore((s) => s.orientation);
   const data = useEditorStore((s) => s.data);
   const templateId = useEditorStore((s) => s.templateId);
+  const parkingRoundIndex = useEditorStore((s) => s.parkingRoundIndex);
   const selectedElementId = useEditorStore((s) => s.selectedElementId);
   const selectElement = useEditorStore((s) => s.selectElement);
   const updateElementLayout = useEditorStore((s) => s.updateElementLayout);
@@ -160,6 +161,7 @@ export function EditorCanvas() {
                         orientation={orientation}
                         interactive
                         autoStart
+                        parkingRoundIndex={parkingRoundIndex}
                         className="h-full w-full"
                       />
                     </div>

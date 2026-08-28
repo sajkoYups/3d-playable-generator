@@ -1,4 +1,8 @@
 import type { ParkingCar, ParkingJamConfig, ParkingRound } from "@/types/project";
+import {
+  defaultParkingRoundsPack,
+  DEFAULT_PARKING_ROUNDS,
+} from "@/playable-runtime/engines/parking-jam/rounds";
 
 export function parkingCells(car: ParkingCar): Array<[number, number]> {
   const cells: Array<[number, number]> = [];
@@ -35,14 +39,9 @@ export function repairParkingCars(cars: ParkingCar[], cols: number, rows: number
   return next;
 }
 
-export const DEFAULT_PARKING_CARS: ParkingCar[] = [
-  { id: "hero", col: 0, row: 2, length: 2, axis: "h", color: "#e07a3d", isHero: true },
-  { id: "c1", col: 2, row: 0, length: 3, axis: "v", color: "#2bb5a0", isHero: false },
-  { id: "c2", col: 3, row: 1, length: 2, axis: "h", color: "#7c5cff", isHero: false },
-  { id: "c3", col: 4, row: 3, length: 3, axis: "v", color: "#e85d4c", isHero: false },
-  { id: "c4", col: 0, row: 5, length: 2, axis: "h", color: "#f3ede0", isHero: false },
-  { id: "c5", col: 1, row: 3, length: 2, axis: "v", color: "#3d7cff", isHero: false },
-];
+export { DEFAULT_PARKING_ROUNDS, defaultParkingRoundAt, defaultParkingRoundsPack, cloneParkingRound } from "@/playable-runtime/engines/parking-jam/rounds";
+
+export const DEFAULT_PARKING_CARS: ParkingCar[] = DEFAULT_PARKING_ROUNDS[0].cars.map((c) => ({ ...c }));
 
 export const DEFAULT_ROUND_COINS = 50;
 
@@ -77,24 +76,16 @@ export function parkingCoinsTotal(jam: ParkingJamConfig) {
 }
 
 export function ensureParkingRounds(jam: ParkingJamConfig) {
-  if (!jam.rounds.length) {
-    jam.rounds = [
-      {
-        gridCols: jam.gridCols,
-        gridRows: jam.gridRows,
-        movesLimit: jam.movesLimit,
-        coins: DEFAULT_ROUND_COINS,
-        cars: jam.cars.map((c) => ({ ...c })),
-      },
-    ];
-  }
-  jam.rounds = jam.rounds.slice(0, 9).map((r) => ({
-    gridCols: r.gridCols,
-    gridRows: r.gridRows,
-    movesLimit: r.movesLimit,
-    coins: roundCoins(r.coins),
-    cars: repairParkingCars(r.cars, r.gridCols, r.gridRows),
-  }));
+  const pack = defaultParkingRoundsPack();
+  const prev = jam.rounds ?? [];
+  jam.rounds = pack.map((p, i) => {
+    const existing = prev[i];
+    return {
+      ...p,
+      coins: existing ? roundCoins(existing.coins) : p.coins,
+      movesLimit: existing?.movesLimit ?? p.movesLimit,
+    };
+  });
 }
 
 export function syncParkingRound(jam: ParkingJamConfig, index: number) {

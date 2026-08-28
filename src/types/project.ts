@@ -262,11 +262,9 @@ export type ParkingCar = z.infer<typeof ParkingCarSchema>;
 
 const DefaultParkingCars: ParkingCar[] = [
   { id: "hero", col: 0, row: 2, length: 2, axis: "h", color: "#e07a3d", isHero: true },
-  { id: "c1", col: 2, row: 0, length: 3, axis: "v", color: "#2bb5a0", isHero: false },
-  { id: "c2", col: 3, row: 1, length: 2, axis: "h", color: "#7c5cff", isHero: false },
-  { id: "c3", col: 4, row: 3, length: 3, axis: "v", color: "#e85d4c", isHero: false },
-  { id: "c4", col: 0, row: 5, length: 2, axis: "h", color: "#f3ede0", isHero: false },
-  { id: "c5", col: 1, row: 3, length: 2, axis: "v", color: "#3d7cff", isHero: false },
+  { id: "c1", col: 3, row: 0, length: 3, axis: "v", color: "#2bb5a0", isHero: false },
+  { id: "c2", col: 0, row: 5, length: 2, axis: "h", color: "#7c5cff", isHero: false },
+  { id: "c3", col: 4, row: 4, length: 2, axis: "v", color: "#e85d4c", isHero: false },
 ];
 
 export const ParkingRoundSchema = z.object({

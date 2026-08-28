@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
 import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData } from "@/types/project";
 import { MATCH_ITEMS, VEHICLES } from "@/lib/model-library";
-import { ensureParkingRounds, repairParkingCars, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
+import { defaultParkingRoundAt, ensureParkingRounds, repairParkingCars, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n));
@@ -315,14 +315,7 @@ function GameplaySettings() {
                           const j = d.gameplay.parkingJam;
                           ensureParkingRounds(j);
                           if (j.rounds.length >= 9) return;
-                          const last = j.rounds[j.rounds.length - 1];
-                          j.rounds.push({
-                            gridCols: last.gridCols,
-                            gridRows: last.gridRows,
-                            movesLimit: last.movesLimit,
-                            coins: last.coins,
-                            cars: last.cars.map((c) => ({ ...c })),
-                          });
+                          j.rounds.push(defaultParkingRoundAt(j.rounds.length));
                           nextIndex = j.rounds.length - 1;
                           syncParkingRound(j, nextIndex);
                         });

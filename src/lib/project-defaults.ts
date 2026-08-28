@@ -5,6 +5,7 @@ import {
   type ProjectData,
   type TemplateId,
 } from "@/types/project";
+import { DEFAULT_PARKING_CARS, defaultParkingRoundsPack } from "@/playable-runtime/engines/parking-jam/layout";
 
 export const TEMPLATE_NAMES: Record<TemplateId, string> = {
   "stack-tower": "Stack Tower",
@@ -498,15 +499,8 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       difficulty: "medium",
       gridCols: 6,
       gridRows: 6,
-      cars: [
-        { id: "hero", col: 0, row: 2, length: 2, axis: "h", color: "#e07a3d", isHero: true },
-        { id: "c1", col: 2, row: 0, length: 3, axis: "v", color: "#2bb5a0", isHero: false },
-        { id: "c2", col: 3, row: 1, length: 2, axis: "h", color: "#7c5cff", isHero: false },
-        { id: "c3", col: 4, row: 3, length: 3, axis: "v", color: "#e85d4c", isHero: false },
-        { id: "c4", col: 0, row: 5, length: 2, axis: "h", color: "#f3ede0", isHero: false },
-        { id: "c5", col: 1, row: 3, length: 2, axis: "v", color: "#3d7cff", isHero: false },
-      ],
-      rounds: [],
+      cars: DEFAULT_PARKING_CARS.map((c) => ({ ...c })),
+      rounds: defaultParkingRoundsPack(),
       coinImageUrl: "",
     },
     overlays: [

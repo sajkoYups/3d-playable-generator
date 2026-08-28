@@ -1,0 +1,52 @@
+import type { ProjectData } from "@/types/project";
+
+export function collectAssetUrls(data: ProjectData): string[] {
+  const urls = new Set<string>();
+  const add = (u?: string) => {
+    if (u) urls.add(u);
+  };
+
+  const walkBg = (bg?: { portraitImageUrl?: string; landscapeImageUrl?: string }) => {
+    add(bg?.portraitImageUrl);
+    add(bg?.landscapeImageUrl);
+  };
+
+  walkBg(data.startScreen.background);
+  walkBg(data.endScreen.background);
+  walkBg(data.gameplay.background.portrait);
+  walkBg(data.gameplay.background.landscape);
+  walkBg(data.gameplay.stageBackground.portrait);
+  walkBg(data.gameplay.stageBackground.landscape);
+  add(data.startScreen.videoUrl);
+  add(data.endScreen.videoUrl);
+  add(data.gameplay.audio.musicUrl);
+  add(data.gameplay.audio.tapUrl);
+  add(data.gameplay.audio.winUrl);
+  add(data.gameplay.audio.loseUrl);
+  add(data.gameplay.stackTower.faceTextureUrl);
+  add(data.gameplay.parkingJam.lotTextureUrl);
+
+  const allEls = [
+    ...data.startScreen.elements,
+    ...data.endScreen.elements,
+    ...data.gameplay.overlays,
+  ];
+  for (const el of allEls) {
+    add(el.content.imageUrl);
+    add(el.content.videoUrl);
+  }
+
+  for (const slot of data.gameplay.tripleMatch.itemSlots) {
+    if (slot.startsWith("/") || slot.startsWith("http") || slot.startsWith("data:")) add(slot);
+    else if (slot) add(`/models/${slot}.glb`);
+  }
+  const char = data.gameplay.laneRunner.characterModelUrl;
+  if (char.startsWith("/") || char.startsWith("http") || char.startsWith("data:")) add(char);
+  else if (char) add(`/models/${char}.glb`);
+  for (const ob of data.gameplay.laneRunner.obstacleSet) {
+    if (ob.startsWith("/") || ob.startsWith("http") || ob.startsWith("data:")) add(ob);
+    else if (ob) add(`/models/${ob}.glb`);
+  }
+
+  return [...urls];
+}

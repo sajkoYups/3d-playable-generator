@@ -1,0 +1,193 @@
+import type { NetworkId, ProjectData, TemplateId } from "@/types/project";
+import { ProjectDataSchema } from "@/types/project";
+import { readObjectBuffer } from "@/lib/storage";
+import { createNetworkAdapter, NETWORK_LIMITS } from "@/playable-runtime/networks";
+import { collectAssetUrls } from "@/playable-runtime/export/collect-urls";
+import path from "path";
+import { build } from "esbuild";
+
+export type ExportBreakdown = {
+  htmlShell: number;
+  javascript: number;
+  images: number;
+  models: number;
+  audio: number;
+  video: number;
+  total: number;
+};
+
+export type ExportResult = {
+  html: string;
+  size: number;
+  networkId: NetworkId;
+  breakdown: ExportBreakdown;
+  warnings: string[];
+};
+
+const ENGINE_FACTORY: Record<TemplateId, string> = {
+  "stack-tower": "createStackTowerEngine",
+  "triple-match": "createTripleMatchEngine",
+  "lane-runner": "createLaneRunnerEngine",
+  "parking-jam": "createParkingJamEngine",
+};
+
+const ENGINE_FILE: Record<TemplateId, string> = {
+  "stack-tower": "src/playable-runtime/engines/stack-tower/index.ts",
+  "triple-match": "src/playable-runtime/engines/triple-match/index.ts",
+  "lane-runner": "src/playable-runtime/engines/lane-runner/index.ts",
+  "parking-jam": "src/playable-runtime/engines/parking-jam/index.ts",
+};
+
+function mimeFromUrl(url: string): string {
+  const ext = url.split("?")[0].split(".").pop()?.toLowerCase() || "";
+  if (ext === "png") return "image/png";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "webp") return "image/webp";
+  if (ext === "svg") return "image/svg+xml";
+  if (ext === "gif") return "image/gif";
+  if (ext === "glb") return "model/gltf-binary";
+  if (ext === "gltf") return "model/gltf+json";
+  if (ext === "mp3") return "audio/mpeg";
+  if (ext === "wav") return "audio/wav";
+  if (ext === "ogg") return "audio/ogg";
+  if (ext === "mp4") return "video/mp4";
+  if (ext === "webm") return "video/webm";
+  return "application/octet-stream";
+}
+
+function categoryFor(url: string, mime: string): keyof Omit<ExportBreakdown, "htmlShell" | "javascript" | "total"> {
+  if (mime.startsWith("video/") || url.match(/\.(mp4|webm)(\?|$)/i)) return "video";
+  if (mime.startsWith("audio/") || url.match(/\.(mp3|wav|ogg|m4a)(\?|$)/i)) return "audio";
+  if (mime.startsWith("model/") || url.match(/\.(glb|gltf)(\?|$)/i)) return "models";
+  return "images";
+}
+
+export async function exportPlayableHtml(options: {
+  projectData: ProjectData;
+  templateId: TemplateId;
+  projectName: string;
+  networkId?: NetworkId;
+}): Promise<ExportResult> {
+  const data = ProjectDataSchema.parse(options.projectData);
+  const networkId = options.networkId ?? "generic";
+  const adapter = createNetworkAdapter(networkId);
+  const warnings: string[] = [];
+  const breakdown: ExportBreakdown = {
+    htmlShell: 0,
+    javascript: 0,
+    images: 0,
+    models: 0,
+    audio: 0,
+    video: 0,
+    total: 0,
+  };
+
+  const urls = collectAssetUrls(data);
+  const json = JSON.stringify(data);
+  let rewritten = json;
+
+  for (const url of urls) {
+    if (!url || url.startsWith("data:")) continue;
+    const buf = await readObjectBuffer(url);
+    if (!buf) {
+      warnings.push(`Missing asset: ${url}`);
+      continue;
+    }
+    const mime = mimeFromUrl(url);
+    const dataUri = `data:${mime};base64,${buf.toString("base64")}`;
+    rewritten = rewritten.split(JSON.stringify(url)).join(JSON.stringify(dataUri));
+    breakdown[categoryFor(url, mime)] += buf.length;
+    if (categoryFor(url, mime) === "video") {
+      warnings.push("Video assets dominate playable size budgets. Prefer a short loop or a poster image.");
+    }
+  }
+
+  const inlinedData = JSON.parse(rewritten) as ProjectData;
+  const factory = ENGINE_FACTORY[options.templateId];
+  const engineFile = ENGINE_FILE[options.templateId];
+
+  const source = `
+import { mountPlayable } from ${JSON.stringify(pathTo("src/playable-runtime/player/mount.ts"))};
+import { ${factory} } from ${JSON.stringify(pathTo(engineFile))};
+import { createNetworkAdapter } from ${JSON.stringify(pathTo("src/playable-runtime/networks/index.ts"))};
+
+const config = window.__PLAYABLE_CONFIG__;
+const root = document.getElementById("playable-root");
+if (root && config) {
+  const engine = ${factory}();
+  const network = createNetworkAdapter(config.networkId || "generic");
+  mountPlayable(root, {
+    data: config.data,
+    templateId: config.templateId,
+    engine,
+    network,
+  });
+}
+`;
+
+  const result = await build({
+    stdin: {
+      contents: source,
+      resolveDir: process.cwd(),
+      sourcefile: "playable-entry.ts",
+      loader: "ts",
+    },
+    bundle: true,
+    minify: true,
+    write: false,
+    format: "iife",
+    platform: "browser",
+    target: ["es2018"],
+    logLevel: "silent",
+    alias: {
+      "@": path.join(process.cwd(), "src"),
+    },
+  });
+
+  const js = result.outputFiles[0]?.text || "";
+  breakdown.javascript = Buffer.byteLength(js);
+
+  const configJson = JSON.stringify({
+    data: inlinedData,
+    templateId: options.templateId,
+    networkId,
+  });
+
+  const shell = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="ad.size" content="width=320,height=480"/>
+<title>${escapeHtml(options.projectName)}</title>
+<style>
+html,body,#playable-root{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#12141a;touch-action:manipulation}
+button{font-family:system-ui,sans-serif}
+</style>
+</head>
+<body>
+<div id="playable-root"></div>
+<script>window.__PLAYABLE_CONFIG__=${configJson};</script>
+<script>${js}</script>
+</body>
+</html>`;
+
+  const html = adapter.wrapHtml(shell);
+  breakdown.htmlShell = Buffer.byteLength(html) - breakdown.javascript - Buffer.byteLength(configJson);
+  breakdown.total = Buffer.byteLength(html);
+
+  const limit = NETWORK_LIMITS[networkId];
+  if (breakdown.total > limit) {
+    warnings.push(`${adapter.name} limit is ${Math.round(limit / 1024 / 1024)} MB; this file is ${(breakdown.total / 1024 / 1024).toFixed(2)} MB.`);
+  }
+
+  return { html, size: breakdown.total, networkId, breakdown, warnings };
+}
+
+function pathTo(rel: string) {
+  return path.join(process.cwd(), rel);
+}
+
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+}

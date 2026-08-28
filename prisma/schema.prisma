@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String
+  email         String          @unique
+  emailVerified Boolean         @default(false)
+  image         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  memberships   ProjectMember[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  issuer                String
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([issuer, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+enum ProjectRole {
+  owner
+  editor
+  viewer
+}
+
+enum ProjectStatus {
+  draft
+  ready
+  exported
+}
+
+enum AssetKind {
+  image
+  model
+  audio
+  video
+}
+
+model Project {
+  id                 String          @id @default(cuid())
+  name               String
+  templateId         String
+  defaultOrientation String          @default("portrait")
+  projectData        Json
+  thumbnailUrl       String?
+  status             ProjectStatus   @default(draft)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  members            ProjectMember[]
+  assets             Asset[]
+
+  @@index([updatedAt])
+  @@map("project")
+}
+
+model ProjectMember {
+  id        String      @id @default(cuid())
+  projectId String
+  userId    String
+  role      ProjectRole @default(owner)
+  createdAt DateTime    @default(now())
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("project_member")
+}
+
+model Asset {
+  id             String    @id @default(cuid())
+  projectId      String
+  fileName       String
+  fileType       String
+  kind           AssetKind @default(image)
+  originalUrl    String
+  optimizedUrl   String
+  thumbnailUrl   String?
+  originalSize   Int
+  optimizedSize  Int
+  compressedSize Int?
+  width          Int?
+  height         Int?
+  triangleCount  Int?
+  durationMs     Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("asset")
+}

@@ -450,7 +450,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
               },
     lighting: "studio",
     environment: "gradient-sky",
-    audio: { musicUrl: "", tapUrl: "", winUrl: "", loseUrl: "" },
+    audio: { musicUrl: "", tapUrl: "", winUrl: "", loseUrl: "", playFromStart: false },
     stackTower: {
       palette: ["#e07a3d", "#2bb5a0", "#f3ede0", "#7c5cff", "#e85d4c"],
       materialFinish: "glossy",

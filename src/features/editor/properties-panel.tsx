@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
+import { startLoopMusic, stopLoopMusic } from "@/playable-runtime/audio/loop";
 import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData } from "@/types/project";
 import { MATCH_ITEMS, VEHICLES } from "@/lib/model-library";
 import { ensureParkingRounds, repairParkingCars, setParkingRoundCount, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
@@ -38,36 +40,53 @@ function BackgroundEditor({
   orientation,
   onChange,
   allowTransparent,
+  allowVideo,
+  videoUrl = "",
 }: {
   background: Background;
   orientation: "portrait" | "landscape";
-  onChange: (next: Background) => void;
+  onChange: (next: Background, videoUrl?: string) => void;
   allowTransparent?: boolean;
+  allowVideo?: boolean;
+  videoUrl?: string;
 }) {
+  const types = [
+    "solid",
+    "gradient",
+    "image",
+    ...(allowVideo ? (["video"] as const) : []),
+    ...(allowTransparent ? (["transparent"] as const) : []),
+  ] as const;
+  const active =
+    allowVideo && (videoUrl || background.type === "video") ? "video" : background.type;
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1">
-        {(["solid", "gradient", "image", ...(allowTransparent ? (["transparent"] as const) : [])] as const).map((t) => (
+        {types.map((t) => (
           <Button
             key={t}
             size="sm"
-            variant={background.type === t ? "default" : "outline"}
-            onClick={() => onChange({ ...background, type: t })}
+            variant={active === t ? "default" : "outline"}
+            onClick={() => {
+              if (t === "video") onChange({ ...background, type: "video" });
+              else onChange({ ...background, type: t }, allowVideo ? "" : undefined);
+            }}
           >
             {t}
           </Button>
         ))}
       </div>
-      {background.type === "solid" && (
+      {active === "solid" && (
         <Input type="color" value={background.color} onChange={(e) => onChange({ ...background, color: e.target.value })} />
       )}
-      {background.type === "gradient" && (
+      {active === "gradient" && (
         <div className="grid grid-cols-2 gap-2">
           <Input type="color" value={background.gradientFrom} onChange={(e) => onChange({ ...background, gradientFrom: e.target.value })} />
           <Input type="color" value={background.gradientTo} onChange={(e) => onChange({ ...background, gradientTo: e.target.value })} />
         </div>
       )}
-      {background.type === "image" && (
+      {active === "image" && (
         <AssetUrlField
           label={orientation === "portrait" ? "Portrait image" : "Landscape image"}
           accept="image/*"
@@ -79,6 +98,15 @@ function BackgroundEditor({
                 : { ...background, landscapeImageUrl: url },
             )
           }
+        />
+      )}
+      {active === "video" && (
+        <AssetUrlField
+          label="Video"
+          kind="video"
+          accept="video/*"
+          value={videoUrl}
+          onChange={(url) => onChange({ ...background, type: "video" }, url)}
         />
       )}
     </div>
@@ -185,6 +213,26 @@ function GameplaySettings() {
       <div className="space-y-2">
         <h4 className="text-sm font-medium">Audio</h4>
         <AssetUrlField label="Music" kind="audio" accept="audio/*" value={data.gameplay.audio.musicUrl} onChange={(url) => updateData((d) => { d.gameplay.audio.musicUrl = url; })} />
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <Label htmlFor="play-from-start">Play from start screen</Label>
+            <p className="text-[11px] leading-snug text-muted">Video audio is used instead while a start video is present.</p>
+          </div>
+          <Switch
+            id="play-from-start"
+            checked={Boolean(data.gameplay.audio.playFromStart)}
+            onCheckedChange={(checked) => {
+              updateData((d) => {
+                d.gameplay.audio.playFromStart = checked;
+              });
+              const url = data.gameplay.audio.musicUrl;
+              const videoWins =
+                data.startScreen.background.type === "video" && Boolean(data.startScreen.videoUrl);
+              if (checked && url && !videoWins) startLoopMusic(url);
+              else stopLoopMusic();
+            }}
+          />
+        </div>
         <AssetUrlField label="Tap" kind="audio" accept="audio/*" value={data.gameplay.audio.tapUrl} onChange={(url) => updateData((d) => { d.gameplay.audio.tapUrl = url; })} />
         <AssetUrlField label="Win" kind="audio" accept="audio/*" value={data.gameplay.audio.winUrl} onChange={(url) => updateData((d) => { d.gameplay.audio.winUrl = url; })} />
         <AssetUrlField label="Lose" kind="audio" accept="audio/*" value={data.gameplay.audio.loseUrl} onChange={(url) => updateData((d) => { d.gameplay.audio.loseUrl = url; })} />
@@ -559,24 +607,23 @@ export function PropertiesPanel() {
       <BackgroundEditor
         background={screen.background}
         orientation={orientation}
-        onChange={(next) =>
+        allowVideo
+        allowTransparent
+        videoUrl={screen.videoUrl}
+        onChange={(next, nextVideo) => {
           updateData((draft) => {
-            if (stage === "start") draft.startScreen.background = next;
-            else draft.endScreen.background = next;
-          })
-        }
-      />
-      <AssetUrlField
-        label="Optional video (end/start)"
-        kind="video"
-        accept="video/*"
-        value={screen.videoUrl}
-        onChange={(url) =>
-          updateData((draft) => {
-            if (stage === "start") draft.startScreen.videoUrl = url;
-            else draft.endScreen.videoUrl = url;
-          })
-        }
+            const target = stage === "start" ? draft.startScreen : draft.endScreen;
+            target.background = next;
+            if (typeof nextVideo === "string") target.videoUrl = nextVideo;
+          });
+          if (stage !== "start") return;
+          const url = data.gameplay.audio.musicUrl;
+          const fromStart = data.gameplay.audio.playFromStart;
+          const nextUrl = typeof nextVideo === "string" ? nextVideo : screen.videoUrl;
+          const videoWins = next.type === "video" && Boolean(nextUrl);
+          if (videoWins) stopLoopMusic();
+          else if (fromStart && url) startLoopMusic(url);
+        }}
       />
     </div>
   );

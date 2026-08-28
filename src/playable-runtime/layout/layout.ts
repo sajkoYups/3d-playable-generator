@@ -64,6 +64,10 @@ export function backgroundToStyle(
     };
   }
 
+  if (background.type === "video") {
+    return { backgroundColor: background.color };
+  }
+
   return { backgroundColor: background.color };
 }
 

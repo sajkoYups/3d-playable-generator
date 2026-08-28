@@ -10,6 +10,7 @@ import { useEditorStore } from "@/features/editor/store";
 import { PlayablePreviewModal } from "@/features/editor/playable-preview-modal";
 import { ExportDialog } from "@/features/export/export-dialog";
 import { ProjectSettingsDialog } from "@/features/editor/project-settings-dialog";
+import { startLoopMusic } from "@/playable-runtime/audio/loop";
 
 export function EditorToolbar() {
   const projectName = useEditorStore((s) => s.projectName);
@@ -82,7 +83,19 @@ export function EditorToolbar() {
           <Settings className="h-4 w-4" />
           Links
         </Button>
-        <Button size="sm" variant="outline" onClick={() => setPreviewOpen(true)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            const audio = data.gameplay.audio;
+            const videoWins =
+              data.startScreen.background.type === "video" && Boolean(data.startScreen.videoUrl);
+            if (audio.playFromStart && audio.musicUrl && !videoWins) {
+              startLoopMusic(audio.musicUrl);
+            }
+            setPreviewOpen(true);
+          }}
+        >
           <Play className="h-4 w-4" />
           Preview
         </Button>

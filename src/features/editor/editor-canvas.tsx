@@ -121,7 +121,7 @@ export function EditorCanvas() {
             >
               {screen && (
                 <div className="absolute inset-0 overflow-hidden" style={backgroundToStyle(screen.background, orientation) as CSSProperties}>
-                  {screen.videoUrl ? (
+                  {screen.background.type === "video" && screen.videoUrl ? (
                     <video
                       key={screen.videoUrl}
                       src={screen.videoUrl}

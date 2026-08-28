@@ -1,3 +1,5 @@
+import { startLoopMusic, stopLoopMusic, setLoopMusicMuted, isLoopMusicPlaying } from "@/playable-runtime/audio/loop";
+
 export type AudioSlot = "music" | "tap" | "win" | "lose";
 
 export type AudioBusOptions = {
@@ -8,8 +10,8 @@ export type AudioBusOptions = {
 };
 
 /**
- * Gesture-unlocked Web Audio. Call `unlock()` from the first pointerdown
- * on the start screen so iOS allows playback.
+ * Gesture-unlocked Web Audio for SFX. Music is a looping HTMLAudioElement so it
+ * can start in the same click as Preview / the start-screen toggle.
  */
 export class AudioBus {
   private ctx: AudioContext | null = null;
@@ -27,7 +29,11 @@ export class AudioBus {
   }
 
   async unlock() {
-    if (this.unlocked) return;
+    if (this.ctx) {
+      if (this.ctx.state === "suspended") await this.ctx.resume();
+      this.unlocked = true;
+      return;
+    }
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!Ctx) return;
     this.ctx = new Ctx();
@@ -41,12 +47,11 @@ export class AudioBus {
     this.master.connect(this.ctx.destination);
     if (this.ctx.state === "suspended") await this.ctx.resume();
     this.unlocked = true;
-    await this.preload();
+    void this.preload();
   }
 
   private async preload() {
     const entries: [AudioSlot, string | undefined][] = [
-      ["music", this.urls.musicUrl],
       ["tap", this.urls.tapUrl],
       ["win", this.urls.winUrl],
       ["lose", this.urls.loseUrl],
@@ -68,6 +73,7 @@ export class AudioBus {
 
   setMuted(muted: boolean) {
     this.muted = muted;
+    setLoopMusicMuted(muted);
     if (this.master && this.ctx) {
       this.master.gain.setTargetAtTime(muted ? 0 : 1, this.ctx.currentTime, 0.04);
     }
@@ -77,26 +83,20 @@ export class AudioBus {
     return this.muted;
   }
 
+  isMusicPlaying() {
+    return isLoopMusicPlaying() || Boolean(this.musicSource);
+  }
+
   play(slot: AudioSlot) {
+    if (slot === "music") {
+      this.playMusic();
+      return;
+    }
     if (!this.unlocked || !this.ctx || this.muted) {
-      if (slot !== "music") this.beep(slot);
+      this.beep(slot);
       return;
     }
     const buf = this.buffers.get(slot);
-    if (slot === "music") {
-      this.stopMusic();
-      if (buf) {
-        const src = this.ctx.createBufferSource();
-        src.buffer = buf;
-        src.loop = true;
-        src.connect(this.musicGain!);
-        src.start();
-        this.musicSource = src;
-        return;
-      }
-      this.hum();
-      return;
-    }
     if (buf) {
       const src = this.ctx.createBufferSource();
       src.buffer = buf;
@@ -107,7 +107,19 @@ export class AudioBus {
     this.beep(slot);
   }
 
+  private playMusic() {
+    if (this.muted) return;
+    if (this.urls.musicUrl) {
+      startLoopMusic(this.urls.musicUrl, this.muted);
+      return;
+    }
+    if (this.musicSource) return;
+    if (!this.unlocked || !this.ctx) return;
+    this.hum();
+  }
+
   stopMusic() {
+    stopLoopMusic();
     try {
       this.musicSource?.stop();
     } catch {
@@ -117,7 +129,12 @@ export class AudioBus {
   }
 
   destroy() {
-    this.stopMusic();
+    try {
+      this.musicSource?.stop();
+    } catch {
+      /* already stopped */
+    }
+    this.musicSource = null;
     void this.ctx?.close();
     this.ctx = null;
     this.unlocked = false;

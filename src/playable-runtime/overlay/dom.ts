@@ -100,6 +100,9 @@ export function renderElement(
     btn.style.borderRadius = `${style.borderRadius ?? 999}px`;
     btn.style.fontSize = "16px";
     btn.textContent = options.muted ? "🔇" : content.text || "🔊";
+    btn.dataset.playableMute = "1";
+    btn.dataset.muteOn = "🔇";
+    btn.dataset.muteOff = content.text || "🔊";
     if (options.interactive) btn.addEventListener("click", fire);
     wrap.appendChild(btn);
     return wrap;

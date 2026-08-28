@@ -31,7 +31,7 @@ export const DualLayoutSchema = z.object({
 export type DualLayout = z.infer<typeof DualLayoutSchema>;
 
 export const BackgroundSchema = z.object({
-  type: z.enum(["solid", "gradient", "image", "transparent"]),
+  type: z.enum(["solid", "gradient", "image", "transparent", "video"]),
   color: z.string().default("#1a1a2e"),
   gradientFrom: z.string().default("#1a1a2e"),
   gradientTo: z.string().default("#16213e"),
@@ -200,6 +200,7 @@ export const AudioSlotsSchema = z.object({
   tapUrl: z.string().default(""),
   winUrl: z.string().default(""),
   loseUrl: z.string().default(""),
+  playFromStart: z.boolean().default(false),
 });
 export type AudioSlots = z.infer<typeof AudioSlotsSchema>;
 

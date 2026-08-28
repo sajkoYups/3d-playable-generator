@@ -38,6 +38,8 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
   let overlayRoot: HTMLElement | null = null;
   const engine = options.engine;
   let engineReady = false;
+  let screenVideo: HTMLVideoElement | null = null;
+  let audioUnlocked = false;
 
   root.style.position = "relative";
   root.style.width = "100%";
@@ -50,11 +52,41 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
   stage.style.inset = "0";
   root.appendChild(stage);
 
-  const unlockOnce = () => {
+  const onPointerDown = () => {
+    audioUnlocked = true;
     void audio.unlock();
-    root.removeEventListener("pointerdown", unlockOnce);
+    applyScreenMedia();
   };
-  root.addEventListener("pointerdown", unlockOnce);
+  root.addEventListener("pointerdown", onPointerDown, { capture: true });
+
+  function syncMuteButtons() {
+    stage.querySelectorAll<HTMLElement>("[data-playable-mute]").forEach((btn) => {
+      btn.textContent = muted ? btn.dataset.muteOn || "🔇" : btn.dataset.muteOff || "🔊";
+    });
+  }
+
+  function screenHasVideoAudio() {
+    const screen = phase === "start" ? data.startScreen : phase === "end" ? data.endScreen : null;
+    if (!screen?.videoUrl) return false;
+    return screen.background.type === "video";
+  }
+
+  function applyScreenMedia() {
+    const videoWins = Boolean(screenVideo) && screenHasVideoAudio();
+    if (videoWins && screenVideo) {
+      audio.stopMusic();
+      screenVideo.muted = muted || !audioUnlocked;
+      if (audioUnlocked && !muted) void screenVideo.play();
+      return;
+    }
+    if (screenVideo) {
+      screenVideo.muted = true;
+      void screenVideo.play();
+    }
+    if (phase === "start" && data.gameplay.audio.playFromStart && audioUnlocked) {
+      audio.play("music");
+    }
+  }
 
   function measure() {
     size = { w: root.clientWidth || 320, h: root.clientHeight || 568 };
@@ -64,6 +96,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
 
   function handleAction(type: string) {
     if (type === "START_PLAYABLE") {
+      audioUnlocked = true;
       void audio.unlock();
       audio.play("tap");
       setPhase("game");
@@ -75,8 +108,9 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     if (type === "MUTE") {
       muted = !muted;
       audio.setMuted(muted);
+      if (screenVideo) screenVideo.muted = muted;
       if (phase === "game") paintGameOverlays();
-      else paintScreen();
+      else syncMuteButtons();
     }
     if (type === "OPEN_APP_STORE") options.network.openStore(data.links.appStoreUrl);
     if (type === "OPEN_GOOGLE_PLAY") options.network.openStore(data.links.googlePlayUrl);
@@ -172,13 +206,14 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     destroyEngine();
     gameBox = null;
     overlayRoot = null;
+    screenVideo = null;
     stage.innerHTML = "";
     const screen = phase === "start" ? data.startScreen : data.endScreen;
     const bg = document.createElement("div");
     bg.style.position = "absolute";
     bg.style.inset = "0";
     applyStyle(bg, backgroundToStyle(screen.background, orientation));
-    if (screen.videoUrl) {
+    if (screen.videoUrl && screen.background.type === "video") {
       const video = document.createElement("video");
       video.src = screen.videoUrl;
       video.autoplay = true;
@@ -189,6 +224,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
       video.style.height = "100%";
       video.style.objectFit = "cover";
       bg.appendChild(video);
+      screenVideo = video;
     }
     screen.elements
       .filter((e) => e.layout[orientation].visible)
@@ -202,10 +238,12 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         bg.appendChild(wrap);
       });
     stage.appendChild(bg);
+    applyScreenMedia();
   }
 
   function paintGame() {
     measure();
+    screenVideo = null;
     stage.innerHTML = "";
     const bg = document.createElement("div");
     bg.style.position = "absolute";
@@ -274,7 +312,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
       stopTimer();
       destroyEngine();
       audio.destroy();
-      root.removeEventListener("pointerdown", unlockOnce);
+      root.removeEventListener("pointerdown", onPointerDown, true);
       stage.remove();
     },
     setData(next) {

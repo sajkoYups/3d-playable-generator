@@ -34,6 +34,7 @@ export class ThreeHost {
       powerPreference: "high-performance",
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
+    this.renderer.setClearColor(0x000000, 0);
     this.renderer.shadowMap.enabled = false;
     this.canvas = this.renderer.domElement;
     this.canvas.style.display = "block";
@@ -64,18 +65,18 @@ export class ThreeHost {
       return light;
     };
 
+    this.scene.background = null;
+
     if (preset === "sunset") {
       add(new HemisphereLight(0xffc58f, 0x2a1a3a, 0.7));
       const dir = add(new DirectionalLight(0xffd0a0, 1.1));
       dir.position.set(6, 8, 4);
-      this.scene.background = new Color(0x2a1824);
       return;
     }
     if (preset === "overcast") {
       add(new HemisphereLight(0xcfe4ff, 0x4a5568, 0.9));
       const dir = add(new DirectionalLight(0xffffff, 0.45));
       dir.position.set(2, 10, 2);
-      this.scene.background = new Color(0x9aa7b5);
       return;
     }
     if (preset === "neon") {
@@ -86,14 +87,12 @@ export class ThreeHost {
       b.position.set(6, 3, 2);
       const dir = add(new DirectionalLight(0xffffff, 0.25));
       dir.position.set(0, 8, 6);
-      this.scene.background = new Color(0x0a0614);
       return;
     }
 
     add(new HemisphereLight(0xf3ede0, 0x2a2e3a, 0.55));
     const dir = add(new DirectionalLight(0xffffff, 0.95));
     dir.position.set(5, 10, 6);
-    this.scene.background = new Color(0x1c1f2a);
   }
 
   setBackgroundColor(hex: string) {

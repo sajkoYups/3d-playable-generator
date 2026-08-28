@@ -4,13 +4,12 @@ type Disposable = {
   dispose?: () => void;
 };
 
-function isMaterial(obj: Disposable): obj is Material {
-  return Boolean(obj) && "isMaterial" in obj;
-}
-
 /**
  * Tracks GPU resources so destroy() can release them.
  * Three.js does not free GPU memory on garbage collection.
+ *
+ * Do not track geometries or textures that belong to the GLTF cache —
+ * disposing those on preview restart leaves cached cars black/invisible.
  */
 export class ResourceTracker {
   private resources = new Set<Disposable>();
@@ -18,15 +17,6 @@ export class ResourceTracker {
   track<T extends Disposable>(resource: T): T {
     if (!resource) return resource;
     this.resources.add(resource);
-    if (isMaterial(resource)) {
-      const mat = resource as Material & Record<string, unknown>;
-      for (const key of Object.keys(mat)) {
-        const value = mat[key];
-        if (value && typeof value === "object" && "isTexture" in (value as object)) {
-          this.resources.add(value as Disposable);
-        }
-      }
-    }
     return resource;
   }
 

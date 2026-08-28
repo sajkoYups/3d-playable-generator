@@ -6,8 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
-import type { Background, LightingPreset, PlayableElement } from "@/types/project";
-import { MATCH_ITEMS } from "@/lib/model-library";
+import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LightingPreset, type PlayableElement } from "@/types/project";
+import { MATCH_ITEMS, VEHICLES } from "@/lib/model-library";
 
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n));
@@ -97,12 +97,17 @@ function GameplaySettings() {
         <Label>FOV</Label>
         <Input
           type="number"
+          min={CAMERA_FOV_MIN}
+          max={CAMERA_FOV_MAX}
+          step={1}
           value={cam.fov}
-          onChange={(e) =>
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (!Number.isFinite(n)) return;
             updateData((d) => {
-              d.gameplay.camera[orientation].fov = Number(e.target.value) || 50;
-            })
-          }
+              d.gameplay.camera[orientation].fov = Math.min(CAMERA_FOV_MAX, Math.max(CAMERA_FOV_MIN, n));
+            });
+          }}
         />
         {(["x", "y", "z"] as const).map((axis) => (
           <div key={axis} className="grid grid-cols-2 gap-2">
@@ -258,7 +263,75 @@ function GameplaySettings() {
           <h4 className="text-sm font-medium">Parking Jam</h4>
           <Label>Moves limit</Label>
           <Input type="number" value={data.gameplay.parkingJam.movesLimit} onChange={(e) => updateData((d) => { d.gameplay.parkingJam.movesLimit = Number(e.target.value) || 24; })} />
-          <AssetUrlField label="Lot texture" accept="image/*" value={data.gameplay.parkingJam.lotTextureUrl} onChange={(url) => updateData((d) => { d.gameplay.parkingJam.lotTextureUrl = url; })} />
+          <Label>Car model</Label>
+          <div className="flex flex-wrap gap-1">
+            {VEHICLES.map((v) => (
+              <Button
+                key={v.id}
+                size="sm"
+                variant={data.gameplay.parkingJam.carModelUrl === v.id ? "default" : "outline"}
+                onClick={() =>
+                  updateData((d) => {
+                    d.gameplay.parkingJam.carModelUrl = v.id;
+                  })
+                }
+              >
+                {v.name}
+              </Button>
+            ))}
+          </div>
+          <AssetUrlField
+            label="Custom car GLB"
+            kind="model"
+            accept=".glb,.gltf,model/gltf-binary"
+            value={
+              data.gameplay.parkingJam.carModelUrl.startsWith("/") ||
+              data.gameplay.parkingJam.carModelUrl.startsWith("http") ||
+              data.gameplay.parkingJam.carModelUrl.startsWith("data:")
+                ? data.gameplay.parkingJam.carModelUrl
+                : ""
+            }
+            onChange={(url) =>
+              updateData((d) => {
+                d.gameplay.parkingJam.carModelUrl = url || "sedan";
+              })
+            }
+          />
+          <AssetUrlField
+            label="Parking surface"
+            accept="image/*"
+            value={data.gameplay.parkingJam.lotTextureUrl}
+            onChange={(url) => updateData((d) => { d.gameplay.parkingJam.lotTextureUrl = url; })}
+          />
+          <AssetUrlField
+            label="Pavement rim"
+            accept="image/*"
+            value={data.gameplay.parkingJam.pavementTextureUrl}
+            onChange={(url) => updateData((d) => { d.gameplay.parkingJam.pavementTextureUrl = url; })}
+          />
+          <AssetUrlField
+            label="Grass"
+            accept="image/*"
+            value={data.gameplay.parkingJam.grassTextureUrl}
+            onChange={(url) => updateData((d) => { d.gameplay.parkingJam.grassTextureUrl = url; })}
+          />
+          <p className="text-[11px] text-muted">Leave empty to keep the Kenney defaults. Uploads replace that layer only.</p>
+          <p className="text-[11px] text-muted">Car colors</p>
+          {data.gameplay.parkingJam.cars.map((car) => (
+            <div key={car.id} className="flex items-center gap-2">
+              <Label className="w-16 truncate text-xs">{car.isHero ? "Hero" : car.id}</Label>
+              <input
+                type="color"
+                value={car.color}
+                onChange={(e) =>
+                  updateData((d) => {
+                    const target = d.gameplay.parkingJam.cars.find((c) => c.id === car.id);
+                    if (target) target.color = e.target.value;
+                  })
+                }
+              />
+            </div>
+          ))}
         </>
       )}
     </div>

@@ -35,9 +35,12 @@ export const OBSTACLES: LibraryModel[] = [
 ];
 
 export const VEHICLES: LibraryModel[] = [
-  { id: "sedan", name: "Sedan", category: "vehicle", color: "#e07a3d", url: "/models/sedan.glb" },
-  { id: "suv", name: "SUV", category: "vehicle", color: "#2bb5a0", url: "/models/suv.glb" },
-  { id: "van", name: "Van", category: "vehicle", color: "#7c5cff", url: "/models/van.glb" },
+  { id: "sedan", name: "Sedan", category: "vehicle", color: "#e07a3d", url: "/models/kenney/sedan.glb" },
+  { id: "suv", name: "SUV", category: "vehicle", color: "#2bb5a0", url: "/models/kenney/suv.glb" },
+  { id: "van", name: "Van", category: "vehicle", color: "#7c5cff", url: "/models/kenney/van.glb" },
+  { id: "taxi", name: "Taxi", category: "vehicle", color: "#e0b04a", url: "/models/kenney/taxi.glb" },
+  { id: "police", name: "Police", category: "vehicle", color: "#3d7cff", url: "/models/kenney/police.glb" },
+  { id: "truck", name: "Truck", category: "vehicle", color: "#e85d4c", url: "/models/kenney/truck.glb" },
 ];
 
 export const ALL_LIBRARY_MODELS: LibraryModel[] = [
@@ -53,6 +56,11 @@ export function getLibraryModel(id: string): LibraryModel | undefined {
 
 export function resolveModelRef(ref: string): { libraryId?: string; url: string } {
   if (!ref) return { url: "" };
+  const kenney = ref.match(/kenney_car-kit\/Models\/GLB format\/([a-z0-9-]+)\.glb/i);
+  if (kenney) {
+    const lib = getLibraryModel(kenney[1].toLowerCase());
+    if (lib) return { libraryId: lib.id, url: lib.url };
+  }
   if (ref.startsWith("/") || ref.startsWith("http") || ref.startsWith("data:")) {
     return { url: ref };
   }

@@ -35,7 +35,11 @@ export async function PATCH(
   const existing = await getAccessibleProject(id, session.user.id);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const body = PatchSchema.parse(await req.json());
+  const parsed = PatchSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid project data", details: parsed.error.issues }, { status: 400 });
+  }
+  const body = parsed.data;
 
   if (body.projectData) {
     const { appStoreUrl, googlePlayUrl } = body.projectData.links;

@@ -85,9 +85,11 @@ export async function readObjectBuffer(keyOrUrl: string): Promise<Buffer | null>
   if (
     keyOrUrl.startsWith("/demo-assets/") ||
     keyOrUrl.startsWith("/models/") ||
+    keyOrUrl.startsWith("/kenney_car-kit/") ||
+    keyOrUrl.startsWith("/kenney_road-textures/") ||
     keyOrUrl.startsWith("/public/")
   ) {
-    const relative = keyOrUrl.replace(/^\/public\//, "").replace(/^\//, "");
+    const relative = decodeURIComponent(keyOrUrl.replace(/^\/public\//, "").replace(/^\//, ""));
     try {
       return await readFile(path.join(process.cwd(), "public", relative));
     } catch {

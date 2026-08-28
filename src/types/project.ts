@@ -173,8 +173,11 @@ const Vec3Schema = z.object({
   z: z.number(),
 });
 
+export const CAMERA_FOV_MIN = 10;
+export const CAMERA_FOV_MAX = 90;
+
 export const CameraConfigSchema = z.object({
-  fov: z.number().min(20).max(90).default(50),
+  fov: z.number().min(CAMERA_FOV_MIN).max(CAMERA_FOV_MAX).default(50),
   position: Vec3Schema.prefault({ x: 0, y: 8, z: 12 }),
   target: Vec3Schema.prefault({ x: 0, y: 2, z: 0 }),
 });
@@ -259,6 +262,9 @@ export type ParkingCar = z.infer<typeof ParkingCarSchema>;
 
 export const ParkingJamConfigSchema = z.object({
   lotTextureUrl: z.string().default(""),
+  grassTextureUrl: z.string().default(""),
+  pavementTextureUrl: z.string().default(""),
+  carModelUrl: z.string().default("sedan"),
   carColors: z.array(z.string()).default(["#e07a3d", "#2bb5a0", "#7c5cff", "#e85d4c", "#f3ede0"]),
   movesLimit: z.number().int().min(8).max(80).default(24),
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
@@ -269,7 +275,7 @@ export const ParkingJamConfigSchema = z.object({
     { id: "c1", col: 2, row: 0, length: 3, axis: "v", color: "#2bb5a0", isHero: false },
     { id: "c2", col: 3, row: 1, length: 2, axis: "h", color: "#7c5cff", isHero: false },
     { id: "c3", col: 4, row: 3, length: 3, axis: "v", color: "#e85d4c", isHero: false },
-    { id: "c4", col: 0, row: 4, length: 2, axis: "h", color: "#f3ede0", isHero: false },
+    { id: "c4", col: 0, row: 5, length: 2, axis: "h", color: "#f3ede0", isHero: false },
     { id: "c5", col: 1, row: 3, length: 2, axis: "v", color: "#3d7cff", isHero: false },
   ]),
 });

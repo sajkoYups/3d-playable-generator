@@ -1,4 +1,5 @@
 import type { ProjectData } from "@/types/project";
+import { getLibraryModel, resolveModelRef } from "@/lib/model-library";
 
 export function collectAssetUrls(data: ProjectData): string[] {
   const urls = new Set<string>();
@@ -25,6 +26,13 @@ export function collectAssetUrls(data: ProjectData): string[] {
   add(data.gameplay.audio.loseUrl);
   add(data.gameplay.stackTower.faceTextureUrl);
   add(data.gameplay.parkingJam.lotTextureUrl);
+  add(data.gameplay.parkingJam.pavementTextureUrl);
+  add(data.gameplay.parkingJam.grassTextureUrl || "/kenney_road-textures/PNG/Retina/roadTexture_25.png");
+  const carRef = resolveModelRef(data.gameplay.parkingJam.carModelUrl || "sedan");
+  add(carRef.url);
+  if (carRef.libraryId && carRef.libraryId !== "van" && carRef.libraryId !== "truck") {
+    add(getLibraryModel("van")?.url);
+  }
 
   const allEls = [
     ...data.startScreen.elements,

@@ -3,7 +3,9 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import type { Orientation, PlayableElement, ProjectData, TemplateId } from "@/types/project";
+import { ProjectDataSchema } from "@/types/project";
 import { createDefaultProjectData } from "@/lib/project-defaults";
+import { repairParkingCars } from "@/playable-runtime/engines/parking-jam/layout";
 
 export type EditorStage = "start" | "gameplay" | "end";
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -83,7 +85,10 @@ export const useEditorStore = create<EditorState>()(
         state.projectId = payload.projectId;
         state.projectName = payload.projectName;
         state.templateId = payload.templateId;
-        state.data = payload.data;
+        const parsed = ProjectDataSchema.safeParse(payload.data);
+        state.data = parsed.success ? parsed.data : payload.data;
+        const jam = state.data.gameplay.parkingJam;
+        jam.cars = repairParkingCars(jam.cars, jam.gridCols, jam.gridRows);
         state.orientation = payload.defaultOrientation;
         state.hydrated = true;
         state.past = [];

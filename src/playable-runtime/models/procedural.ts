@@ -128,7 +128,7 @@ export function createProceduralModel(
     case "suv":
     case "van":
     case "car":
-      createCar(tracker, g, c, id === "suv" ? 1.15 : id === "van" ? 1.25 : 1);
+      createCar(tracker, g, c, id);
       break;
     default:
       add(tracker, g, new BoxGeometry(0.6, 0.6, 0.6), mat(c));
@@ -137,20 +137,79 @@ export function createProceduralModel(
   return g;
 }
 
-function createCar(tracker: ResourceTracker, g: Group, color: string, bodyScale: number) {
-  add(tracker, g, new BoxGeometry(1.8 * bodyScale, 0.38, 0.9), mat(color), 0, 0.28, 0);
-  add(tracker, g, new BoxGeometry(1.0, 0.32, 0.82), mat("#d8e4ef"), 0.05, 0.52, 0);
-  const wheel = (x: number, z: number) =>
-    add(tracker, g, new CylinderGeometry(0.16, 0.16, 0.12, 10), mat("#1a1a1a"), x, 0.16, z);
-  wheel(-0.5, 0.48);
-  wheel(0.5, 0.48);
-  wheel(-0.5, -0.48);
-  wheel(0.5, -0.48);
-  g.children.forEach((ch) => {
-    if (ch instanceof Mesh && ch.geometry instanceof CylinderGeometry && ch.position.y < 0.2) {
-      ch.rotation.x = Math.PI / 2;
-    }
+function createCar(tracker: ResourceTracker, g: Group, color: string, kind: string) {
+  const paint = mat(color, "glossy");
+  const darker = mat(color, "matte");
+  darker.color.multiplyScalar(0.72);
+  const glass = new MeshStandardMaterial({
+    color: "#8ec4e8",
+    roughness: 0.08,
+    metalness: 0.35,
+    transparent: true,
+    opacity: 0.72,
   });
+  const rubber = mat("#141414", "matte");
+  const rim = mat("#c5c8ce", "metallic");
+  const chrome = mat("#d8dde4", "metallic");
+  const light = new MeshStandardMaterial({
+    color: "#fff4d4",
+    emissive: "#fff4d4",
+    emissiveIntensity: 0.55,
+    roughness: 0.3,
+  });
+  const tail = new MeshStandardMaterial({
+    color: "#e85d4c",
+    emissive: "#e85d4c",
+    emissiveIntensity: 0.4,
+    roughness: 0.35,
+  });
+  tracker.track(glass);
+  tracker.track(light);
+  tracker.track(tail);
+
+  const isSuv = kind === "suv";
+  const isVan = kind === "van";
+  const len = isVan ? 2.05 : isSuv ? 1.85 : 1.78;
+  const width = isVan ? 0.98 : 0.92;
+  const ride = 0.17;
+  const bodyH = isVan ? 0.42 : isSuv ? 0.38 : 0.32;
+  const cabinH = isVan ? 0.5 : isSuv ? 0.46 : 0.34;
+  const cabinZ = width * 0.9;
+  const cabinX = isVan ? len * 0.62 : isSuv ? len * 0.48 : len * 0.42;
+  const cabinOff = isVan ? -0.06 : isSuv ? -0.08 : 0.12;
+
+  add(tracker, g, new BoxGeometry(len, bodyH, width), paint, 0, ride + bodyH / 2, 0);
+  add(tracker, g, new BoxGeometry(len * 0.92, 0.05, width * 1.02), darker, 0, ride + 0.03, 0);
+  add(tracker, g, new BoxGeometry(cabinX, cabinH, cabinZ), paint, cabinOff, ride + bodyH + cabinH / 2 - 0.02, 0);
+  add(tracker, g, new BoxGeometry(cabinX * 0.72, cabinH * 0.72, cabinZ * 1.02), glass, cabinOff + 0.02, ride + bodyH + cabinH * 0.52, 0);
+  add(tracker, g, new BoxGeometry(0.04, cabinH * 0.55, cabinZ * 0.86), glass, cabinOff + cabinX / 2 - 0.02, ride + bodyH + cabinH * 0.48, 0);
+  add(tracker, g, new BoxGeometry(0.08, 0.1, width * 0.82), chrome, len / 2 - 0.04, ride + 0.12, 0);
+  add(tracker, g, new BoxGeometry(0.06, 0.08, width * 0.78), darker, -len / 2 + 0.03, ride + 0.12, 0);
+
+  const hx = len / 2 - 0.08;
+  const hz = width * 0.32;
+  add(tracker, g, new BoxGeometry(0.08, 0.07, 0.16), light, hx, ride + bodyH * 0.55, hz);
+  add(tracker, g, new BoxGeometry(0.08, 0.07, 0.16), light, hx, ride + bodyH * 0.55, -hz);
+  add(tracker, g, new BoxGeometry(0.07, 0.06, 0.14), tail, -hx, ride + bodyH * 0.55, hz);
+  add(tracker, g, new BoxGeometry(0.07, 0.06, 0.14), tail, -hx, ride + bodyH * 0.55, -hz);
+
+  add(tracker, g, new BoxGeometry(0.04, 0.12, 0.08), darker, cabinOff + 0.1, ride + bodyH + cabinH * 0.55, cabinZ / 2 + 0.04);
+  add(tracker, g, new BoxGeometry(0.04, 0.12, 0.08), darker, cabinOff + 0.1, ride + bodyH + cabinH * 0.55, -cabinZ / 2 - 0.04);
+
+  const axleZ = width / 2 - 0.02;
+  const axleF = len * 0.32;
+  const wheelR = isVan ? 0.17 : 0.16;
+  const placeWheel = (x: number, z: number) => {
+    const tire = add(tracker, g, new CylinderGeometry(wheelR, wheelR, 0.14, 12), rubber, x, wheelR, z);
+    tire.name = "wheel";
+    tire.rotation.x = Math.PI / 2;
+    const hub = add(tracker, g, new CylinderGeometry(wheelR * 0.55, wheelR * 0.55, 0.15, 10), rim, x, wheelR, z);
+    hub.rotation.x = Math.PI / 2;
+  };
+  placeWheel(axleF, axleZ);
+  placeWheel(axleF, -axleZ);
+  placeWheel(-axleF, axleZ);
+  placeWheel(-axleF, -axleZ);
 }
 
 function defaultColor(id: string) {

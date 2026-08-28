@@ -129,12 +129,7 @@ export class AudioBus {
   }
 
   destroy() {
-    try {
-      this.musicSource?.stop();
-    } catch {
-      /* already stopped */
-    }
-    this.musicSource = null;
+    this.stopMusic();
     void this.ctx?.close();
     this.ctx = null;
     this.unlocked = false;

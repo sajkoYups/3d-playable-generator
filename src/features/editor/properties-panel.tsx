@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
-import { startLoopMusic, stopLoopMusic } from "@/playable-runtime/audio/loop";
 import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData } from "@/types/project";
 import { MATCH_ITEMS, VEHICLES } from "@/lib/model-library";
 import { ensureParkingRounds, repairParkingCars, setParkingRoundCount, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
@@ -221,16 +220,11 @@ function GameplaySettings() {
           <Switch
             id="play-from-start"
             checked={Boolean(data.gameplay.audio.playFromStart)}
-            onCheckedChange={(checked) => {
+            onCheckedChange={(checked) =>
               updateData((d) => {
                 d.gameplay.audio.playFromStart = checked;
-              });
-              const url = data.gameplay.audio.musicUrl;
-              const videoWins =
-                data.startScreen.background.type === "video" && Boolean(data.startScreen.videoUrl);
-              if (checked && url && !videoWins) startLoopMusic(url);
-              else stopLoopMusic();
-            }}
+              })
+            }
           />
         </div>
         <AssetUrlField label="Tap" kind="audio" accept="audio/*" value={data.gameplay.audio.tapUrl} onChange={(url) => updateData((d) => { d.gameplay.audio.tapUrl = url; })} />
@@ -610,20 +604,13 @@ export function PropertiesPanel() {
         allowVideo
         allowTransparent
         videoUrl={screen.videoUrl}
-        onChange={(next, nextVideo) => {
+        onChange={(next, nextVideo) =>
           updateData((draft) => {
             const target = stage === "start" ? draft.startScreen : draft.endScreen;
             target.background = next;
             if (typeof nextVideo === "string") target.videoUrl = nextVideo;
-          });
-          if (stage !== "start") return;
-          const url = data.gameplay.audio.musicUrl;
-          const fromStart = data.gameplay.audio.playFromStart;
-          const nextUrl = typeof nextVideo === "string" ? nextVideo : screen.videoUrl;
-          const videoWins = next.type === "video" && Boolean(nextUrl);
-          if (videoWins) stopLoopMusic();
-          else if (fromStart && url) startLoopMusic(url);
-        }}
+          })
+        }
       />
     </div>
   );

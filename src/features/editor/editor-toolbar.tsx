@@ -10,7 +10,7 @@ import { useEditorStore } from "@/features/editor/store";
 import { PlayablePreviewModal } from "@/features/editor/playable-preview-modal";
 import { ExportDialog } from "@/features/export/export-dialog";
 import { ProjectSettingsDialog } from "@/features/editor/project-settings-dialog";
-import { startLoopMusic } from "@/playable-runtime/audio/loop";
+import { startLoopMusic, stopLoopMusic } from "@/playable-runtime/audio/loop";
 
 export function EditorToolbar() {
   const projectName = useEditorStore((s) => s.projectName);
@@ -90,7 +90,9 @@ export function EditorToolbar() {
             const audio = data.gameplay.audio;
             const videoWins =
               data.startScreen.background.type === "video" && Boolean(data.startScreen.videoUrl);
-            if (audio.playFromStart && audio.musicUrl && !videoWins) {
+            if (videoWins && data.startScreen.videoUrl) {
+              startLoopMusic(data.startScreen.videoUrl);
+            } else if (audio.playFromStart && audio.musicUrl) {
               startLoopMusic(audio.musicUrl);
             }
             setPreviewOpen(true);
@@ -104,7 +106,13 @@ export function EditorToolbar() {
           Export
         </Button>
       </div>
-      <PlayablePreviewModal open={previewOpen} onOpenChange={setPreviewOpen} />
+      <PlayablePreviewModal
+        open={previewOpen}
+        onOpenChange={(open) => {
+          if (!open) stopLoopMusic();
+          setPreviewOpen(open);
+        }}
+      />
       <ExportDialog open={exportOpen} onOpenChange={setExportOpen} />
       <ProjectSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </header>

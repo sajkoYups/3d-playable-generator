@@ -13,21 +13,29 @@ function ensureBed() {
   return el;
 }
 
+function ignoreInterruptedPlay(err: unknown) {
+  const name = err && typeof err === "object" && "name" in err ? String(err.name) : "";
+  if (name === "AbortError" || name === "NotAllowedError") return;
+}
+
 export function startLoopMusic(url: string, muted = false) {
   if (!url) return;
   const el = ensureBed();
   el.muted = muted;
   el.volume = 0.45;
   const abs = new URL(url, window.location.href).href;
-  if (el.src !== abs) el.src = url;
-  void el.play().catch(() => undefined);
+  if (el.src === abs) {
+    if (!el.paused) return;
+  } else {
+    el.pause();
+    el.src = url;
+  }
+  void el.play().catch(ignoreInterruptedPlay);
 }
 
 export function stopLoopMusic() {
   if (!bed) return;
   bed.pause();
-  bed.removeAttribute("src");
-  bed.load();
 }
 
 export function setLoopMusicMuted(muted: boolean) {

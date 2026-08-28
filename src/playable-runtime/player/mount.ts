@@ -4,6 +4,7 @@ import type { NetworkAdapter } from "@/playable-runtime/networks";
 import { applyStyle, backgroundToStyle, layoutToStyle } from "@/playable-runtime/layout/layout";
 import { renderElement } from "@/playable-runtime/overlay/dom";
 import { AudioBus } from "@/playable-runtime/audio/bus";
+import { startLoopMusic } from "@/playable-runtime/audio/loop";
 import { DEFAULT_TIMER_DURATION } from "@/playable-runtime/screens/format-time";
 
 export type MountOptions = {
@@ -65,27 +66,30 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     });
   }
 
-  function screenHasVideoAudio() {
+  function screenVideoUrl() {
     const screen = phase === "start" ? data.startScreen : phase === "end" ? data.endScreen : null;
-    if (!screen?.videoUrl) return false;
-    return screen.background.type === "video";
+    if (!screen?.videoUrl) return "";
+    if (screen.background.type === "video") return screen.videoUrl;
+    return "";
   }
 
   function applyScreenMedia() {
-    const videoWins = Boolean(screenVideo) && screenHasVideoAudio();
-    if (videoWins && screenVideo) {
-      audio.stopMusic();
-      screenVideo.muted = muted || !audioUnlocked;
-      if (audioUnlocked && !muted) void screenVideo.play();
+    if (screenVideo) screenVideo.muted = true;
+    const videoUrl = screenVideoUrl();
+    if (videoUrl && (phase === "start" || phase === "end")) {
+      if (!muted) startLoopMusic(videoUrl, muted);
       return;
     }
-    if (screenVideo) {
-      screenVideo.muted = true;
-      void screenVideo.play();
-    }
-    if (phase === "start" && data.gameplay.audio.playFromStart && audioUnlocked) {
+    if (phase === "start" && data.gameplay.audio.playFromStart && audioUnlocked && !muted) {
       audio.play("music");
     }
+  }
+
+  function discardScreenVideo() {
+    if (!screenVideo) return;
+    screenVideo.pause();
+    screenVideo.removeAttribute("src");
+    screenVideo = null;
   }
 
   function measure() {
@@ -108,7 +112,6 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     if (type === "MUTE") {
       muted = !muted;
       audio.setMuted(muted);
-      if (screenVideo) screenVideo.muted = muted;
       if (phase === "game") paintGameOverlays();
       else syncMuteButtons();
     }
@@ -206,7 +209,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     destroyEngine();
     gameBox = null;
     overlayRoot = null;
-    screenVideo = null;
+    discardScreenVideo();
     stage.innerHTML = "";
     const screen = phase === "start" ? data.startScreen : data.endScreen;
     const bg = document.createElement("div");
@@ -243,7 +246,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
 
   function paintGame() {
     measure();
-    screenVideo = null;
+    discardScreenVideo();
     stage.innerHTML = "";
     const bg = document.createElement("div");
     bg.style.position = "absolute";
@@ -310,6 +313,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     destroy() {
       ro.disconnect();
       stopTimer();
+      discardScreenVideo();
       destroyEngine();
       audio.destroy();
       root.removeEventListener("pointerdown", onPointerDown, true);

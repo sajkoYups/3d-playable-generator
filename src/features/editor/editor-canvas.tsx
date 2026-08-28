@@ -1,12 +1,35 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditorStore } from "@/features/editor/store";
 import { useFittedIphoneFrame } from "@/features/editor/iphone-frame";
 import type { CSSProperties } from "react";
 import { backgroundToStyle, layoutToStyle, snapToCenter, clamp01 } from "@/playable-runtime/layout/layout";
 import { ElementView } from "@/features/editor/element-view";
 import { GameplayHost } from "@/features/editor/gameplay-host";
+
+function MutedLoopVideo({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.muted = true;
+    void el.play().catch(() => undefined);
+    return () => {
+      el.pause();
+    };
+  }, [src]);
+  return (
+    <video
+      ref={ref}
+      src={src}
+      loop
+      muted
+      playsInline
+      className="absolute inset-0 h-full w-full object-cover"
+    />
+  );
+}
 
 export function EditorCanvas() {
   const stage = useEditorStore((s) => s.stage);
@@ -122,15 +145,7 @@ export function EditorCanvas() {
               {screen && (
                 <div className="absolute inset-0 overflow-hidden" style={backgroundToStyle(screen.background, orientation) as CSSProperties}>
                   {screen.background.type === "video" && screen.videoUrl ? (
-                    <video
-                      key={screen.videoUrl}
-                      src={screen.videoUrl}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
+                    <MutedLoopVideo src={screen.videoUrl} />
                   ) : null}
                 </div>
               )}

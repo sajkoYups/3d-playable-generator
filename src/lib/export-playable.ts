@@ -85,6 +85,7 @@ export async function exportPlayableHtml(options: {
   const urls = collectAssetUrls(data);
   const json = JSON.stringify(data);
   let rewritten = json;
+  const assets: Record<string, string> = {};
 
   for (const url of urls) {
     if (!url || url.startsWith("data:")) continue;
@@ -95,6 +96,7 @@ export async function exportPlayableHtml(options: {
     }
     const mime = mimeFromUrl(url);
     const dataUri = `data:${mime};base64,${buf.toString("base64")}`;
+    assets[url] = dataUri;
     rewritten = rewritten.split(JSON.stringify(url)).join(JSON.stringify(dataUri));
     breakdown[categoryFor(url, mime)] += buf.length;
     if (categoryFor(url, mime) === "video") {
@@ -121,6 +123,7 @@ if (root && config) {
     templateId: config.templateId,
     engine,
     network,
+    assets: config.assets || {},
   });
 }
 `;
@@ -151,6 +154,7 @@ if (root && config) {
     data: inlinedData,
     templateId: options.templateId,
     networkId,
+    assets,
   });
 
   const shell = `<!DOCTYPE html>

@@ -127,6 +127,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         tripleMatch: data.gameplay.tripleMatch,
         laneRunner: data.gameplay.laneRunner,
         parkingJam: data.gameplay.parkingJam,
+        playAllRounds: true,
       } as object),
     } as never);
     engine.onWin(() => {

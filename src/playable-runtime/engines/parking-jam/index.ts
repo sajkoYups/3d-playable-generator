@@ -84,6 +84,7 @@ export function createParkingJamEngine(): Playable3DEngine {
   let slideAnim: SlideAnim | null = null;
   let roundIndex = 0;
   let playAllRounds = true;
+  let building = false;
   let earned = 0;
   let lastEditorRoundIndex: number | null = null;
   const hud = createPayoutHud();
@@ -141,7 +142,7 @@ export function createParkingJamEngine(): Playable3DEngine {
 
   function syncHud() {
     if (!config) return;
-    const url = resolveRuntimeUrl(config.coinImageUrl, ctx?.assets ?? {}) || DEFAULT_COIN_URL;
+    const url = resolveRuntimeUrl(config.coinImageUrl || DEFAULT_COIN_URL, ctx?.assets ?? {});
     hud.setCoinUrl(url || DEFAULT_COIN_URL);
     hud.setState(earned, parkingCoinsTotal(config));
   }
@@ -262,6 +263,8 @@ export function createParkingJamEngine(): Playable3DEngine {
   async function rebuild() {
     if (!host || !config || !root) return;
     const gen = ++buildGen;
+    building = true;
+    try {
     const cfg = config;
     const { round } = liveRound(cfg);
     const assets = ctx?.assets ?? {};
@@ -270,13 +273,18 @@ export function createParkingJamEngine(): Playable3DEngine {
     const compactUrl = resolveRuntimeUrl(cfg.carModelUrl || "sedan", assets);
     const stretchedUrl = longCarUrl(cfg.carModelUrl || "sedan", assets);
     const lotUrl = resolveRuntimeUrl(cfg.lotTextureUrl, assets);
-    const grassUrl = resolveRuntimeUrl(cfg.grassTextureUrl, assets) || KENNEY_GRASS_URL;
+    const grassUrl = resolveRuntimeUrl(cfg.grassTextureUrl || KENNEY_GRASS_URL, assets);
     const pavementUrl = resolveRuntimeUrl(cfg.pavementTextureUrl, assets);
 
     async function loadTemplate(url: string) {
       if (!url) return null;
       try {
-        return await loadGltfScene(url);
+        return await Promise.race([
+          loadGltfScene(url),
+          new Promise<never>((_, reject) => {
+            window.setTimeout(() => reject(new Error("gltf timeout")), 8000);
+          }),
+        ]);
       } catch {
         return null;
       }
@@ -292,21 +300,32 @@ export function createParkingJamEngine(): Playable3DEngine {
     const paintedLot = lotMap;
     if (lotUrl) {
       try {
-        lotMap = await loadTexture(lotUrl);
+        lotMap = await Promise.race([
+          loadTexture(lotUrl),
+          new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error("tex timeout")), 8000)),
+        ]);
       } catch {
         /* keep painted asphalt */
       }
     }
     let grassMap: Texture | null = null;
-    try {
-      grassMap = await loadTexture(grassUrl);
-    } catch {
-      grassMap = null;
+    if (grassUrl) {
+      try {
+        grassMap = await Promise.race([
+          loadTexture(grassUrl),
+          new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error("tex timeout")), 8000)),
+        ]);
+      } catch {
+        grassMap = null;
+      }
     }
     let pavementMap: Texture | null = null;
     if (pavementUrl) {
       try {
-        pavementMap = await loadTexture(pavementUrl);
+        pavementMap = await Promise.race([
+          loadTexture(pavementUrl),
+          new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error("tex timeout")), 8000)),
+        ]);
       } catch {
         pavementMap = null;
       }
@@ -377,9 +396,13 @@ export function createParkingJamEngine(): Playable3DEngine {
       const inner = new Group();
       const source = spec.length >= 3 ? longGltf : compactGltf;
       if (source) {
-        const model = cloneTintedModel(source, spec.color, host.tracker);
-        orientCarAlongX(model);
-        inner.add(model);
+        try {
+          const model = cloneTintedModel(source, spec.color, host.tracker);
+          orientCarAlongX(model);
+          inner.add(model);
+        } catch {
+          inner.add(createProceduralModel(kind, host.tracker, spec.color));
+        }
       } else {
         inner.add(createProceduralModel(kind, host.tracker, spec.color));
       }
@@ -393,6 +416,9 @@ export function createParkingJamEngine(): Playable3DEngine {
       cars.push({ spec, group, wheels: collectWheels(group) });
     }
     syncMeshes();
+    } finally {
+      if (gen === buildGen) building = false;
+    }
   }
 
   function pick(ndcX: number, ndcY: number) {
@@ -450,7 +476,7 @@ export function createParkingJamEngine(): Playable3DEngine {
       syncHud();
       build();
       detach = attachPointer(host.canvas, (e) => {
-        if (!started || ended || slideAnim || hud.busy()) return;
+        if (!started || ended || slideAnim || hud.busy() || building) return;
         if (e.kind === "down") {
           selected = pick(e.ndcX, e.ndcY) ?? null;
           if (selected) {

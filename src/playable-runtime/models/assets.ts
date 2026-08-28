@@ -53,6 +53,9 @@ export function resolveRuntimeUrl(ref: string, assets: Record<string, string>) {
   if (assets[ref]) return assets[ref];
   if (ref.startsWith("http://") || ref.startsWith("https://") || ref.startsWith("data:")) return ref;
   const bundled = bundledKenneyUrl(ref);
+  if (bundled && assets[bundled]) return assets[bundled];
+  // Standalone HTML has no /public files. Empty assets = editor, where Next serves them.
+  if (Object.keys(assets).length > 0) return "";
   if (bundled) return bundled;
   if (ref.startsWith("/")) return encodeURI(ref);
   return "";
@@ -63,7 +66,7 @@ export function longCarUrl(ref: string, assets: Record<string, string>) {
   if (ref.startsWith("/") || ref.startsWith("http") || ref.startsWith("data:")) {
     return resolveRuntimeUrl(ref, assets);
   }
-  return LIBRARY_CAR_URLS.van;
+  return resolveRuntimeUrl("van", assets);
 }
 
 export function libraryCarKind(ref: string): "sedan" | "suv" | "van" {

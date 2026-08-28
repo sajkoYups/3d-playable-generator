@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
 import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData } from "@/types/project";
 import { MATCH_ITEMS, VEHICLES } from "@/lib/model-library";
-import { defaultParkingRoundAt, ensureParkingRounds, repairParkingCars, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
+import { ensureParkingRounds, repairParkingCars, setParkingRoundCount, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n));
@@ -292,60 +292,52 @@ function GameplaySettings() {
             const round = rounds[roundIdx];
             return (
               <>
-                <Label>Rounds</Label>
-                <p className="text-[11px] text-muted">Up to 9. The playable plays them in order. Preview shows the selected round.</p>
+                <Label>How many rounds</Label>
+                <p className="text-[11px] text-muted">
+                  Click a number to set the playable length. 4 means rounds 1–4 play in order.
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({ length: 9 }, (_, i) => {
+                    const count = i + 1;
+                    const included = count <= rounds.length;
+                    const selected = count === rounds.length;
+                    return (
+                      <Button
+                        key={count}
+                        size="sm"
+                        variant={selected ? "default" : included ? "secondary" : "outline"}
+                        aria-pressed={included}
+                        onClick={() => {
+                          if (count === rounds.length) return;
+                          const preview = Math.min(roundIdx, count - 1);
+                          updateData((d) => {
+                            const j = d.gameplay.parkingJam;
+                            setParkingRoundCount(j, count);
+                            syncParkingRound(j, preview);
+                          });
+                          setParkingRoundIndex(preview);
+                        }}
+                      >
+                        {count}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Label>Preview</Label>
+                <p className="text-[11px] text-muted">Shows this round in the canvas. Does not change how many rounds play.</p>
                 <div className="flex flex-wrap gap-1">
                   {rounds.map((_, i) => (
                     <Button
                       key={i}
                       size="sm"
                       variant={i === roundIdx ? "default" : "outline"}
+                      aria-current={i === roundIdx ? "true" : undefined}
                       onClick={() => setParkingRoundIndex(i)}
                     >
                       {i + 1}
                     </Button>
                   ))}
-                  {rounds.length < 9 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        let nextIndex = rounds.length;
-                        updateData((d) => {
-                          const j = d.gameplay.parkingJam;
-                          ensureParkingRounds(j);
-                          if (j.rounds.length >= 9) return;
-                          j.rounds.push(defaultParkingRoundAt(j.rounds.length));
-                          nextIndex = j.rounds.length - 1;
-                          syncParkingRound(j, nextIndex);
-                        });
-                        setParkingRoundIndex(nextIndex);
-                      }}
-                    >
-                      Add
-                    </Button>
-                  )}
                 </div>
-                {rounds.length > 1 && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      let nextIndex = Math.max(0, roundIdx - 1);
-                      updateData((d) => {
-                        const j = d.gameplay.parkingJam;
-                        ensureParkingRounds(j);
-                        if (j.rounds.length <= 1) return;
-                        j.rounds.splice(roundIdx, 1);
-                        nextIndex = Math.min(roundIdx, j.rounds.length - 1);
-                        syncParkingRound(j, nextIndex);
-                      });
-                      setParkingRoundIndex(nextIndex);
-                    }}
-                  >
-                    Remove round {roundIdx + 1}
-                  </Button>
-                )}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label>Moves limit</Label>

@@ -75,10 +75,13 @@ export function parkingCoinsTotal(jam: ParkingJamConfig) {
   return listParkingRounds(jam).reduce((sum, r) => sum + r.coins, 0);
 }
 
-export function ensureParkingRounds(jam: ParkingJamConfig) {
+const MAX_PARKING_ROUNDS = 9;
+
+function applyParkingRoundCount(jam: ParkingJamConfig, count: number) {
   const pack = defaultParkingRoundsPack();
+  const n = Math.min(MAX_PARKING_ROUNDS, Math.max(1, Math.round(count)));
   const prev = jam.rounds ?? [];
-  jam.rounds = pack.map((p, i) => {
+  jam.rounds = pack.slice(0, n).map((p, i) => {
     const existing = prev[i];
     return {
       ...p,
@@ -86,6 +89,17 @@ export function ensureParkingRounds(jam: ParkingJamConfig) {
       movesLimit: existing?.movesLimit ?? p.movesLimit,
     };
   });
+}
+
+/** Keep the current round count (1–9). Empty lists hydrate to the full pack. */
+export function ensureParkingRounds(jam: ParkingJamConfig) {
+  const prev = jam.rounds ?? [];
+  applyParkingRoundCount(jam, prev.length || defaultParkingRoundsPack().length);
+}
+
+/** Slice or grow the pack prefix so the playable has exactly `count` rounds. */
+export function setParkingRoundCount(jam: ParkingJamConfig, count: number) {
+  applyParkingRoundCount(jam, count);
 }
 
 export function syncParkingRound(jam: ParkingJamConfig, index: number) {

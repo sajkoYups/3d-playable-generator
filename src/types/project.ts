@@ -316,6 +316,18 @@ export const TowerDefenseTowerStatsSchema = z.object({
 });
 export type TowerDefenseTowerStats = z.infer<typeof TowerDefenseTowerStatsSchema>;
 
+export const TowerDefenseSoundsSchema = z.object({
+  arrowFireUrl: z.string().default(""),
+  cannonFireUrl: z.string().default(""),
+  turretFireUrl: z.string().default(""),
+  hitUrl: z.string().default(""),
+  deathUrl: z.string().default(""),
+  leakUrl: z.string().default(""),
+  placeUrl: z.string().default(""),
+  waveUrl: z.string().default(""),
+});
+export type TowerDefenseSounds = z.infer<typeof TowerDefenseSoundsSchema>;
+
 export const TowerDefenseRoundSchema = z.object({
   impCount: z.number().int().min(0).max(40).default(6),
   puglinCount: z.number().int().min(0).max(20).default(0),
@@ -353,6 +365,7 @@ export const TowerDefenseConfigSchema = z.object({
       }),
     })
     .prefault({}),
+  sounds: TowerDefenseSoundsSchema.prefault({}),
   rounds: z.array(TowerDefenseRoundSchema).max(9).default([]),
 });
 export type TowerDefenseConfig = z.infer<typeof TowerDefenseConfigSchema>;

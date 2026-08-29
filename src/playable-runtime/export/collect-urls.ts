@@ -66,6 +66,15 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
   if (templateId === "tower-defense") {
     for (const url of TD_MODEL_URLS) add(url);
     add(data.gameplay.towerDefense.coinImageUrl || "/coin.svg");
+    const tdSounds = data.gameplay.towerDefense.sounds;
+    add(tdSounds?.arrowFireUrl);
+    add(tdSounds?.cannonFireUrl);
+    add(tdSounds?.turretFireUrl);
+    add(tdSounds?.hitUrl);
+    add(tdSounds?.deathUrl);
+    add(tdSounds?.leakUrl);
+    add(tdSounds?.placeUrl);
+    add(tdSounds?.waveUrl);
   }
 
   return [...urls];

@@ -9,6 +9,25 @@ export type AudioBusOptions = {
   loseUrl?: string;
 };
 
+export type SfxPlayOptions = {
+  throttleMs?: number;
+  rate?: number;
+};
+
+const SFX_FALLBACK: Record<string, { freq: number; dur: number; type: OscillatorType; vol: number }> = {
+  tap: { freq: 420, dur: 0.12, type: "triangle", vol: 0.18 },
+  win: { freq: 660, dur: 0.35, type: "triangle", vol: 0.18 },
+  lose: { freq: 180, dur: 0.28, type: "sawtooth", vol: 0.16 },
+  arrowFire: { freq: 920, dur: 0.07, type: "square", vol: 0.12 },
+  cannonFire: { freq: 96, dur: 0.22, type: "sawtooth", vol: 0.2 },
+  turretFire: { freq: 1680, dur: 0.035, type: "square", vol: 0.08 },
+  hit: { freq: 260, dur: 0.05, type: "triangle", vol: 0.1 },
+  death: { freq: 170, dur: 0.16, type: "sine", vol: 0.14 },
+  leak: { freq: 130, dur: 0.26, type: "sawtooth", vol: 0.18 },
+  place: { freq: 540, dur: 0.11, type: "triangle", vol: 0.16 },
+  wave: { freq: 380, dur: 0.22, type: "sine", vol: 0.14 },
+};
+
 /**
  * Gesture-unlocked Web Audio for SFX. Music is a looping HTMLAudioElement so it
  * can start in the same click as Preview / the start-screen toggle.
@@ -18,14 +37,22 @@ export class AudioBus {
   private master: GainNode | null = null;
   private musicGain: GainNode | null = null;
   private sfxGain: GainNode | null = null;
-  private buffers = new Map<AudioSlot, AudioBuffer>();
+  private buffers = new Map<string, AudioBuffer>();
   private urls: AudioBusOptions = {};
+  private extraUrls: Record<string, string> = {};
+  private lastSfxAt = new Map<string, number>();
   private musicSource: AudioBufferSourceNode | null = null;
   private muted = false;
   private unlocked = false;
 
   setUrls(urls: AudioBusOptions) {
     this.urls = urls;
+    if (this.unlocked) void this.preload();
+  }
+
+  setExtraUrls(urls: Record<string, string>) {
+    this.extraUrls = { ...urls };
+    if (this.unlocked) void this.preload();
   }
 
   async unlock() {
@@ -51,10 +78,11 @@ export class AudioBus {
   }
 
   private async preload() {
-    const entries: [AudioSlot, string | undefined][] = [
+    const entries: Array<[string, string | undefined]> = [
       ["tap", this.urls.tapUrl],
       ["win", this.urls.winUrl],
       ["lose", this.urls.loseUrl],
+      ...Object.entries(this.extraUrls),
     ];
     await Promise.all(
       entries.map(async ([slot, url]) => {
@@ -92,19 +120,32 @@ export class AudioBus {
       this.playMusic();
       return;
     }
-    if (!this.unlocked || !this.ctx || this.muted) {
-      this.beep(slot);
+    this.playSfx(slot);
+  }
+
+  playSfx(id: string, opts?: SfxPlayOptions) {
+    if (this.muted) return;
+    const minGap = opts?.throttleMs ?? 0;
+    if (minGap > 0) {
+      const now = performance.now();
+      const last = this.lastSfxAt.get(id) ?? 0;
+      if (now - last < minGap) return;
+      this.lastSfxAt.set(id, now);
+    }
+    if (!this.unlocked || !this.ctx) {
+      this.beep(id);
       return;
     }
-    const buf = this.buffers.get(slot);
+    const buf = this.buffers.get(id);
     if (buf) {
       const src = this.ctx.createBufferSource();
       src.buffer = buf;
+      src.playbackRate.value = opts?.rate ?? 1;
       src.connect(this.sfxGain!);
       src.start();
       return;
     }
-    this.beep(slot);
+    this.beep(id);
   }
 
   private playMusic() {
@@ -136,21 +177,21 @@ export class AudioBus {
     this.buffers.clear();
   }
 
-  private beep(slot: AudioSlot) {
+  private beep(slot: string) {
     if (!this.ctx || this.muted) return;
+    const tone = SFX_FALLBACK[slot] ?? SFX_FALLBACK.tap;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     const now = this.ctx.currentTime;
-    const freq = slot === "win" ? 660 : slot === "lose" ? 180 : 420;
-    osc.frequency.setValueAtTime(freq, now);
-    osc.type = slot === "lose" ? "sawtooth" : "triangle";
+    osc.frequency.setValueAtTime(tone.freq, now);
+    osc.type = tone.type;
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + (slot === "win" ? 0.35 : 0.12));
+    gain.gain.exponentialRampToValueAtTime(tone.vol, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + tone.dur);
     osc.connect(gain);
     gain.connect(this.sfxGain || this.ctx.destination);
     osc.start(now);
-    osc.stop(now + 0.4);
+    osc.stop(now + tone.dur + 0.05);
   }
 
   private hum() {

@@ -74,8 +74,8 @@ export class ThreeHost {
       return;
     }
     if (preset === "overcast") {
-      add(new HemisphereLight(0xcfe4ff, 0x4a5568, 0.9));
-      const dir = add(new DirectionalLight(0xffffff, 0.45));
+      add(new HemisphereLight(0xcfe4ff, 0x4a5568, 1.05));
+      const dir = add(new DirectionalLight(0xffffff, 0.7));
       dir.position.set(2, 10, 2);
       return;
     }

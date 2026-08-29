@@ -75,6 +75,18 @@ function applyTdRoundCount(cfg: TowerDefenseConfig, count: number) {
 export function ensureTdRounds(cfg: TowerDefenseConfig) {
   const prev = cfg.rounds ?? [];
   applyTdRoundCount(cfg, prev.length || DEFAULT_TD_ROUND_COUNT);
+  if (!cfg.sounds) {
+    cfg.sounds = {
+      arrowFireUrl: "",
+      cannonFireUrl: "",
+      turretFireUrl: "",
+      hitUrl: "",
+      deathUrl: "",
+      leakUrl: "",
+      placeUrl: "",
+      waveUrl: "",
+    };
+  }
 }
 
 export function setTdRoundCount(cfg: TowerDefenseConfig, count: number) {

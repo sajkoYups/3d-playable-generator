@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import type { Orientation, ProjectData, TemplateId } from "@/types/project";
 import { createEngine } from "@/playable-runtime/engines";
 import type { Playable3DEngine } from "@/playable-runtime/engines/types";
+import { AudioBus } from "@/playable-runtime/audio/bus";
 
 export function GameplayHost({
   templateId,
@@ -36,6 +37,8 @@ export function GameplayHost({
     const engine = createEngine(templateId);
     engineRef.current = engine;
     const current = dataRef.current;
+    const audio = new AudioBus();
+    audio.setUrls(current.gameplay.audio);
     engine.initialize({
       container: ref.current,
       orientation: orientationRef.current,
@@ -50,6 +53,7 @@ export function GameplayHost({
         towerDefense: current.gameplay.towerDefense,
         playAllRounds: true,
         parkingRoundIndex: parkingRoundIndexRef.current,
+        audioBus: audio,
       } as object),
     } as never);
     const el = ref.current;
@@ -69,6 +73,7 @@ export function GameplayHost({
       ro.disconnect();
       if (resetTimer) clearTimeout(resetTimer);
       engine.destroy();
+      audio.destroy();
       engineRef.current = null;
     };
   }, [templateId, autoStart]);

@@ -166,6 +166,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         parkingJam: data.gameplay.parkingJam,
         towerDefense: data.gameplay.towerDefense,
         playAllRounds: true,
+        audioBus: audio,
       } as object),
     } as never);
     engine.onWin(() => {

@@ -4,8 +4,28 @@ export type TowerKind = "arrow" | "cannon" | "turret";
 export type Waypoint = { x: number; z: number };
 
 export const ENEMY_BASE = {
-  imp: { hp: 14, speed: 1.85, gold: 8, leak: 1, height: 0.9 },
-  puglin: { hp: 42, speed: 1.05, gold: 18, leak: 2, height: 1.15 },
+  imp: { hp: 14, speed: 1.85, gold: 8, leak: 1, height: 1.2 },
+  puglin: { hp: 42, speed: 1.05, gold: 18, leak: 2, height: 1.5 },
+} as const;
+
+/** Keep kit albedo; glow is the packed emissive map (eyes/mouth). Exposure lifts overcast. */
+export const ENEMY_LOOK = {
+  imp: {
+    tint: "#ff6a38",
+    glow: 1.25,
+    exposure: 1.28,
+    roughness: 0.45,
+    shadow: "#5a1808",
+    shadowRadius: 0.32,
+  },
+  puglin: {
+    tint: "#7dff5a",
+    glow: 1.15,
+    exposure: 1.22,
+    roughness: 0.45,
+    shadow: "#0a2e08",
+    shadowRadius: 0.42,
+  },
 } as const;
 
 export const TOWER_RECIPES: Record<TowerKind, { parts: string[]; weapon: string; ammo: string; splash: number; color: string; label: string }> = {

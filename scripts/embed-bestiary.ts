@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import sharp from "sharp";
 import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { dedup, prune, simplify, textureCompress } from "@gltf-transform/functions";
@@ -19,10 +20,20 @@ async function compress(src: string, dest: string) {
   const doc = await io.read(src);
   await doc.transform(
     dedup(),
-    simplify({ simplifier: MeshoptSimplifier, ratio: 0.28, error: 0.02 }),
+    simplify({ simplifier: MeshoptSimplifier, ratio: 0.55, error: 0.008 }),
     textureCompress({
+      encoder: sharp,
+      targetFormat: "webp",
+      resize: [512, 512],
+      slots: /baseColorTexture|emissiveTexture/,
+      quality: 82,
+    }),
+    textureCompress({
+      encoder: sharp,
       targetFormat: "webp",
       resize: [256, 256],
+      slots: /normalTexture|occlusionTexture|metallicRoughnessTexture/,
+      quality: 70,
     }),
     prune(),
   );

@@ -209,6 +209,7 @@ export function loadGltfScene(url: string): Promise<Group> {
       url,
       (gltf) => {
         gltf.scene.updateMatrixWorld(true);
+        gltf.scene.userData.clips = gltf.animations;
         gltfCache.set(url, gltf.scene);
         resolve(gltf.scene);
       },
@@ -323,9 +324,14 @@ export function cloneSkinnedModel(source: Object3D, tracker: ResourceTracker): G
     const next = mats.map((m) => {
       if (m instanceof MeshStandardMaterial) {
         const prepared = m.clone();
-        prepared.metalness = Math.min(prepared.metalness, 0.12);
+        prepared.metalness = 0;
+        prepared.metalnessMap = null;
         prepared.envMapIntensity = 0;
         if (prepared.map) prepared.map.colorSpace = SRGBColorSpace;
+        if (prepared.emissiveMap) {
+          prepared.emissive.set("#ffffff");
+          prepared.emissiveIntensity = Math.max(prepared.emissiveIntensity, 1);
+        }
         prepared.needsUpdate = true;
         tracker.track(prepared);
         return prepared;
@@ -338,6 +344,8 @@ export function cloneSkinnedModel(source: Object3D, tracker: ResourceTracker): G
     mesh.frustumCulled = false;
   });
   root.add(cloned);
+  root.userData.clips = source.userData.clips;
+  root.userData.mixerRoot = cloned;
   return root;
 }
 

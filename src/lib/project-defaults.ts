@@ -488,8 +488,8 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
     camera:
       templateId === "tower-defense"
         ? {
-            portrait: { fov: 42, position: { x: 0, y: 12, z: 10 }, target: { x: 0, y: 0, z: 0.4 } },
-            landscape: { fov: 36, position: { x: 0, y: 9.5, z: 8 }, target: { x: 0, y: 0, z: 0.4 } },
+            portrait: { fov: 40, position: { x: 0, y: 8.2, z: 7.2 }, target: { x: 0, y: 0.2, z: 0.3 } },
+            landscape: { fov: 34, position: { x: 0, y: 6.6, z: 6 }, target: { x: 0, y: 0.2, z: 0.3 } },
           }
         : templateId === "parking-jam"
         ? {
@@ -510,7 +510,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
                 portrait: { fov: 50, position: { x: 0, y: 8, z: 12 }, target: { x: 0, y: 2, z: 0 } },
                 landscape: { fov: 42, position: { x: 0, y: 6, z: 10 }, target: { x: 0, y: 1.6, z: 0 } },
               },
-    lighting: templateId === "lane-runner" || templateId === "tower-defense" ? "overcast" : "studio",
+    lighting: templateId === "lane-runner" ? "overcast" : "studio",
     environment: "gradient-sky",
     audio: { musicUrl: "", tapUrl: "", winUrl: "", loseUrl: "", playFromStart: false },
     stackTower: {
@@ -569,6 +569,16 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
         turret: { cost: 110, damage: 4, range: 1.4, fireRate: 5 },
       },
       rounds: defaultTdRoundsPack(),
+      sounds: {
+        arrowFireUrl: "",
+        cannonFireUrl: "",
+        turretFireUrl: "",
+        hitUrl: "",
+        deathUrl: "",
+        leakUrl: "",
+        placeUrl: "",
+        waveUrl: "",
+      },
     },
     overlays: [
       imageEl(

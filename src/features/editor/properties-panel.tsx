@@ -280,6 +280,11 @@ function GameplaySettings() {
         <AssetUrlField label="Tap" kind="audio" accept="audio/*" value={data.gameplay.audio.tapUrl} onChange={(url) => updateData((d) => { d.gameplay.audio.tapUrl = url; })} />
         <AssetUrlField label="Win" kind="audio" accept="audio/*" value={data.gameplay.audio.winUrl} onChange={(url) => updateData((d) => { d.gameplay.audio.winUrl = url; })} />
         <AssetUrlField label="Lose" kind="audio" accept="audio/*" value={data.gameplay.audio.loseUrl} onChange={(url) => updateData((d) => { d.gameplay.audio.loseUrl = url; })} />
+        {templateId === "tower-defense" && (
+          <p className="text-[11px] text-muted">
+            Music, tap, win, and lose play on the start/end flow. Tower fire and combat sounds are under Tower Defense below.
+          </p>
+        )}
       </div>
 
       {templateId === "stack-tower" && (
@@ -1174,6 +1179,36 @@ function GameplaySettings() {
                   onChange={(url) => updateData((d) => { d.gameplay.towerDefense.coinImageUrl = url; })}
                 />
                 <p className="text-[11px] text-muted">Empty uses the default coin. Shown in the HUD and payout animation.</p>
+                <p className="text-[11px] text-muted">Sounds</p>
+                <p className="text-[11px] leading-snug text-muted">
+                  Upload short clips (mp3/wav/ogg). Empty slots still play a tiny built-in cue so you can test. Turret fire is throttled so a fast tower does not stack 5 samples a second. First tap on the canvas unlocks audio.
+                </p>
+                {(
+                  [
+                    ["arrowFireUrl", "Arrow fire"],
+                    ["cannonFireUrl", "Cannon fire"],
+                    ["turretFireUrl", "Turret fire"],
+                    ["hitUrl", "Hit"],
+                    ["deathUrl", "Enemy death"],
+                    ["leakUrl", "Leak (life lost)"],
+                    ["placeUrl", "Place tower"],
+                    ["waveUrl", "Wave start"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <AssetUrlField
+                    key={key}
+                    label={label}
+                    kind="audio"
+                    accept="audio/*"
+                    value={td.sounds?.[key] ?? ""}
+                    onChange={(url) =>
+                      updateData((d) => {
+                        ensureTdRounds(d.gameplay.towerDefense);
+                        d.gameplay.towerDefense.sounds[key] = url;
+                      })
+                    }
+                  />
+                ))}
               </>
             );
           })()}

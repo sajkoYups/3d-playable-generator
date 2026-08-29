@@ -245,13 +245,13 @@ function defaultColor(id: string) {
   return map[id] || "#e07a3d";
 }
 
-export function blobShadow(tracker: ResourceTracker, radius = 0.5) {
+export function blobShadow(tracker: ResourceTracker, radius = 0.5, color = "#000000") {
   const g = new Group();
   const mesh = add(
     tracker,
     g,
     new CylinderGeometry(radius, radius, 0.02, 16),
-    new MeshStandardMaterial({ color: "#000000", transparent: true, opacity: 0.28, roughness: 1 }),
+    new MeshStandardMaterial({ color, transparent: true, opacity: 0.28, roughness: 1 }),
     0,
     0.01,
     0,

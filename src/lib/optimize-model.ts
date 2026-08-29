@@ -1,9 +1,12 @@
 import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { dedup, prune, textureCompress } from "@gltf-transform/functions";
+import { readFile } from "fs/promises";
+import path from "path";
 
 const MAX_TRIANGLES = 25000;
 const MAX_TEXTURE = 512;
+const FOOD_COLORMAP = path.join(process.cwd(), "public/models/kenney/food/colormap.png");
 
 export type OptimizedModel = {
   buffer: Buffer;
@@ -37,6 +40,19 @@ export async function optimizeGlb(input: Buffer): Promise<OptimizedModel> {
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 
   try {
+    for (const image of document.getRoot().listTextures()) {
+      const uri = image.getURI();
+      if (!uri || uri.startsWith("data:")) continue;
+      if (!/colormap\.png$/i.test(uri)) continue;
+      try {
+        const png = await readFile(FOOD_COLORMAP);
+        image.setImage(png);
+        image.setMimeType("image/png");
+        image.setURI("");
+      } catch {
+        /* keep original */
+      }
+    }
     await document.transform(
       dedup(),
       prune(),

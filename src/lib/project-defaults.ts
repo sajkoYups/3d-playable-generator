@@ -6,6 +6,7 @@ import {
   type TemplateId,
 } from "@/types/project";
 import { DEFAULT_PARKING_CARS, defaultParkingRoundsPack } from "@/playable-runtime/engines/parking-jam/layout";
+import { defaultMatchRoundsPack } from "@/playable-runtime/engines/triple-match/rounds";
 
 export const TEMPLATE_NAMES: Record<TemplateId, string> = {
   "stack-tower": "Stack Tower",
@@ -16,7 +17,7 @@ export const TEMPLATE_NAMES: Record<TemplateId, string> = {
 
 export const TEMPLATE_BLURBS: Record<TemplateId, string> = {
   "stack-tower": "Drop and stack blocks. Perfect for logo-on-block campaigns.",
-  "triple-match": "Tap matching items on a tray. Top-performing playable genre.",
+  "triple-match": "Tap matching snacks into a tray. Three of a kind clears.",
   "lane-runner": "Swipe lanes, dodge obstacles, chase a distance goal.",
   "parking-jam": "Slide cars out of a jammed lot. Grid puzzle with tinted vehicles.",
 };
@@ -404,7 +405,32 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
               overlayOpacity: 0,
             },
           }
-        : {
+        : templateId === "triple-match"
+          ? {
+              portrait: {
+                type: "solid",
+                color: "#6b3fa0",
+                gradientFrom: "#6b3fa0",
+                gradientTo: "#3d2466",
+                gradientAngle: 180,
+                imageFit: "cover",
+                imagePosition: "center",
+                overlayColor: "#000000",
+                overlayOpacity: 0,
+              },
+              landscape: {
+                type: "solid",
+                color: "#6b3fa0",
+                gradientFrom: "#6b3fa0",
+                gradientTo: "#3d2466",
+                gradientAngle: 180,
+                imageFit: "cover",
+                imagePosition: "center",
+                overlayColor: "#000000",
+                overlayOpacity: 0,
+              },
+            }
+          : {
             portrait: {
               type: "solid",
               color: "#12141a",
@@ -436,8 +462,8 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
           }
         : templateId === "triple-match"
           ? {
-              portrait: { fov: 48, position: { x: 0, y: 9, z: 8 }, target: { x: 0, y: 0, z: 0.2 } },
-              landscape: { fov: 42, position: { x: 0, y: 7, z: 7 }, target: { x: 0, y: 0, z: 0.2 } },
+              portrait: { fov: 32, position: { x: 0, y: 3.4, z: 3.6 }, target: { x: 0, y: 0.2, z: 0.35 } },
+              landscape: { fov: 28, position: { x: 0, y: 2.8, z: 3.2 }, target: { x: 0, y: 0.15, z: 0.3 } },
             }
           : templateId === "lane-runner"
             ? {
@@ -461,24 +487,13 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       missLimit: 3,
     },
     tripleMatch: {
-      itemSlots: [
-        "apple",
-        "banana",
-        "bottle",
-        "can",
-        "coin",
-        "gem",
-        "key",
-        "star",
-        "donut",
-        "hammer",
-        "potion",
-        "crown",
-      ],
+      itemSlots: ["apple", "donut", "taco", "burger"],
       trayColor: "#c4a574",
       barSlots: 7,
-      triplesToWin: 6,
+      triplesToWin: 4,
       difficulty: "medium",
+      rounds: defaultMatchRoundsPack(),
+      coinImageUrl: "",
     },
     laneRunner: {
       characterModelUrl: "runner",

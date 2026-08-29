@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
-import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData } from "@/types/project";
+import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
 import { MATCH_ITEMS, VEHICLES } from "@/lib/model-library";
 import { ensureParkingRounds, repairParkingCars, setParkingRoundCount, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
+import { ensureMatchRounds, propagateMatchFoods, setMatchRoundCount, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
 
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n));
@@ -18,6 +19,22 @@ function clamp01(n: number) {
 function clampInt(n: number, min: number, max: number, fallback: number) {
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, Math.round(n)));
+}
+
+function patchMatchRound(
+  updateData: (updater: (draft: ProjectData) => void) => void,
+  index: number,
+  patch: (round: TripleMatchRound, cfg: TripleMatchConfig) => void,
+) {
+  updateData((d) => {
+    const cfg = d.gameplay.tripleMatch;
+    ensureMatchRounds(cfg);
+    const i = Math.max(0, Math.min(index, cfg.rounds.length - 1));
+    const round = cfg.rounds[i];
+    if (!round) return;
+    patch(round, cfg);
+    syncMatchRound(cfg, i);
+  });
 }
 
 function patchParkingRound(
@@ -271,32 +288,172 @@ function GameplaySettings() {
         <>
           <Separator />
           <h4 className="text-sm font-medium">Triple Match</h4>
-          <Label>Triples to win</Label>
-          <Input type="number" value={data.gameplay.tripleMatch.triplesToWin} onChange={(e) => updateData((d) => { d.gameplay.tripleMatch.triplesToWin = Number(e.target.value) || 6; })} />
-          <Label>Bar slots</Label>
-          <Input type="number" value={data.gameplay.tripleMatch.barSlots} onChange={(e) => updateData((d) => { d.gameplay.tripleMatch.barSlots = Number(e.target.value) || 7; })} />
-          <Label>Tray color</Label>
-          <Input type="color" value={data.gameplay.tripleMatch.trayColor} onChange={(e) => updateData((d) => { d.gameplay.tripleMatch.trayColor = e.target.value; })} />
-          <p className="text-[11px] text-muted">Item slots (library id or uploaded GLB URL)</p>
-          {data.gameplay.tripleMatch.itemSlots.map((slot, i) => (
-            <div key={i} className="space-y-1">
-              <select
-                className="h-8 w-full rounded-md border border-border bg-[#161821] text-xs"
-                value={MATCH_ITEMS.some((m) => m.id === slot) ? slot : ""}
-                onChange={(e) =>
-                  updateData((d) => {
-                    d.gameplay.tripleMatch.itemSlots[i] = e.target.value;
-                  })
-                }
-              >
-                <option value="">Custom URL</option>
-                {MATCH_ITEMS.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
+          {(() => {
+            const match = data.gameplay.tripleMatch;
+            const rounds = match.rounds.length
+              ? match.rounds
+              : [{
+                  itemSlots: match.itemSlots,
+                  trayColor: match.trayColor,
+                  barSlots: match.barSlots,
+                  triplesToWin: match.triplesToWin,
+                  coins: 50,
+                }];
+            const roundIdx = Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
+            const round = rounds[roundIdx];
+            return (
+              <>
+                <Label>How many rounds</Label>
+                <p className="text-[11px] text-muted">
+                  Click a number to set the playable length. 4 means rounds 1–4 play in order.
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({ length: 9 }, (_, i) => {
+                    const count = i + 1;
+                    const included = count <= rounds.length;
+                    const selected = count === rounds.length;
+                    return (
+                      <Button
+                        key={count}
+                        size="sm"
+                        variant={selected ? "default" : included ? "secondary" : "outline"}
+                        aria-pressed={included}
+                        onClick={() => {
+                          if (count === rounds.length) return;
+                          const preview = Math.min(roundIdx, count - 1);
+                          updateData((d) => {
+                            const cfg = d.gameplay.tripleMatch;
+                            setMatchRoundCount(cfg, count);
+                            syncMatchRound(cfg, preview);
+                          });
+                          setParkingRoundIndex(preview);
+                        }}
+                      >
+                        {count}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Label>Preview</Label>
+                <p className="text-[11px] text-muted">Shows this round in the canvas. Does not change how many rounds play.</p>
+                <div className="flex flex-wrap gap-1">
+                  {rounds.map((_, i) => (
+                    <Button
+                      key={i}
+                      size="sm"
+                      variant={i === roundIdx ? "default" : "outline"}
+                      aria-current={i === roundIdx ? "true" : undefined}
+                      onClick={() => setParkingRoundIndex(i)}
+                    >
+                      {i + 1}
+                    </Button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Triples to win</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={30}
+                      value={round.triplesToWin}
+                      onChange={(e) =>
+                        patchMatchRound(updateData, roundIdx, (r) => {
+                          r.triplesToWin = clampInt(Number(e.target.value), 1, 30, 4);
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Coins</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={9999}
+                      value={round.coins}
+                      onChange={(e) =>
+                        patchMatchRound(updateData, roundIdx, (r) => {
+                          r.coins = clampInt(Number(e.target.value), 0, 9999, 50);
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Bar slots</Label>
+                    <Input
+                      type="number"
+                      min={5}
+                      max={10}
+                      value={round.barSlots}
+                      onChange={(e) =>
+                        patchMatchRound(updateData, roundIdx, (r) => {
+                          r.barSlots = clampInt(Number(e.target.value), 5, 10, 7);
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Tray color</Label>
+                    <Input
+                      type="color"
+                      value={round.trayColor}
+                      onChange={(e) =>
+                        patchMatchRound(updateData, roundIdx, (r) => {
+                          r.trayColor = e.target.value;
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted">
+                  These four foods are used in every round. Tap one — it flies into a glowing tray slot. Three of a kind clears. Later rounds ask for more triples.
+                </p>
+                {match.itemSlots.map((slot, i) => (
+                  <div key={i} className="space-y-1">
+                    <select
+                      className="h-8 w-full rounded-md border border-border bg-[#161821] text-xs"
+                      value={MATCH_ITEMS.some((m) => m.id === slot) ? slot : ""}
+                      onChange={(e) =>
+                        updateData((d) => {
+                          const cfg = d.gameplay.tripleMatch;
+                          ensureMatchRounds(cfg);
+                          cfg.itemSlots[i] = e.target.value;
+                          propagateMatchFoods(cfg);
+                        })
+                      }
+                    >
+                      <option value="">Custom URL</option>
+                      {MATCH_ITEMS.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                    </select>
+                    <AssetUrlField
+                      accept=".glb,.gltf,model/gltf-binary"
+                      kind="model"
+                      value={slot.startsWith("/") || slot.startsWith("http") ? slot : ""}
+                      onChange={(url) =>
+                        updateData((d) => {
+                          const cfg = d.gameplay.tripleMatch;
+                          ensureMatchRounds(cfg);
+                          cfg.itemSlots[i] = url;
+                          propagateMatchFoods(cfg);
+                        })
+                      }
+                    />
+                  </div>
                 ))}
-              </select>
-              <AssetUrlField accept=".glb,.gltf,model/gltf-binary" kind="model" value={slot.startsWith("/") || slot.startsWith("http") ? slot : ""} onChange={(url) => updateData((d) => { d.gameplay.tripleMatch.itemSlots[i] = url; })} />
-            </div>
-          ))}
+                <AssetUrlField
+                  label="Coin icon"
+                  accept="image/*"
+                  value={match.coinImageUrl}
+                  onChange={(url) => updateData((d) => { d.gameplay.tripleMatch.coinImageUrl = url; })}
+                />
+                <p className="text-[11px] text-muted">Empty uses the default coin. Shown in the HUD and payout animation.</p>
+              </>
+            );
+          })()}
         </>
       )}
 

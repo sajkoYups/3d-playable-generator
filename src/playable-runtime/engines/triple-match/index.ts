@@ -1,19 +1,66 @@
-import { Color, Group, Mesh, MeshStandardMaterial, PlaneGeometry, Raycaster, Vector2 } from "three";
+import {
+  Box3,
+  BoxGeometry,
+  Color,
+  CylinderGeometry,
+  Group,
+  Mesh,
+  MeshStandardMaterial,
+  PointLight,
+  Quaternion,
+  Raycaster,
+  Vector2,
+  Vector3,
+} from "three";
 import type { TripleMatchConfig } from "@/types/project";
 import type { EngineInitContext, Playable3DEngine } from "@/playable-runtime/engines/types";
 import { ThreeHost } from "@/playable-runtime/three/host";
 import { applyLivePresentation } from "@/playable-runtime/three/presentation";
 import { attachPointer } from "@/playable-runtime/three/input";
-import { blobShadow, createProceduralModel } from "@/playable-runtime/models/procedural";
+import { blobShadow } from "@/playable-runtime/models/procedural";
+import {
+  cloneTexturedModel,
+  fitObjectToXZ,
+  loadGltfScene,
+  resolveRuntimeUrl,
+  setRuntimeAssets,
+} from "@/playable-runtime/models/assets";
+import { createPayoutHud, DEFAULT_COIN_URL } from "@/playable-runtime/engines/parking-jam/payout";
+import { listMatchRounds, matchCoinsTotal } from "@/playable-runtime/engines/triple-match/rounds";
 
 type Item = {
   id: string;
   kind: string;
   group: Group;
-  col: number;
-  row: number;
   taken: boolean;
+  flying: boolean;
+  slotIndex: number;
+  baseScale: number;
 };
+
+type Fly = {
+  item: Item;
+  from: Vector3;
+  fromQ: Quaternion;
+  t: number;
+  duration: number;
+};
+
+type Pop = {
+  item: Item;
+  t: number;
+  duration: number;
+};
+
+const DEFAULT_ITEMS = ["apple", "donut", "taco", "burger"];
+const MAX_KINDS = 4;
+const ITEM_SIZE = 0.62;
+const TRAY_SIZE = 0.2;
+const TRAY_Z = 1.78;
+const SLOT_GAP = 0.3;
+const COLS = 3;
+const CELL_X = 0.88;
+const CELL_Z = 1.08;
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -24,138 +71,562 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+function kindsFromSlots(slots: string[], assets: Record<string, string>) {
+  const kinds: string[] = [];
+  for (const raw of slots) {
+    const kind = raw.trim();
+    if (!kind) continue;
+    if (!resolveRuntimeUrl(kind, assets)) continue;
+    kinds.push(kind);
+    if (kinds.length >= MAX_KINDS) break;
+  }
+  return kinds.length ? kinds : DEFAULT_ITEMS;
+}
+
 function solvableDeck(kinds: string[], triples: number): string[] {
-  const pool = kinds.length ? kinds : ["apple", "banana", "bottle"];
+  const pool = kinds.length ? kinds : DEFAULT_ITEMS;
   const deck: string[] = [];
   for (let i = 0; i < triples; i++) {
-    const k = pool[i % pool.length];
-    deck.push(k, k, k);
+    deck.push(pool[i % pool.length], pool[i % pool.length], pool[i % pool.length]);
   }
-  while (deck.length % 3 !== 0) deck.push(pool[0]);
   return shuffle(deck);
+}
+
+function matchLayoutKey(cfg: TripleMatchConfig, idx: number, playAll: boolean) {
+  const rounds = listMatchRounds(cfg);
+  const i = Math.max(0, Math.min(idx, rounds.length - 1));
+  const round = rounds[i];
+  return JSON.stringify({
+    round: i,
+    playAll,
+    slots: round.itemSlots,
+    tray: round.trayColor,
+    bar: round.barSlots,
+    win: round.triplesToWin,
+  });
+}
+
+function easeOutCubic(t: number) {
+  const x = Math.min(1, Math.max(0, t));
+  return 1 - (1 - x) ** 3;
+}
+
+async function loadTemplate(url: string) {
+  if (!url) return null;
+  try {
+    return await Promise.race([
+      loadGltfScene(url),
+      new Promise<never>((_, reject) => {
+        window.setTimeout(() => reject(new Error("gltf timeout")), 8000);
+      }),
+    ]);
+  } catch {
+    return null;
+  }
 }
 
 export function createTripleMatchEngine(): Playable3DEngine {
   let host: ThreeHost | null = null;
   let config: TripleMatchConfig | null = null;
   let items: Item[] = [];
-  let bar: string[] = [];
+  let bar: Item[] = [];
   let barSlots: Group[] = [];
+  let slotMats: MeshStandardMaterial[] = [];
+  let templates = new Map<string, Group>();
   let cleared = 0;
   let started = false;
   let ended = false;
+  let hover: Item | null = null;
+  let flies: Fly[] = [];
+  let pops: Pop[] = [];
+  let animTime = 0;
   let onWin: () => void = () => undefined;
   let onLose: () => void = () => undefined;
   let detach: (() => void) | null = null;
   let root: Group | null = null;
   let ctx: EngineInitContext | null = null;
+  let buildGen = 0;
+  let roundIndex = 0;
+  let playAllRounds = true;
+  let building = false;
+  let earned = 0;
+  let lastEditorRoundIndex: number | null = null;
+  const hud = createPayoutHud();
   const raycaster = new Raycaster();
   const pointer = new Vector2();
+  const tmp = new Vector3();
+  const upQ = new Quaternion();
+
+  function applyEditorCamera() {
+    if (!host || !ctx) return;
+    host.applyCamera(ctx.camera, ctx.orientation, host.camera.aspect);
+  }
+
+  function liveRound(cfg = config!) {
+    const rounds = listMatchRounds(cfg);
+    const index = Math.max(0, Math.min(roundIndex, rounds.length - 1));
+    return { round: rounds[index], index, total: rounds.length };
+  }
+
+  function syncHud() {
+    if (!config) return;
+    const url = resolveRuntimeUrl(config.coinImageUrl || DEFAULT_COIN_URL, ctx?.assets ?? {});
+    hud.setCoinUrl(url || DEFAULT_COIN_URL);
+    hud.setState(earned, matchCoinsTotal(config));
+  }
 
   function finish(kind: "win" | "lose") {
     if (ended) return;
     ended = true;
     started = false;
+    if (kind === "lose") hud.cancel();
     if (kind === "win") onWin();
     else onLose();
   }
 
-  function layoutGrid() {
-    const cols = 4;
-    const gap = 1.15;
-    items.forEach((it, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      it.col = col;
-      it.row = row;
-      it.group.position.set((col - 1.5) * gap, 0.45, (row - 1.2) * gap);
-    });
-  }
-
-  function refreshBar() {
-    barSlots.forEach((slot, i) => {
-      while (slot.children.length) slot.remove(slot.children[0]);
-      const kind = bar[i];
-      if (!kind || !host) return;
-      const model = createProceduralModel(kind, host.tracker);
-      model.scale.setScalar(0.7);
-      slot.add(model);
-    });
-  }
-
-  function take(item: Item) {
-    if (item.taken || ended || !started) return;
-    item.taken = true;
-    item.group.visible = false;
-    bar.push(item.kind);
-    const last = item.kind;
-    const count = bar.filter((k) => k === last).length;
-    if (count >= 3) {
-      let removed = 0;
-      bar = bar.filter((k) => {
-        if (k === last && removed < 3) {
-          removed += 1;
-          return false;
+  function completeRound() {
+    if (!config || hud.busy()) return;
+    const { round, index, total } = liveRound();
+    const reward = round.coins;
+    const from = earned;
+    earned += reward;
+    const hasNext = playAllRounds && index < total - 1;
+    hud.setState(earned, matchCoinsTotal(config));
+    hud.startPayout({
+      from,
+      to: earned,
+      reward,
+      nextRound: hasNext ? index + 2 : null,
+      onDone: (kind) => {
+        if (kind === "next") {
+          roundIndex = index + 1;
+          void rebuild();
+          return;
         }
-        return true;
-      });
-      cleared += 1;
-      if (cleared >= (config?.triplesToWin ?? 6)) {
-        refreshBar();
         finish("win");
+      },
+    });
+  }
+
+  function makeModel(kind: string, maxSize: number) {
+    const source = templates.get(kind);
+    if (!source || !host) return null;
+    const model = cloneTexturedModel(source, host.tracker);
+    standUpIfFlat(model);
+    fitObjectToXZ(model, maxSize, maxSize * 0.9);
+    return model;
+  }
+
+  function standUpIfFlat(object: Group) {
+    object.updateWorldMatrix(true, true);
+    const size = new Box3().setFromObject(object).getSize(new Vector3());
+    if (size.y >= Math.min(size.x, size.z) * 0.5) return;
+    if (size.x >= size.z) object.rotateZ(Math.PI / 2);
+    else object.rotateX(-Math.PI / 2);
+  }
+
+  function slotWorldLocal(index: number) {
+    const slot = barSlots[Math.max(0, Math.min(index, barSlots.length - 1))];
+    tmp.copy(slot.position);
+    tmp.y += 0.1;
+    return tmp.clone();
+  }
+
+  function paintHover(item: Item | null, on: boolean) {
+    const scale = item ? item.baseScale * (on ? 1.14 : 1) : 1;
+    if (item) item.group.scale.setScalar(scale);
+    item?.group.traverse((ch) => {
+      const mesh = ch as Mesh;
+      if (!mesh.isMesh) return;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const m of mats) {
+        if (!(m instanceof MeshStandardMaterial)) continue;
+        m.emissive.set(on ? "#5a3a10" : "#000000");
+        m.emissiveIntensity = on ? 0.65 : 0;
+      }
+    });
+  }
+
+  function setHover(next: Item | null) {
+    if (hover === next) return;
+    if (hover) paintHover(hover, false);
+    hover = next;
+    if (hover) paintHover(hover, true);
+  }
+
+  function pickItem(ndcX: number, ndcY: number) {
+    if (!host) return null;
+    pointer.set(ndcX, ndcY);
+    raycaster.setFromCamera(pointer, host.camera);
+    const live = items.filter((it) => !it.taken);
+    const meshes: Array<{ mesh: Mesh; item: Item }> = [];
+    for (const it of live) {
+      it.group.traverse((ch) => {
+        if (ch instanceof Mesh) meshes.push({ mesh: ch, item: it });
+      });
+    }
+    const hits = raycaster.intersectObjects(
+      meshes.map((m) => m.mesh),
+      false,
+    );
+    if (!hits.length) return null;
+    return meshes.find((m) => m.mesh === hits[0].object)?.item ?? null;
+  }
+
+  function reindexBar() {
+    bar.forEach((it, i) => {
+      it.slotIndex = i;
+    });
+  }
+
+  function insertIntoBar(item: Item) {
+    let at = bar.length;
+    for (let i = bar.length - 1; i >= 0; i--) {
+      if (bar[i].kind === item.kind) {
+        at = i + 1;
+        break;
+      }
+    }
+    bar.splice(at, 0, item);
+    reindexBar();
+  }
+
+  function tryClearMatches() {
+    if (!config || ended || hud.busy()) return;
+    const round = liveRound().round;
+    const kinds = new Set(bar.map((it) => it.kind));
+    for (const kind of kinds) {
+      const group = bar.filter((it) => it.kind === kind && !it.flying);
+      if (group.length < 3) continue;
+      const remove = group.slice(0, 3);
+      bar = bar.filter((it) => !remove.includes(it));
+      reindexBar();
+      for (const it of remove) {
+        it.taken = true;
+        pops.push({ item: it, t: 0, duration: 0.22 });
+      }
+      cleared += 1;
+      if (cleared >= round.triplesToWin) {
+        completeRound();
         return;
       }
     }
-    if (bar.length >= (config?.barSlots ?? 7)) {
-      refreshBar();
-      finish("lose");
-      return;
+    if (bar.length >= round.barSlots && !flies.length) finish("lose");
+  }
+
+  function take(item: Item) {
+    if (item.taken || item.flying || ended || !started || !config) return;
+    if (hud.busy() || building) return;
+    const round = liveRound().round;
+    if (bar.length >= round.barSlots) return;
+    setHover(null);
+    item.taken = true;
+    item.flying = true;
+    if (item.group.children[1]) item.group.children[1].visible = false;
+    insertIntoBar(item);
+    flies.push({
+      item,
+      from: item.group.position.clone(),
+      fromQ: item.group.quaternion.clone(),
+      t: 0,
+      duration: 0.32,
+    });
+  }
+
+  function tickAnims(dt: number) {
+    animTime += dt;
+    const pulse = 0.22 + Math.sin(animTime * 3.2) * 0.18;
+    slotMats.forEach((m, i) => {
+      const occupied = bar.some((it) => it.slotIndex === i);
+      m.emissive.set(occupied ? "#000000" : "#ffffff");
+      m.emissiveIntensity = occupied ? 0 : pulse;
+    });
+
+    for (const fly of [...flies]) {
+      fly.t += dt / fly.duration;
+      const k = easeOutCubic(fly.t);
+      const dest = slotWorldLocal(fly.item.slotIndex);
+      fly.item.group.position.lerpVectors(fly.from, dest, k);
+      fly.item.group.position.y += Math.sin(k * Math.PI) * 0.45;
+      fly.item.group.quaternion.slerpQuaternions(fly.fromQ, upQ, k);
+      fly.item.group.scale.setScalar(ITEM_SIZE + (TRAY_SIZE - ITEM_SIZE) * k);
+      if (fly.t >= 1) {
+        fly.item.flying = false;
+        fly.item.group.position.copy(slotWorldLocal(fly.item.slotIndex));
+        fly.item.group.quaternion.copy(upQ);
+        fly.item.group.scale.setScalar(TRAY_SIZE);
+        flies = flies.filter((f) => f !== fly);
+        tryClearMatches();
+      }
     }
-    refreshBar();
+    for (const pop of [...pops]) {
+      pop.t += dt / pop.duration;
+      const k = Math.min(1, pop.t);
+      pop.item.group.scale.setScalar(TRAY_SIZE * (1 - k));
+      if (pop.t >= 1) {
+        pop.item.group.visible = false;
+        pops = pops.filter((p) => p !== pop);
+      }
+    }
+    for (const it of bar) {
+      if (it.flying) continue;
+      const dest = slotWorldLocal(it.slotIndex);
+      it.group.position.lerp(dest, Math.min(1, dt * 12));
+    }
+  }
+
+  function boardLayout(rows: number) {
+    const depth = (rows - 1) * CELL_Z;
+    const nearZ = TRAY_Z - 0.82;
+    const farZ = nearZ - depth;
+    return {
+      cols: COLS,
+      rows,
+      farZ,
+      nearZ,
+      zCenter: (farZ + nearZ) / 2,
+      width: (COLS - 1) * CELL_X,
+      depth,
+    };
+  }
+
+  function layoutGrid(list: Item[], rows: number) {
+    const { farZ } = boardLayout(rows);
+    for (let i = 0; i < list.length; i++) {
+      const col = i % COLS;
+      const row = Math.floor(i / COLS);
+      const x = (col - (COLS - 1) / 2) * CELL_X;
+      const z = farZ + row * CELL_Z;
+      list[i].group.position.set(x, 0.02, z);
+      list[i].group.rotation.set(0, 0, 0);
+      list[i].group.scale.setScalar(ITEM_SIZE);
+    }
+  }
+
+  function addBoard(color: string, rows: number) {
+    if (!host || !root) return;
+    const layout = boardLayout(rows);
+    const wood = new Color(color).multiplyScalar(0.92);
+    const floorW = layout.width + 0.55;
+    const floorD = layout.depth + 0.55;
+
+    const floorGeo = new BoxGeometry(floorW, 0.08, floorD);
+    host.tracker.track(floorGeo);
+    const floorMat = new MeshStandardMaterial({
+      color: wood,
+      roughness: 0.86,
+      metalness: 0.03,
+    });
+    host.tracker.track(floorMat);
+    const floor = new Mesh(floorGeo, floorMat);
+    floor.position.set(0, -0.04, layout.zCenter);
+    root.add(floor);
+
+    const rimMat = new MeshStandardMaterial({
+      color: wood.clone().multiplyScalar(0.52),
+      roughness: 0.74,
+      metalness: 0.04,
+    });
+    host.tracker.track(rimMat);
+    const rimH = 0.12;
+    const rimT = 0.08;
+    const specs: Array<[number, number, number, number, number]> = [
+      [floorW + rimT, rimH, rimT, 0, layout.zCenter + floorD / 2],
+      [floorW + rimT, rimH, rimT, 0, layout.zCenter - floorD / 2],
+      [rimT, rimH, floorD, floorW / 2, layout.zCenter],
+      [rimT, rimH, floorD, -floorW / 2, layout.zCenter],
+    ];
+    for (const [w, h, d, x, z] of specs) {
+      const geo = new BoxGeometry(w, h, d);
+      host.tracker.track(geo);
+      const mesh = new Mesh(geo, rimMat);
+      mesh.position.set(x, h / 2 - 0.04, z);
+      root.add(mesh);
+    }
+
+    const padGeo = new CylinderGeometry(0.28, 0.28, 0.03, 20);
+    host.tracker.track(padGeo);
+    const padMat = new MeshStandardMaterial({
+      color: wood.clone().multiplyScalar(1.12),
+      roughness: 0.7,
+      metalness: 0.04,
+    });
+    host.tracker.track(padMat);
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < COLS; col++) {
+        const pad = new Mesh(padGeo, padMat);
+        pad.position.set(
+          (col - (COLS - 1) / 2) * CELL_X,
+          0.015,
+          layout.farZ + row * CELL_Z,
+        );
+        root.add(pad);
+      }
+    }
+
+    const fill = new PointLight(0xfff2dd, 1.15, 10);
+    fill.position.set(1.2, 2.4, layout.zCenter + 1.2);
+    root.add(fill);
+    const bounce = new PointLight(0xcbb6ff, 0.5, 9);
+    bounce.position.set(-1.3, 1.8, layout.zCenter - 0.6);
+    root.add(bounce);
+  }
+
+  function addTray(slots: number) {
+    if (!host || !root) return;
+    const width = slots * SLOT_GAP + 0.22;
+    const depth = 0.56;
+    const shelfGeo = new BoxGeometry(width, 0.22, depth);
+    host.tracker.track(shelfGeo);
+    const shelfMat = new MeshStandardMaterial({
+      color: "#3a2458",
+      roughness: 0.4,
+      metalness: 0.08,
+    });
+    host.tracker.track(shelfMat);
+    const shelf = new Mesh(shelfGeo, shelfMat);
+    shelf.position.set(0, 0.06, TRAY_Z);
+    root.add(shelf);
+
+    const railGeo = new BoxGeometry(width + 0.04, 0.05, 0.05);
+    host.tracker.track(railGeo);
+    const railMat = new MeshStandardMaterial({ color: "#f2e9ff", roughness: 0.34 });
+    host.tracker.track(railMat);
+    const front = new Mesh(railGeo, railMat);
+    front.position.set(0, 0.175, TRAY_Z + depth / 2 - 0.03);
+    root.add(front);
+    const back = new Mesh(railGeo, railMat);
+    back.position.set(0, 0.175, TRAY_Z - depth / 2 + 0.03);
+    root.add(back);
+
+    for (let i = 0; i < slots; i++) {
+      const slot = new Group();
+      slot.position.set((i - (slots - 1) / 2) * SLOT_GAP, 0.16, TRAY_Z);
+
+      const wellGeo = new CylinderGeometry(0.125, 0.125, 0.1, 22);
+      host.tracker.track(wellGeo);
+      const wellMat = new MeshStandardMaterial({ color: "#1a1028", roughness: 0.55 });
+      host.tracker.track(wellMat);
+      const well = new Mesh(wellGeo, wellMat);
+      well.position.y = -0.02;
+      slot.add(well);
+
+      const rimGeo = new CylinderGeometry(0.145, 0.145, 0.04, 22);
+      host.tracker.track(rimGeo);
+      const rimMat = new MeshStandardMaterial({ color: "#ffe27a", roughness: 0.36 });
+      host.tracker.track(rimMat);
+      const rim = new Mesh(rimGeo, rimMat);
+      rim.position.y = 0.022;
+      slot.add(rim);
+
+      const padGeo = new CylinderGeometry(0.118, 0.118, 0.036, 22);
+      host.tracker.track(padGeo);
+      const padMat = new MeshStandardMaterial({
+        color: "#fffaf0",
+        roughness: 0.22,
+        metalness: 0.05,
+        emissive: "#fff4cc",
+        emissiveIntensity: 0.55,
+      });
+      host.tracker.track(padMat);
+      const pad = new Mesh(padGeo, padMat);
+      pad.position.y = 0.034;
+      slot.add(pad);
+
+      root.add(slot);
+      barSlots.push(slot);
+      slotMats.push(padMat);
+    }
   }
 
   function build() {
+    void rebuild();
+  }
+
+  async function rebuild() {
     if (!host || !config || !root) return;
+    const gen = ++buildGen;
+    building = true;
+    try {
+    const cfg = config;
+    const round = liveRound(cfg).round;
+    const assets = ctx?.assets ?? {};
+    setRuntimeAssets(assets);
+    const requested = kindsFromSlots(round.itemSlots, assets);
+    const nextTemplates = new Map<string, Group>();
+    await Promise.all(
+      requested.map(async (kind) => {
+        const url = resolveRuntimeUrl(kind, assets);
+        const scene = await loadTemplate(url);
+        if (scene) nextTemplates.set(kind, scene);
+      }),
+    );
+    if (gen !== buildGen || !host || !root || config !== cfg) return;
+
+    templates = nextTemplates;
+    const liveKinds = requested.filter((k) => nextTemplates.has(k));
+    const kinds = liveKinds.length ? liveKinds : DEFAULT_ITEMS;
+    if (!liveKinds.length) {
+      await Promise.all(
+        kinds.map(async (kind) => {
+          if (nextTemplates.has(kind)) return;
+          const url = resolveRuntimeUrl(kind, assets);
+          const scene = await loadTemplate(url);
+          if (scene) nextTemplates.set(kind, scene);
+        }),
+      );
+      if (gen !== buildGen || !host || !root || config !== cfg) return;
+      templates = nextTemplates;
+    }
+
     while (root.children.length) root.remove(root.children[0]);
     items = [];
     bar = [];
     barSlots = [];
+    slotMats = [];
+    flies = [];
+    pops = [];
+    hover = null;
     cleared = 0;
     ended = false;
+    animTime = 0;
+    root.position.set(0, 0, 0);
+    root.scale.setScalar(1);
+    syncHud();
 
-    const trayGeo = new PlaneGeometry(6.2, 5.2);
-    host.tracker.track(trayGeo);
-    const trayMat = new MeshStandardMaterial({ color: new Color(config.trayColor), roughness: 0.7 });
-    host.tracker.track(trayMat);
-    const tray = new Mesh(trayGeo, trayMat);
-    tray.rotation.x = -Math.PI / 2;
-    tray.position.y = 0.02;
-    root.add(tray);
+    const rows = Math.max(5, Math.min(9, round.triplesToWin + 2));
+    const cells = COLS * rows;
+    const pileTriples = Math.max(Math.ceil(cells / 3), round.triplesToWin + 2);
+    const deck = solvableDeck(
+      kinds.filter((k) => templates.has(k)),
+      pileTriples,
+    ).slice(0, cells);
 
-    const deck = solvableDeck(config.itemSlots, Math.max(config.triplesToWin + 2, 8));
-    deck.slice(0, 16).forEach((kind, i) => {
-      const group = createProceduralModel(kind, host!.tracker);
-      const shadow = blobShadow(host!.tracker, 0.35);
-      shadow.position.y = -0.42;
+    addBoard(round.trayColor || "#c4a574", rows);
+    addTray(round.barSlots);
+
+    deck.forEach((kind, i) => {
+      const inner = makeModel(kind, 1);
+      if (!inner) return;
+      const group = new Group();
+      group.add(inner);
+      const shadow = blobShadow(host!.tracker, 0.2);
+      shadow.position.y = 0.01;
       group.add(shadow);
       root!.add(group);
-      items.push({ id: `i${i}`, kind, group, col: 0, row: 0, taken: false });
+      items.push({
+        id: `i${i}`,
+        kind,
+        group,
+        taken: false,
+        flying: false,
+        slotIndex: -1,
+        baseScale: ITEM_SIZE,
+      });
     });
-    layoutGrid();
-
-    const slots = config.barSlots;
-    for (let i = 0; i < slots; i++) {
-      const slot = new Group();
-      slot.position.set((i - (slots - 1) / 2) * 0.85, 0.3, 2.7);
-      const padGeo = new PlaneGeometry(0.7, 0.7);
-      host.tracker.track(padGeo);
-      const padMat = new MeshStandardMaterial({ color: "#1c1f2a", roughness: 0.8 });
-      host.tracker.track(padMat);
-      const pad = new Mesh(padGeo, padMat);
-      pad.rotation.x = -Math.PI / 2;
-      slot.add(pad);
-      root.add(slot);
-      barSlots.push(slot);
+    layoutGrid(items, rows);
+    } finally {
+      if (gen === buildGen) building = false;
     }
   }
 
@@ -164,44 +635,48 @@ export function createTripleMatchEngine(): Playable3DEngine {
     name: "Triple Match 3D",
     initialize(init) {
       ctx = init;
-      config = ((init as EngineInitContext & { tripleMatch?: TripleMatchConfig }).tripleMatch)
-        ?? {
-          itemSlots: ["apple", "banana", "bottle", "can", "coin", "gem"],
-          trayColor: "#c4a574",
-          barSlots: 7,
-          triplesToWin: 6,
-          difficulty: "medium",
-        };
+      const extra = init as EngineInitContext & {
+        tripleMatch?: TripleMatchConfig;
+        playAllRounds?: boolean;
+        parkingRoundIndex?: number;
+      };
+      config = extra.tripleMatch ?? {
+        itemSlots: DEFAULT_ITEMS,
+        trayColor: "#c4a574",
+        barSlots: 7,
+        triplesToWin: 4,
+        difficulty: "medium",
+        rounds: [],
+        coinImageUrl: "",
+      };
+      playAllRounds = extra.playAllRounds !== false;
+      roundIndex = typeof extra.parkingRoundIndex === "number" ? extra.parkingRoundIndex : 0;
+      roundIndex = Math.max(0, Math.min(roundIndex, listMatchRounds(config).length - 1));
+      lastEditorRoundIndex = roundIndex;
       host = new ThreeHost(init.container);
       host.applyLighting(init.lighting);
-      host.applyCamera(init.camera, init.orientation, host.camera.aspect);
+      applyEditorCamera();
       root = new Group();
       host.scene.add(root);
+      hud.mount(init.container);
+      syncHud();
       build();
       detach = attachPointer(host.canvas, (e) => {
-        if (e.kind !== "tap" || !host) return;
-        pointer.set(e.ndcX, e.ndcY);
-        raycaster.setFromCamera(pointer, host.camera);
-        const meshes = items.filter((it) => !it.taken).flatMap((it) => {
-          const list: Mesh[] = [];
-          it.group.traverse((ch) => {
-            if (ch instanceof Mesh) list.push(ch);
-          });
-          return list.map((mesh) => ({ mesh, item: it }));
-        });
-        const hits = raycaster.intersectObjects(meshes.map((m) => m.mesh), false);
-        if (!hits.length) return;
-        const found = meshes.find((m) => m.mesh === hits[0].object);
-        if (found) take(found.item);
+        if (ended || hud.busy() || building) return;
+        if (e.kind === "move" || e.kind === "down") {
+          const hit = pickItem(e.ndcX, e.ndcY);
+          setHover(hit);
+        }
+        if (e.kind !== "tap") return;
+        const hit = pickItem(e.ndcX, e.ndcY);
+        if (hit) take(hit);
       });
     },
     start() {
       started = true;
-      host?.start(() => {
-        items.forEach((it, i) => {
-          if (it.taken) return;
-          it.group.rotation.y = Math.sin(performance.now() / 700 + i) * 0.15;
-        });
+      host?.start((dt) => {
+        tickAnims(dt);
+        hud.tick(performance.now());
       });
     },
     pause() {
@@ -210,13 +685,19 @@ export function createTripleMatchEngine(): Playable3DEngine {
     },
     reset() {
       started = true;
+      hud.cancel();
+      earned = 0;
+      if (playAllRounds) roundIndex = 0;
       build();
     },
     destroy() {
+      buildGen += 1;
       detach?.();
+      hud.destroy();
       host?.destroy();
       host = null;
       ctx = null;
+      templates = new Map();
     },
     onWin(cb) {
       onWin = cb;
@@ -226,11 +707,31 @@ export function createTripleMatchEngine(): Playable3DEngine {
     },
     setOptions(options) {
       const next = options.tripleMatch as TripleMatchConfig | undefined;
+      const prevKey = config ? matchLayoutKey(config, roundIndex, playAllRounds) : "";
       if (next) config = next;
+      if (typeof options.playAllRounds === "boolean") playAllRounds = options.playAllRounds;
+      if (typeof options.parkingRoundIndex === "number" && config) {
+        const n = listMatchRounds(config).length;
+        const nextIdx = Math.max(0, Math.min(Math.floor(options.parkingRoundIndex), n - 1));
+        if (lastEditorRoundIndex !== null && nextIdx !== lastEditorRoundIndex) {
+          hud.cancel();
+          earned = 0;
+          roundIndex = nextIdx;
+        }
+        lastEditorRoundIndex = nextIdx;
+      }
+      if (config) {
+        const nextKey = matchLayoutKey(config, roundIndex, playAllRounds);
+        if (!prevKey || prevKey !== nextKey) build();
+        else syncHud();
+      }
       if (ctx) applyLivePresentation(host, options, ctx);
+      applyEditorCamera();
     },
     resize(w, h) {
       host?.resize(w, h);
+      hud.resize();
+      applyEditorCamera();
     },
   };
 }

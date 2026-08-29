@@ -87,6 +87,7 @@ export async function readObjectBuffer(keyOrUrl: string): Promise<Buffer | null>
     keyOrUrl.startsWith("/demo-assets/") ||
     keyOrUrl.startsWith("/models/") ||
     keyOrUrl.startsWith("/kenney_car-kit/") ||
+    keyOrUrl.startsWith("/kenney_food-kit/") ||
     keyOrUrl.startsWith("/kenney_road-textures/") ||
     keyOrUrl.startsWith("/public/")
   ) {

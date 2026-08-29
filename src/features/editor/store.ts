@@ -6,6 +6,7 @@ import type { Orientation, PlayableElement, ProjectData, TemplateId } from "@/ty
 import { ProjectDataSchema } from "@/types/project";
 import { createDefaultProjectData } from "@/lib/project-defaults";
 import { ensureParkingRounds, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
+import { ensureMatchRounds, propagateMatchFoods, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
 
 export type EditorStage = "start" | "gameplay" | "end";
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -14,6 +15,12 @@ type HistoryEntry = ProjectData;
 
 function cloneData(data: ProjectData): ProjectData {
   return JSON.parse(JSON.stringify(data)) as ProjectData;
+}
+
+function activeRoundCount(templateId: TemplateId, data: ProjectData) {
+  if (templateId === "triple-match") return data.gameplay.tripleMatch.rounds.length;
+  if (templateId === "parking-jam") return data.gameplay.parkingJam.rounds.length;
+  return 1;
 }
 
 type EditorState = {
@@ -94,6 +101,12 @@ export const useEditorStore = create<EditorState>()(
         ensureParkingRounds(jam);
         state.parkingRoundIndex = 0;
         syncParkingRound(jam, 0);
+        if (payload.templateId === "triple-match") {
+          const match = state.data.gameplay.tripleMatch;
+          ensureMatchRounds(match);
+          propagateMatchFoods(match);
+          syncMatchRound(match, 0);
+        }
         state.orientation = payload.defaultOrientation;
         state.hydrated = true;
         state.past = [];
@@ -130,7 +143,7 @@ export const useEditorStore = create<EditorState>()(
 
     setParkingRoundIndex: (index) =>
       set((state) => {
-        const n = state.data.gameplay.parkingJam.rounds.length;
+        const n = activeRoundCount(state.templateId, state.data);
         state.parkingRoundIndex = Math.max(0, Math.min(index, Math.max(0, n - 1)));
       }),
 
@@ -147,7 +160,7 @@ export const useEditorStore = create<EditorState>()(
         if (!prev) return;
         state.future.push(cloneData(state.data));
         state.data = prev;
-        const n = state.data.gameplay.parkingJam.rounds.length;
+        const n = activeRoundCount(state.templateId, state.data);
         state.parkingRoundIndex = Math.max(0, Math.min(state.parkingRoundIndex, Math.max(0, n - 1)));
       }),
 
@@ -157,7 +170,7 @@ export const useEditorStore = create<EditorState>()(
         if (!next) return;
         state.past.push(cloneData(state.data));
         state.data = next;
-        const n = state.data.gameplay.parkingJam.rounds.length;
+        const n = activeRoundCount(state.templateId, state.data);
         state.parkingRoundIndex = Math.max(0, Math.min(state.parkingRoundIndex, Math.max(0, n - 1)));
       }),
 

@@ -183,6 +183,7 @@ export function EditorCanvas() {
                       className={`overflow-hidden rounded-md ${selected ? "ring-2 ring-amber-400" : "ring-1 ring-white/20"}`}
                     >
                       <GameplayHost
+                        key={`${templateId}-${orientation}`}
                         templateId={templateId}
                         data={data}
                         orientation={orientation}

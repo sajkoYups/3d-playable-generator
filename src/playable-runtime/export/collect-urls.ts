@@ -45,9 +45,15 @@ export function collectAssetUrls(data: ProjectData): string[] {
     add(el.content.videoUrl);
   }
 
-  for (const slot of data.gameplay.tripleMatch.itemSlots) {
-    if (slot.startsWith("/") || slot.startsWith("http") || slot.startsWith("data:")) add(slot);
-    else if (slot) add(`/models/${slot}.glb`);
+  add("/models/kenney/food/colormap.png");
+  add(data.gameplay.tripleMatch.coinImageUrl || "/coin.svg");
+  const matchSlots = [
+    ...data.gameplay.tripleMatch.itemSlots,
+    ...data.gameplay.tripleMatch.rounds.flatMap((r) => r.itemSlots),
+  ];
+  for (const slot of matchSlots) {
+    const item = resolveModelRef(slot);
+    add(item.url);
   }
   const char = data.gameplay.laneRunner.characterModelUrl;
   if (char.startsWith("/") || char.startsWith("http") || char.startsWith("data:")) add(char);

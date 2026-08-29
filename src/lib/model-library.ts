@@ -10,19 +10,38 @@ export type LibraryModel = {
 };
 
 export const MATCH_ITEMS: LibraryModel[] = [
-  { id: "apple", name: "Apple", category: "match-item", color: "#e85d4c", url: "/models/apple.glb" },
-  { id: "banana", name: "Banana", category: "match-item", color: "#f4c430", url: "/models/banana.glb" },
-  { id: "bottle", name: "Bottle", category: "match-item", color: "#2bb5a0", url: "/models/bottle.glb" },
-  { id: "can", name: "Can", category: "match-item", color: "#8a8494", url: "/models/can.glb" },
-  { id: "coin", name: "Coin", category: "match-item", color: "#e0b04a", url: "/models/coin.glb" },
-  { id: "gem", name: "Gem", category: "match-item", color: "#7c5cff", url: "/models/gem.glb" },
-  { id: "key", name: "Key", category: "match-item", color: "#d4a017", url: "/models/key.glb" },
-  { id: "star", name: "Star", category: "match-item", color: "#f3ede0", url: "/models/star.glb" },
-  { id: "donut", name: "Donut", category: "match-item", color: "#e07a3d", url: "/models/donut.glb" },
-  { id: "hammer", name: "Hammer", category: "match-item", color: "#6b4f3a", url: "/models/hammer.glb" },
-  { id: "potion", name: "Potion", category: "match-item", color: "#3d7cff", url: "/models/potion.glb" },
-  { id: "crown", name: "Crown", category: "match-item", color: "#e0b04a", url: "/models/crown.glb" },
+  { id: "apple", name: "Apple", category: "match-item", color: "#e85d4c", url: "/models/kenney/food/apple.glb" },
+  { id: "banana", name: "Banana", category: "match-item", color: "#f4c430", url: "/models/kenney/food/banana.glb" },
+  { id: "strawberry", name: "Strawberry", category: "match-item", color: "#e23b4a", url: "/models/kenney/food/strawberry.glb" },
+  { id: "orange", name: "Orange", category: "match-item", color: "#e07a3d", url: "/models/kenney/food/orange.glb" },
+  { id: "lemon", name: "Lemon", category: "match-item", color: "#f4c430", url: "/models/kenney/food/lemon.glb" },
+  { id: "pear", name: "Pear", category: "match-item", color: "#8fbf4a", url: "/models/kenney/food/pear.glb" },
+  { id: "cherries", name: "Cherries", category: "match-item", color: "#c42b3a", url: "/models/kenney/food/cherries.glb" },
+  { id: "donut", name: "Donut", category: "match-item", color: "#e07a3d", url: "/models/kenney/food/donut.glb" },
+  { id: "croissant", name: "Croissant", category: "match-item", color: "#d4a017", url: "/models/kenney/food/croissant.glb" },
+  { id: "cupcake", name: "Cupcake", category: "match-item", color: "#e85d4c", url: "/models/kenney/food/cupcake.glb" },
+  { id: "cookie", name: "Cookie", category: "match-item", color: "#c4a574", url: "/models/kenney/food/cookie.glb" },
+  { id: "taco", name: "Taco", category: "match-item", color: "#e0b04a", url: "/models/kenney/food/taco.glb" },
+  { id: "bacon", name: "Bacon", category: "match-item", color: "#c45a3a", url: "/models/kenney/food/bacon.glb" },
+  { id: "burger", name: "Burger", category: "match-item", color: "#8b5a2b", url: "/models/kenney/food/burger.glb" },
+  { id: "soda-can", name: "Soda can", category: "match-item", color: "#e85d4c", url: "/models/kenney/food/soda-can.glb" },
+  { id: "soda-bottle", name: "Soda bottle", category: "match-item", color: "#2bb5a0", url: "/models/kenney/food/soda-bottle.glb" },
+  { id: "carrot", name: "Carrot", category: "match-item", color: "#e07a3d", url: "/models/kenney/food/carrot.glb" },
+  { id: "tomato", name: "Tomato", category: "match-item", color: "#e85d4c", url: "/models/kenney/food/tomato.glb" },
+  { id: "muffin", name: "Muffin", category: "match-item", color: "#c47a4a", url: "/models/kenney/food/muffin.glb" },
 ];
+
+const FOOD_ALIASES: Record<string, string> = {
+  bottle: "soda-bottle",
+  can: "soda-can",
+  coin: "cookie",
+  gem: "lollypop",
+  key: "honey",
+  star: "cupcake",
+  hammer: "carrot",
+  potion: "soda",
+  crown: "muffin",
+};
 
 export const CHARACTERS: LibraryModel[] = [
   { id: "runner", name: "Runner", category: "character", color: "#e07a3d", url: "/models/runner.glb" },
@@ -56,16 +75,25 @@ export function getLibraryModel(id: string): LibraryModel | undefined {
 
 export function resolveModelRef(ref: string): { libraryId?: string; url: string } {
   if (!ref) return { url: "" };
-  const kenney = ref.match(/kenney_car-kit\/Models\/GLB format\/([a-z0-9-]+)\.glb/i);
-  if (kenney) {
-    const lib = getLibraryModel(kenney[1].toLowerCase());
+  const aliased = FOOD_ALIASES[ref] || ref;
+  const kenneyCar = aliased.match(/kenney_car-kit\/Models\/GLB format\/([a-z0-9-]+)\.glb/i);
+  if (kenneyCar) {
+    const lib = getLibraryModel(kenneyCar[1].toLowerCase());
     if (lib) return { libraryId: lib.id, url: lib.url };
   }
-  if (ref.startsWith("/") || ref.startsWith("http") || ref.startsWith("data:")) {
-    return { url: ref };
+  const kenneyFood = aliased.match(/kenney_food-kit\/Models\/GLB format\/([a-z0-9-]+)\.glb/i);
+  if (kenneyFood) {
+    const lib = getLibraryModel(kenneyFood[1].toLowerCase());
+    if (lib) return { libraryId: lib.id, url: lib.url };
+    return { libraryId: kenneyFood[1].toLowerCase(), url: `/models/kenney/food/${kenneyFood[1].toLowerCase()}.glb` };
   }
-  const lib = getLibraryModel(ref);
-  return { libraryId: ref, url: lib?.url ?? "" };
+  if (aliased.startsWith("/") || aliased.startsWith("http") || aliased.startsWith("data:")) {
+    return { url: aliased };
+  }
+  const lib = getLibraryModel(aliased);
+  if (lib) return { libraryId: aliased, url: lib.url };
+  if (FOOD_ALIASES[ref]) return { libraryId: aliased, url: `/models/kenney/food/${aliased}.glb` };
+  return { libraryId: aliased, url: lib?.url ?? "" };
 }
 
 export function modelsForTemplate(templateId: TemplateId): LibraryModel[] {

@@ -4,6 +4,7 @@ import {
   Color,
   DoubleSide,
   Group,
+  LoadingManager,
   Mesh,
   MeshStandardMaterial,
   Object3D,
@@ -16,7 +17,21 @@ import {
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { ResourceTracker } from "@/playable-runtime/three/resources";
 
-const gltfLoader = new GLTFLoader();
+const loadingManager = new LoadingManager();
+let runtimeAssets: Record<string, string> = {};
+
+export function setRuntimeAssets(assets: Record<string, string>) {
+  runtimeAssets = assets;
+}
+
+loadingManager.setURLModifier((url) => {
+  if (/colormap\.png(?:\?|$)/i.test(url)) {
+    const bundled = "/models/kenney/food/colormap.png";
+    return runtimeAssets[bundled] || bundled;
+  }
+  return url;
+});
+const gltfLoader = new GLTFLoader(loadingManager);
 const textureLoader = new TextureLoader();
 const gltfCache = new Map<string, Group>();
 const textureCache = new Map<string, Texture>();
@@ -30,6 +45,43 @@ const LIBRARY_CAR_URLS: Record<string, string> = {
   truck: "/models/kenney/truck.glb",
 };
 
+const LIBRARY_FOOD_URLS: Record<string, string> = {
+  apple: "/models/kenney/food/apple.glb",
+  banana: "/models/kenney/food/banana.glb",
+  strawberry: "/models/kenney/food/strawberry.glb",
+  orange: "/models/kenney/food/orange.glb",
+  lemon: "/models/kenney/food/lemon.glb",
+  pear: "/models/kenney/food/pear.glb",
+  cherries: "/models/kenney/food/cherries.glb",
+  donut: "/models/kenney/food/donut.glb",
+  croissant: "/models/kenney/food/croissant.glb",
+  cupcake: "/models/kenney/food/cupcake.glb",
+  cookie: "/models/kenney/food/cookie.glb",
+  taco: "/models/kenney/food/taco.glb",
+  bacon: "/models/kenney/food/bacon.glb",
+  burger: "/models/kenney/food/burger.glb",
+  "soda-can": "/models/kenney/food/soda-can.glb",
+  "soda-bottle": "/models/kenney/food/soda-bottle.glb",
+  carrot: "/models/kenney/food/carrot.glb",
+  tomato: "/models/kenney/food/tomato.glb",
+  muffin: "/models/kenney/food/muffin.glb",
+  lollypop: "/models/kenney/food/lollypop.glb",
+  honey: "/models/kenney/food/honey.glb",
+  soda: "/models/kenney/food/soda.glb",
+  "cutting-board": "/models/kenney/food/cutting-board.glb",
+  bottle: "/models/kenney/food/soda-bottle.glb",
+  can: "/models/kenney/food/soda-can.glb",
+  coin: "/models/kenney/food/cookie.glb",
+  gem: "/models/kenney/food/lollypop.glb",
+  key: "/models/kenney/food/honey.glb",
+  star: "/models/kenney/food/cupcake.glb",
+  hammer: "/models/kenney/food/carrot.glb",
+  potion: "/models/kenney/food/soda.glb",
+  crown: "/models/kenney/food/muffin.glb",
+};
+
+export const CUTTING_BOARD_URL = LIBRARY_FOOD_URLS["cutting-board"];
+
 export function isUploadedAsset(ref: string) {
   return (
     ref.startsWith("http://") ||
@@ -41,9 +93,10 @@ export function isUploadedAsset(ref: string) {
 }
 
 function bundledKenneyUrl(ref: string) {
+  if (LIBRARY_FOOD_URLS[ref]) return LIBRARY_FOOD_URLS[ref];
   if (LIBRARY_CAR_URLS[ref]) return LIBRARY_CAR_URLS[ref];
-  if (!/kenney_car-kit|\/models\/kenney\//i.test(ref)) return "";
   const file = ref.match(/(?:^|\/)([a-z0-9-]+)\.glb$/i)?.[1]?.toLowerCase();
+  if (file && LIBRARY_FOOD_URLS[file]) return LIBRARY_FOOD_URLS[file];
   if (file && LIBRARY_CAR_URLS[file]) return LIBRARY_CAR_URLS[file];
   return "";
 }
@@ -181,6 +234,35 @@ export function cloneTintedModel(source: Object3D, tint: string, tracker: Resour
   return root;
 }
 
+export function cloneTexturedModel(source: Object3D, tracker: ResourceTracker): Group {
+  const root = new Group();
+  const cloned = source.clone(true);
+  cloned.traverse((child) => {
+    const mesh = child as Mesh;
+    if (!mesh.isMesh) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const next = mats.map((m) => {
+      if (m instanceof MeshStandardMaterial) {
+        const prepared = m.clone();
+        prepared.metalness = Math.min(prepared.metalness, 0.15);
+        prepared.side = DoubleSide;
+        prepared.envMapIntensity = 0;
+        if (prepared.map) prepared.map.colorSpace = SRGBColorSpace;
+        prepared.needsUpdate = true;
+        tracker.track(prepared);
+        return prepared;
+      }
+      const fallback = new MeshStandardMaterial({ color: "#ffffff", roughness: 0.55, metalness: 0, side: DoubleSide });
+      tracker.track(fallback);
+      return fallback;
+    });
+    mesh.material = next.length === 1 ? next[0] : next;
+    mesh.frustumCulled = false;
+  });
+  root.add(cloned);
+  return root;
+}
+
 export function orientCarAlongX(object: Object3D) {
   const box = new Box3().setFromObject(object);
   const size = box.getSize(new Vector3());
@@ -196,6 +278,29 @@ export function fitObjectToFootprint(object: Object3D, lengthX: number, widthZ: 
   object.scale.x *= sx;
   object.scale.z *= sz;
   object.scale.y *= Math.min(sx, sz);
+  const seated = new Box3().setFromObject(object);
+  object.position.y -= seated.min.y;
+}
+
+export function fitObjectToMax(object: Object3D, maxSize: number) {
+  object.updateWorldMatrix(true, true);
+  const box = new Box3().setFromObject(object);
+  const size = box.getSize(new Vector3());
+  const longest = Math.max(size.x, size.y, size.z, 1e-4);
+  object.scale.multiplyScalar(maxSize / longest);
+  const seated = new Box3().setFromObject(object);
+  object.position.y -= seated.min.y;
+}
+
+/** Uniform scale so width/depth match. Caps height so round snacks don't dwarf flat ones. */
+export function fitObjectToXZ(object: Object3D, maxXZ: number, maxY = maxXZ) {
+  object.updateWorldMatrix(true, true);
+  const box = new Box3().setFromObject(object);
+  const size = box.getSize(new Vector3());
+  const footprint = Math.max(size.x, size.z, 1e-4);
+  let s = maxXZ / footprint;
+  if (size.y * s > maxY) s = maxY / Math.max(size.y, 1e-4);
+  object.scale.multiplyScalar(s);
   const seated = new Box3().setFromObject(object);
   object.position.y -= seated.min.y;
 }

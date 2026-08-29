@@ -254,6 +254,8 @@ export const LaneRunnerConfigSchema = z.object({
   laneCount: z.number().int().min(3).max(5).default(3),
   startSpeed: z.number().min(4).max(20).default(8),
   speedRamp: z.number().min(0).max(4).default(0.6),
+  /** How fast the car slides between lanes when swiping (higher = snappier). */
+  laneSwitchSpeed: z.number().min(4).max(24).default(10),
   winDistance: z.number().min(40).max(800).default(180),
   roadTextureUrl: z.string().default(""),
   grassTextureUrl: z.string().default(""),

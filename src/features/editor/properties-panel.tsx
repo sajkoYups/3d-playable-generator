@@ -11,7 +11,7 @@ import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LaneRunnerConfig,
 import { MATCH_ITEMS, OBSTACLES, VEHICLES } from "@/lib/model-library";
 import { ensureParkingRounds, repairParkingCars, setParkingRoundCount, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 import { ensureMatchRounds, propagateMatchFoods, setMatchRoundCount, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
-import { ensureLaneRounds, setLaneRoundCount, syncLaneRound } from "@/playable-runtime/engines/lane-runner/rounds";
+import { ensureLaneRounds, propagateLaneWinDistance, setLaneRoundCount, syncLaneRound } from "@/playable-runtime/engines/lane-runner/rounds";
 
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n));
@@ -547,11 +547,12 @@ function GameplaySettings() {
                       min={40}
                       max={800}
                       value={round.winDistance}
-                      onChange={(e) =>
-                        patchLaneRound(updateData, roundIdx, (r) => {
-                          r.winDistance = Math.min(800, Math.max(40, Number(e.target.value) || 180));
-                        })
-                      }
+                      onChange={(e) => {
+                        const next = Math.min(800, Math.max(40, Number(e.target.value) || 180));
+                        updateData((d) => {
+                          propagateLaneWinDistance(d.gameplay.laneRunner, next);
+                        });
+                      }}
                     />
                   </div>
                   <div>
@@ -601,6 +602,23 @@ function GameplaySettings() {
                     />
                   </div>
                 </div>
+                <Label>Lane switch speed</Label>
+                <p className="text-[11px] text-muted">How fast the car slides left and right when you swipe (higher = snappier).</p>
+                <Input
+                  type="number"
+                  min={4}
+                  max={24}
+                  step={1}
+                  value={runner.laneSwitchSpeed ?? 10}
+                  onChange={(e) =>
+                    updateData((d) => {
+                      d.gameplay.laneRunner.laneSwitchSpeed = Math.min(
+                        24,
+                        Math.max(4, Number(e.target.value) || 10),
+                      );
+                    })
+                  }
+                />
                 <Label>Lanes</Label>
                 <Input
                   type="number"

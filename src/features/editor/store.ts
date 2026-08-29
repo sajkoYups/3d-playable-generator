@@ -111,7 +111,7 @@ export const useEditorStore = create<EditorState>()(
         }
         if (payload.templateId === "lane-runner") {
           const runner = state.data.gameplay.laneRunner;
-          ensureLaneRounds(runner);
+          ensureLaneRounds(runner); // also unifies winDistance across all rounds
           syncLaneRound(runner, 0);
         }
         state.orientation = payload.defaultOrientation;

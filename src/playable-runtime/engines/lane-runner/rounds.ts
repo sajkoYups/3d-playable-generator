@@ -74,10 +74,23 @@ function applyLaneRoundCount(cfg: LaneRunnerConfig, count: number) {
   const pack = defaultLaneRoundsPack();
   const n = Math.min(MAX_LANE_ROUNDS, Math.max(1, Math.round(count)));
   const prev = cfg.rounds ?? [];
+  // Existing packs unify to round 1; brand-new packs use cfg / factory default.
+  const sharedDist = clampDist(
+    prev.length ? (prev[0]?.winDistance ?? cfg.winDistance) : cfg.winDistance,
+    180,
+  );
   cfg.rounds = pack.slice(0, n).map((p, i) => {
     const existing = prev[i];
-    return existing ? cloneLaneRound(existing) : cloneLaneRound(p);
+    if (existing) {
+      const next = cloneLaneRound(existing);
+      next.winDistance = sharedDist;
+      return next;
+    }
+    const next = cloneLaneRound(p);
+    next.winDistance = sharedDist;
+    return next;
   });
+  cfg.winDistance = sharedDist;
 }
 
 /** Keep the current round count (1–9). Empty lists hydrate to the full pack. */
@@ -97,4 +110,12 @@ export function syncLaneRound(cfg: LaneRunnerConfig, index: number) {
   cfg.winDistance = round.winDistance;
   cfg.startSpeed = round.startSpeed;
   cfg.speedRamp = round.speedRamp;
+}
+
+/** Apply the same win distance to every round (shared length for the whole pack). */
+export function propagateLaneWinDistance(cfg: LaneRunnerConfig, winDistance: number) {
+  const dist = clampDist(winDistance, 180);
+  ensureLaneRounds(cfg);
+  for (const round of cfg.rounds) round.winDistance = dist;
+  cfg.winDistance = dist;
 }

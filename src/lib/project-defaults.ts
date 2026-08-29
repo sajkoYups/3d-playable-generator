@@ -528,6 +528,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       laneCount: 3,
       startSpeed: 8,
       speedRamp: 0.6,
+      laneSwitchSpeed: 10,
       winDistance: 180,
       roadTextureUrl: "",
       grassTextureUrl: "",

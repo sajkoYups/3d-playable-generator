@@ -53,6 +53,10 @@ const SEGMENT_LEN = 36;
 const SEGMENT_COUNT = 3;
 const WHEEL_R = 0.16;
 const DIST_TO_WORLD = 4.2 / 4;
+/** Hazards closer than this on Z form one blocking wall across lanes. */
+const HAZARD_BLOCK_SPAN = 4.5;
+/** No traffic/coins in the player's lane for this long after a round starts. */
+const SPAWN_GRACE_SEC = 2;
 const TRAFFIC_COLORS = ["#2bb5a0", "#7c5cff", "#e85d4c", "#3d7cff", "#e0b04a", "#c47a4a", "#8b95a8"];
 const THEMES: Record<
   LaneRunnerConfig["environmentTheme"],
@@ -193,6 +197,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
   let targetLane = 1;
   let distance = 0;
   let speed = 8;
+  let roundElapsed = 0;
   let onWin: () => void = () => undefined;
   let onLose: () => void = () => undefined;
   let detach: (() => void) | null = null;
@@ -236,7 +241,22 @@ export function createLaneRunnerEngine(): Playable3DEngine {
       dist: round.winDistance,
       speed: round.startSpeed,
       ramp: round.speedRamp,
+      laneSwitch: cfg.laneSwitchSpeed,
     });
+  }
+
+  function steerRate(cfg = config!) {
+    const s = cfg.laneSwitchSpeed;
+    if (!Number.isFinite(s)) return 10;
+    return Math.min(24, Math.max(4, s));
+  }
+
+  function inSpawnGrace() {
+    return roundElapsed < SPAWN_GRACE_SEC;
+  }
+
+  function playerLaneIndex() {
+    return Math.max(0, Math.min((config?.laneCount ?? 3) - 1, Math.round(targetLane)));
   }
 
   function syncHud() {
@@ -406,25 +426,85 @@ export function createLaneRunnerEngine(): Playable3DEngine {
     return next;
   }
 
+  function hazardLanesNear(z: number, ignore?: Actor) {
+    const blocked = new Set<number>();
+    for (const a of actors) {
+      if (a === ignore || a.kind !== "hazard" || !a.group.visible) continue;
+      if (Math.abs(a.z - z) < HAZARD_BLOCK_SPAN) blocked.add(a.lane);
+    }
+    return blocked;
+  }
+
+  /** Lane that still leaves ≥1 open path through this Z band, or -1 if none. */
+  function pickPassableLane(z: number, count: number, ignore?: Actor) {
+    const blocked = hazardLanesNear(z, ignore);
+    const reserved = inSpawnGrace() ? playerLaneIndex() : -1;
+    const open: number[] = [];
+    for (let i = 0; i < count; i++) {
+      if (blocked.has(i) || i === reserved) continue;
+      open.push(i);
+    }
+    // Placing fills one open lane — need ≥2 free overall so one remains clear.
+    const freeCount = count - blocked.size;
+    if (open.length < 1 || freeCount < 2) return -1;
+    return open[Math.floor(Math.random() * open.length)]!;
+  }
+
+  function pickCoinLane(count: number) {
+    const reserved = inSpawnGrace() ? playerLaneIndex() : -1;
+    const choices: number[] = [];
+    for (let i = 0; i < count; i++) {
+      if (i !== reserved) choices.push(i);
+    }
+    if (!choices.length) return Math.floor(Math.random() * count);
+    return choices[Math.floor(Math.random() * choices.length)]!;
+  }
+
+  function findPassableSpawn(behind: number, count: number, ignore?: Actor) {
+    const finishLimit = finishWorldZ() + 4;
+    for (let attempt = 0; attempt < 14; attempt++) {
+      const z = behind - 6 - Math.random() * 10 - attempt * 2.8;
+      if (z < finishLimit) continue;
+      const lane = pickPassableLane(z, count, ignore);
+      if (lane >= 0) return { lane, z };
+    }
+    return null;
+  }
+
   function recycleActor(actor: Actor, behind: number) {
     if (!config) return;
     const count = config.laneCount;
-    const spawnZ = behind - 6 - Math.random() * 10;
-    if (spawnZ < finishWorldZ() + 4) {
-      actor.group.visible = false;
+    if (actor.kind === "coin") {
+      const spawnZ = behind - 6 - Math.random() * 10;
+      if (spawnZ < finishWorldZ() + 4) {
+        actor.group.visible = false;
+        actor.z = spawnZ;
+        actor.group.position.z = spawnZ;
+        return;
+      }
+      actor.lane = pickCoinLane(count);
       actor.z = spawnZ;
-      actor.group.position.z = spawnZ;
+      actor.group.visible = true;
+      actor.group.position.set(laneX(actor.lane, count), 0.55, actor.z);
       return;
     }
-    actor.lane = Math.floor(Math.random() * count);
-    actor.z = spawnZ;
+    const spot = findPassableSpawn(behind, count, actor);
+    if (!spot) {
+      actor.group.visible = false;
+      actor.z = behind - SEGMENT_LEN;
+      actor.group.position.z = actor.z;
+      return;
+    }
+    actor.lane = spot.lane;
+    actor.z = spot.z;
     actor.group.visible = true;
-    actor.group.position.set(laneX(actor.lane, count), actor.kind === "coin" ? 0.55 : 0, actor.z);
+    actor.group.position.set(laneX(actor.lane, count), 0, actor.z);
   }
 
   function tickScroll(dt: number) {
     if (!config || !player) return;
     const { round } = liveRound();
+    roundElapsed += dt;
     speed += round.speedRamp * dt;
     const scroll = speed * dt * 4.2;
     distance += speed * dt * 4;
@@ -437,7 +517,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
       piece.group.position.z = piece.z;
     }
 
-    lane += (targetLane - lane) * Math.min(1, dt * 10);
+    lane += (targetLane - lane) * Math.min(1, dt * steerRate());
     player.position.x = laneX(lane, config.laneCount);
     const rolled = scroll / WHEEL_R;
     for (const wheel of playerWheels) wheel.rotateX(rolled);
@@ -456,6 +536,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
       if (actor.z > PLAYER_Z + 3.2) recycleActor(actor, PLAYER_Z - SEGMENT_LEN * 1.15);
       if (!actor.group.visible) continue;
       const sameLane = Math.abs(actor.lane - targetLane) < 0.5;
+      if (inSpawnGrace() && sameLane) continue;
       const near = Math.abs(actor.z - PLAYER_Z) < (actor.kind === "coin" ? 0.85 : 1.35);
       if (!sameLane || !near) continue;
       if (actor.kind === "hazard") {
@@ -535,6 +616,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
       playerWheels = [];
       ended = false;
       distance = 0;
+      roundElapsed = 0;
       speed = round.startSpeed;
       lane = Math.floor((cfg.laneCount - 1) / 2);
       targetLane = lane;
@@ -606,12 +688,26 @@ export function createLaneRunnerEngine(): Playable3DEngine {
 
       const hazards = obstacleIds.slice(0, 6);
       while (hazards.length < 6) hazards.push(obstacleIds[hazards.length % obstacleIds.length] || "suv");
+      const graceWorld = round.startSpeed * SPAWN_GRACE_SEC * 4.2;
+      const firstZ = PLAYER_Z - Math.max(14, graceWorld + 4);
       hazards.forEach((id, i) => {
         const tint = TRAFFIC_COLORS[i % TRAFFIC_COLORS.length];
         const size = isConeId(id) ? 0.78 : 2.0;
         const group = stampModel(id, tint, size, true);
-        const laneIndex = (lane + 1 + (i % Math.max(1, cfg.laneCount - 1))) % cfg.laneCount;
-        const z = PLAYER_Z - 10 - i * 5.5;
+        const baseZ = firstZ - i * 5.5;
+        let laneIndex = pickPassableLane(baseZ, cfg.laneCount);
+        let z = baseZ;
+        if (laneIndex < 0) {
+          const spot = findPassableSpawn(firstZ - i * 5.5, cfg.laneCount);
+          if (spot) {
+            laneIndex = spot.lane;
+            z = spot.z;
+          } else {
+            group.visible = false;
+            laneIndex = 0;
+            z = baseZ - SEGMENT_LEN;
+          }
+        }
         group.position.set(laneX(laneIndex, cfg.laneCount), 0, z);
         root.add(group);
         actors.push({ group, lane: laneIndex, z, kind: "hazard", wheels: collectWheels(group) });
@@ -619,8 +715,8 @@ export function createLaneRunnerEngine(): Playable3DEngine {
 
       for (let i = 0; i < 4; i++) {
         const group = makeCoin();
-        const laneIndex = i % cfg.laneCount;
-        const z = PLAYER_Z - 8 - i * 7;
+        const laneIndex = pickCoinLane(cfg.laneCount);
+        const z = firstZ + 4 - i * 7;
         group.position.set(laneX(laneIndex, cfg.laneCount), 0.55, z);
         root.add(group);
         actors.push({ group, lane: laneIndex, z, kind: "coin", wheels: [] });
@@ -647,6 +743,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
         laneCount: 3,
         startSpeed: 8,
         speedRamp: 0.6,
+        laneSwitchSpeed: 10,
         winDistance: 180,
         roadTextureUrl: "",
         grassTextureUrl: "",

@@ -127,8 +127,16 @@ export function createProceduralModel(
     case "sedan":
     case "suv":
     case "van":
+    case "taxi":
+    case "police":
+    case "truck":
     case "car":
-      createCar(tracker, g, c, id);
+      createCar(
+        tracker,
+        g,
+        c,
+        id === "suv" ? "suv" : id === "van" || id === "truck" ? "van" : "sedan",
+      );
       break;
     default:
       add(tracker, g, new BoxGeometry(0.6, 0.6, 0.6), mat(c));

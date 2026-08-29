@@ -8,6 +8,7 @@ import {
   Group,
   Mesh,
   MeshStandardMaterial,
+  DoubleSide,
   Object3D,
   PlaneGeometry,
   RepeatWrapping,
@@ -22,7 +23,6 @@ import { attachPointer } from "@/playable-runtime/three/input";
 import { blobShadow, createProceduralModel } from "@/playable-runtime/models/procedural";
 import {
   cloneTexturedModel,
-  cloneTintedModel,
   fitObjectToMax,
   KENNEY_ASPHALT,
   KENNEY_GRASS_URL,
@@ -30,9 +30,9 @@ import {
   libraryCarKind,
   loadGltfScene,
   loadTexture,
-  orientCarAlongX,
   resolveRuntimeUrl,
   setRuntimeAssets,
+  yawObjectTowardXZ,
 } from "@/playable-runtime/models/assets";
 import { createPayoutHud, DEFAULT_COIN_URL } from "@/playable-runtime/engines/parking-jam/payout";
 import { laneCoinsTotal, listLaneRounds } from "@/playable-runtime/engines/lane-runner/rounds";
@@ -52,14 +52,15 @@ const PLAYER_Z = 3.6;
 const SEGMENT_LEN = 36;
 const SEGMENT_COUNT = 3;
 const WHEEL_R = 0.16;
+const DIST_TO_WORLD = 4.2 / 4;
 const TRAFFIC_COLORS = ["#2bb5a0", "#7c5cff", "#e85d4c", "#3d7cff", "#e0b04a", "#c47a4a", "#8b95a8"];
 const THEMES: Record<
   LaneRunnerConfig["environmentTheme"],
   { fog: string; shoulder: string; neon: boolean; trees: boolean }
 > = {
   desert: { fog: "#e8d5b5", shoulder: "#c4a574", neon: false, trees: true },
-  city: { fog: "#8aa0b4", shoulder: "#5cbf5a", neon: false, trees: false },
-  neon: { fog: "#0a0614", shoulder: "#1a1024", neon: true, trees: false },
+  city: { fog: "#8aa0b4", shoulder: "#5cbf5a", neon: false, trees: true },
+  neon: { fog: "#0a0614", shoulder: "#1a1024", neon: true, trees: true },
 };
 
 function laneX(i: number, count: number) {
@@ -128,6 +129,31 @@ function createLaneRoadTexture(lanes: number) {
   return tex;
 }
 
+function createCheckeredTexture() {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    const empty = new CanvasTexture(canvas);
+    empty.colorSpace = SRGBColorSpace;
+    return empty;
+  }
+  const cells = 8;
+  const cell = size / cells;
+  for (let y = 0; y < cells; y++) {
+    for (let x = 0; x < cells; x++) {
+      ctx.fillStyle = (x + y) % 2 === 0 ? "#f4f1ea" : "#1a1a1a";
+      ctx.fillRect(x * cell, y * cell, cell + 1, cell + 1);
+    }
+  }
+  const tex = new CanvasTexture(canvas);
+  tex.colorSpace = SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
 async function loadTemplate(url: string) {
   if (!url) return null;
   try {
@@ -143,7 +169,19 @@ async function loadTemplate(url: string) {
 }
 
 function isConeId(id: string) {
-  return /(^|\/)cone/i.test(id);
+  return /(^|\/)cone(\.glb)?$/i.test(id.split("/").pop() || id);
+}
+
+const LEGACY_TRAFFIC: Record<string, string> = {
+  crate: "suv",
+  barrier: "taxi",
+  runner: "sedan",
+};
+
+function normalizeTrafficId(id: string) {
+  const key = (id.split("/").pop() || id).replace(/\.glb$/i, "").toLowerCase();
+  if (LEGACY_TRAFFIC[key]) return LEGACY_TRAFFIC[key];
+  return id;
 }
 
 export function createLaneRunnerEngine(): Playable3DEngine {
@@ -166,6 +204,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
   let roads: ScrollPiece[] = [];
   let shoulders: ScrollPiece[] = [];
   let props: ScrollPiece[] = [];
+  let finishLine: Group | null = null;
   let buildGen = 0;
   let roundIndex = 0;
   let playAllRounds = true;
@@ -240,15 +279,9 @@ export function createLaneRunnerEngine(): Playable3DEngine {
     });
   }
 
-  function placeCar(inner: Group) {
-    orientCarAlongX(inner);
-  }
-
   function makeFallback(id: string, tint: string) {
     if (!host) return new Group();
-    if (isConeId(id) || id === "crate" || id === "barrier" || id === "runner") {
-      return createProceduralModel(id === "cone" || isConeId(id) ? "cone" : id, host.tracker, tint);
-    }
+    if (isConeId(id)) return createProceduralModel("cone", host.tracker, tint);
     return createProceduralModel(libraryCarKind(id), host.tracker, tint);
   }
 
@@ -259,21 +292,16 @@ export function createLaneRunnerEngine(): Playable3DEngine {
     const inner = new Group();
     if (source) {
       try {
-        inner.add(
-          isConeId(id)
-            ? cloneTexturedModel(source, host.tracker)
-            : cloneTintedModel(source, tint, host.tracker),
-        );
+        inner.add(cloneTexturedModel(source, host.tracker));
       } catch {
         inner.add(makeFallback(id, tint));
       }
     } else {
       inner.add(makeFallback(id, tint));
     }
-    placeCar(inner);
     fitObjectToMax(inner, size);
+    if (facingZ && !isConeId(id)) yawObjectTowardXZ(inner, 0, -1);
     group.add(inner);
-    if (facingZ && !isConeId(id)) group.rotation.y = -Math.PI / 2;
     const shadow = blobShadow(host.tracker, isConeId(id) ? 0.28 : 0.42);
     shadow.position.y = 0.02;
     group.add(shadow);
@@ -327,6 +355,50 @@ export function createLaneRunnerEngine(): Playable3DEngine {
     return g;
   }
 
+  function finishWorldZ() {
+    const { round } = liveRound();
+    return PLAYER_Z - Math.max(0, round.winDistance - distance) * DIST_TO_WORLD;
+  }
+
+  function makeFinishLine(roadW: number) {
+    if (!host) return new Group();
+    const g = new Group();
+    const tex = createCheckeredTexture();
+    host.tracker.track(tex);
+    const poleGeo = new BoxGeometry(0.14, 2.5, 0.14);
+    host.tracker.track(poleGeo);
+    const poleMat = new MeshStandardMaterial({ color: "#f3ede0", roughness: 0.55, metalness: 0.08 });
+    host.tracker.track(poleMat);
+    const left = new Mesh(poleGeo, poleMat);
+    const right = new Mesh(poleGeo, poleMat);
+    left.position.set(-roadW / 2, 1.25, 0);
+    right.position.set(roadW / 2, 1.25, 0);
+    g.add(left, right);
+
+    const bannerGeo = new PlaneGeometry(roadW, 1.15);
+    host.tracker.track(bannerGeo);
+    const bannerMat = new MeshStandardMaterial({
+      map: tex,
+      roughness: 0.85,
+      metalness: 0,
+      side: DoubleSide,
+    });
+    host.tracker.track(bannerMat);
+    const banner = new Mesh(bannerGeo, bannerMat);
+    banner.position.set(0, 1.65, 0);
+    g.add(banner);
+
+    const stripeGeo = new PlaneGeometry(roadW, 1.1);
+    host.tracker.track(stripeGeo);
+    const stripeMat = new MeshStandardMaterial({ map: tex, roughness: 0.92, metalness: 0, side: DoubleSide });
+    host.tracker.track(stripeMat);
+    const stripe = new Mesh(stripeGeo, stripeMat);
+    stripe.rotation.x = -Math.PI / 2;
+    stripe.position.y = 0.03;
+    g.add(stripe);
+    return g;
+  }
+
   function wrapZ(z: number, front: number, span: number) {
     let next = z;
     while (next > front) next -= span;
@@ -337,8 +409,15 @@ export function createLaneRunnerEngine(): Playable3DEngine {
   function recycleActor(actor: Actor, behind: number) {
     if (!config) return;
     const count = config.laneCount;
+    const spawnZ = behind - 6 - Math.random() * 10;
+    if (spawnZ < finishWorldZ() + 4) {
+      actor.group.visible = false;
+      actor.z = spawnZ;
+      actor.group.position.z = spawnZ;
+      return;
+    }
     actor.lane = Math.floor(Math.random() * count);
-    actor.z = behind - 6 - Math.random() * 10;
+    actor.z = spawnZ;
     actor.group.visible = true;
     actor.group.position.set(laneX(actor.lane, count), actor.kind === "coin" ? 0.55 : 0, actor.z);
   }
@@ -362,6 +441,12 @@ export function createLaneRunnerEngine(): Playable3DEngine {
     player.position.x = laneX(lane, config.laneCount);
     const rolled = scroll / WHEEL_R;
     for (const wheel of playerWheels) wheel.rotateX(rolled);
+
+    if (finishLine) {
+      const z = finishWorldZ();
+      finishLine.position.z = z;
+      finishLine.visible = z > PLAYER_Z - 52;
+    }
 
     for (const actor of actors) {
       actor.z += scroll;
@@ -401,15 +486,8 @@ export function createLaneRunnerEngine(): Playable3DEngine {
       const theme = THEMES[cfg.environmentTheme] ?? THEMES.city;
       const playerId =
         !cfg.characterModelUrl || cfg.characterModelUrl === "runner" ? "sedan" : cfg.characterModelUrl;
-      const rawObstacles = cfg.obstacleSet.filter(Boolean);
-      const obstacleIds =
-        !rawObstacles.length ||
-        (rawObstacles.length === 3 &&
-          rawObstacles.includes("crate") &&
-          rawObstacles.includes("barrier") &&
-          rawObstacles.includes("cone"))
-          ? ["suv", "taxi", "truck", "cone"]
-          : rawObstacles;
+      const rawObstacles = cfg.obstacleSet.filter(Boolean).map(normalizeTrafficId);
+      const obstacleIds = rawObstacles.length ? rawObstacles : ["suv", "taxi", "truck", "cone"];
       const needed = [playerId, ...obstacleIds];
       await Promise.all(
         needed.map(async (id) => {
@@ -452,6 +530,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
       roads = [];
       shoulders = [];
       props = [];
+      finishLine = null;
       player = null;
       playerWheels = [];
       ended = false;
@@ -520,6 +599,10 @@ export function createLaneRunnerEngine(): Playable3DEngine {
       player.position.set(laneX(lane, cfg.laneCount), 0, PLAYER_Z);
       root.add(player);
       playerWheels = collectWheels(player);
+
+      finishLine = makeFinishLine(roadW);
+      finishLine.position.set(0, 0, finishWorldZ());
+      root.add(finishLine);
 
       const hazards = obstacleIds.slice(0, 6);
       while (hazards.length < 6) hazards.push(obstacleIds[hazards.length % obstacleIds.length] || "suv");

@@ -124,7 +124,8 @@ export function longCarUrl(ref: string, assets: Record<string, string>) {
 }
 
 export function libraryCarKind(ref: string): "sedan" | "suv" | "van" {
-  if (ref === "suv" || ref === "van") return ref;
+  if (ref === "suv") return "suv";
+  if (ref === "van" || ref === "truck") return "van";
   return "sedan";
 }
 
@@ -268,6 +269,47 @@ export function orientCarAlongX(object: Object3D) {
   const box = new Box3().setFromObject(object);
   const size = box.getSize(new Vector3());
   if (size.z > size.x) object.rotateY(Math.PI / 2);
+}
+
+function namedMeshCenters(root: Object3D, test: (name: string) => boolean) {
+  const sum = new Vector3();
+  let n = 0;
+  root.updateWorldMatrix(true, true);
+  root.traverse((child) => {
+    const mesh = child as Mesh;
+    if (!mesh.isMesh || !test(mesh.name.toLowerCase())) return;
+    const center = new Box3().setFromObject(mesh).getCenter(new Vector3());
+    root.worldToLocal(center);
+    sum.add(center);
+    n += 1;
+  });
+  return n ? sum.multiplyScalar(1 / n) : null;
+}
+
+/** Local XZ direction the car's nose points. */
+export function inferCarForwardXZ(object: Object3D): Vector3 {
+  const front = namedMeshCenters(
+    object,
+    (name) => /front|grill|bumper/.test(name) && !/back|rear/.test(name),
+  );
+  const back = namedMeshCenters(object, (name) => /back|rear/.test(name) && !/front/.test(name));
+  if (front && back) {
+    const dir = front.sub(back);
+    dir.y = 0;
+    if (dir.lengthSq() > 1e-8) return dir.normalize();
+  }
+  const box = new Box3().setFromObject(object);
+  const size = box.getSize(new Vector3());
+  if (size.x >= size.z) return new Vector3(1, 0, 0);
+  return new Vector3(0, 0, 1);
+}
+
+/** Yaw so the car's nose points along world XZ (y ignored). */
+export function yawObjectTowardXZ(object: Object3D, x: number, z: number) {
+  const forward = inferCarForwardXZ(object);
+  const current = Math.atan2(forward.x, forward.z);
+  const wanted = Math.atan2(x, z);
+  object.rotateY(wanted - current);
 }
 
 export function fitObjectToFootprint(object: Object3D, lengthX: number, widthZ: number) {

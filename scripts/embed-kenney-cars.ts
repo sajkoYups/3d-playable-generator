@@ -3,7 +3,7 @@ import path from "path";
 import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 
-const CARS = ["sedan", "suv", "van", "taxi", "police", "truck"] as const;
+const CARS = ["sedan", "suv", "van", "taxi", "police", "truck", "cone"] as const;
 const SRC_DIR = path.join(process.cwd(), "public/kenney_car-kit/Models/GLB format");
 const OUT_DIR = path.join(process.cwd(), "public/models/kenney");
 

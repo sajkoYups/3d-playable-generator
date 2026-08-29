@@ -7,6 +7,7 @@ import {
 } from "@/types/project";
 import { DEFAULT_PARKING_CARS, defaultParkingRoundsPack } from "@/playable-runtime/engines/parking-jam/layout";
 import { defaultMatchRoundsPack } from "@/playable-runtime/engines/triple-match/rounds";
+import { defaultLaneRoundsPack } from "@/playable-runtime/engines/lane-runner/rounds";
 
 export const TEMPLATE_NAMES: Record<TemplateId, string> = {
   "stack-tower": "Stack Tower",
@@ -18,7 +19,7 @@ export const TEMPLATE_NAMES: Record<TemplateId, string> = {
 export const TEMPLATE_BLURBS: Record<TemplateId, string> = {
   "stack-tower": "Drop and stack blocks. Perfect for logo-on-block campaigns.",
   "triple-match": "Tap matching snacks into a tray. Three of a kind clears.",
-  "lane-runner": "Swipe lanes, dodge obstacles, chase a distance goal.",
+  "lane-runner": "Swipe lanes, dodge traffic, collect coins across rounds.",
   "parking-jam": "Slide cars out of a jammed lot. Grid puzzle with tinted vehicles.",
 };
 
@@ -430,6 +431,31 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
                 overlayOpacity: 0,
               },
             }
+          : templateId === "lane-runner"
+            ? {
+                portrait: {
+                  type: "gradient",
+                  color: "#1c2430",
+                  gradientFrom: "#9aafc2",
+                  gradientTo: "#1a2230",
+                  gradientAngle: 180,
+                  imageFit: "cover",
+                  imagePosition: "center",
+                  overlayColor: "#000000",
+                  overlayOpacity: 0,
+                },
+                landscape: {
+                  type: "gradient",
+                  color: "#1c2430",
+                  gradientFrom: "#9aafc2",
+                  gradientTo: "#1a2230",
+                  gradientAngle: 180,
+                  imageFit: "cover",
+                  imagePosition: "center",
+                  overlayColor: "#000000",
+                  overlayOpacity: 0,
+                },
+              }
           : {
             portrait: {
               type: "solid",
@@ -467,14 +493,14 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
             }
           : templateId === "lane-runner"
             ? {
-                portrait: { fov: 52, position: { x: 0, y: 6.5, z: 10 }, target: { x: 0, y: 1, z: -4 } },
-                landscape: { fov: 46, position: { x: 0, y: 5, z: 9 }, target: { x: 0, y: 1, z: -4 } },
+                portrait: { fov: 48, position: { x: 0, y: 5.2, z: 8.5 }, target: { x: 0, y: 0.4, z: -6 } },
+                landscape: { fov: 42, position: { x: 0, y: 4.2, z: 8 }, target: { x: 0, y: 0.3, z: -6 } },
               }
             : {
                 portrait: { fov: 50, position: { x: 0, y: 8, z: 12 }, target: { x: 0, y: 2, z: 0 } },
                 landscape: { fov: 42, position: { x: 0, y: 6, z: 10 }, target: { x: 0, y: 1.6, z: 0 } },
               },
-    lighting: "studio",
+    lighting: templateId === "lane-runner" ? "overcast" : "studio",
     environment: "gradient-sky",
     audio: { musicUrl: "", tapUrl: "", winUrl: "", loseUrl: "", playFromStart: false },
     stackTower: {
@@ -496,13 +522,17 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       coinImageUrl: "",
     },
     laneRunner: {
-      characterModelUrl: "runner",
-      obstacleSet: ["crate", "barrier", "cone"],
+      characterModelUrl: "sedan",
+      obstacleSet: ["suv", "taxi", "truck", "cone"],
       environmentTheme: "city",
       laneCount: 3,
       startSpeed: 8,
       speedRamp: 0.6,
       winDistance: 180,
+      roadTextureUrl: "",
+      grassTextureUrl: "",
+      coinImageUrl: "",
+      rounds: defaultLaneRoundsPack(),
     },
     parkingJam: {
       lotTextureUrl: "",

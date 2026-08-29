@@ -50,7 +50,7 @@ export const CHARACTERS: LibraryModel[] = [
 export const OBSTACLES: LibraryModel[] = [
   { id: "crate", name: "Crate", category: "obstacle", color: "#8b5a2b", url: "/models/crate.glb" },
   { id: "barrier", name: "Barrier", category: "obstacle", color: "#e85d4c", url: "/models/barrier.glb" },
-  { id: "cone", name: "Cone", category: "obstacle", color: "#e07a3d", url: "/models/cone.glb" },
+  { id: "cone", name: "Cone", category: "obstacle", color: "#e07a3d", url: "/models/kenney/cone.glb" },
 ];
 
 export const VEHICLES: LibraryModel[] = [
@@ -93,12 +93,15 @@ export function resolveModelRef(ref: string): { libraryId?: string; url: string 
   const lib = getLibraryModel(aliased);
   if (lib) return { libraryId: aliased, url: lib.url };
   if (FOOD_ALIASES[ref]) return { libraryId: aliased, url: `/models/kenney/food/${aliased}.glb` };
-  return { libraryId: aliased, url: lib?.url ?? "" };
+  return { libraryId: aliased, url: "" };
 }
 
 export function modelsForTemplate(templateId: TemplateId): LibraryModel[] {
   if (templateId === "triple-match") return MATCH_ITEMS;
-  if (templateId === "lane-runner") return [...CHARACTERS, ...OBSTACLES];
+  if (templateId === "lane-runner") {
+    const cone = OBSTACLES.find((o) => o.id === "cone");
+    return cone ? [...VEHICLES, cone] : [...VEHICLES];
+  }
   if (templateId === "parking-jam") return VEHICLES;
   return [];
 }

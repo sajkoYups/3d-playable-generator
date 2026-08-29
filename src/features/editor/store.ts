@@ -7,6 +7,7 @@ import { ProjectDataSchema } from "@/types/project";
 import { createDefaultProjectData } from "@/lib/project-defaults";
 import { ensureParkingRounds, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 import { ensureMatchRounds, propagateMatchFoods, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
+import { ensureLaneRounds, syncLaneRound } from "@/playable-runtime/engines/lane-runner/rounds";
 
 export type EditorStage = "start" | "gameplay" | "end";
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -20,6 +21,7 @@ function cloneData(data: ProjectData): ProjectData {
 function activeRoundCount(templateId: TemplateId, data: ProjectData) {
   if (templateId === "triple-match") return data.gameplay.tripleMatch.rounds.length;
   if (templateId === "parking-jam") return data.gameplay.parkingJam.rounds.length;
+  if (templateId === "lane-runner") return data.gameplay.laneRunner.rounds.length;
   return 1;
 }
 
@@ -106,6 +108,11 @@ export const useEditorStore = create<EditorState>()(
           ensureMatchRounds(match);
           propagateMatchFoods(match);
           syncMatchRound(match, 0);
+        }
+        if (payload.templateId === "lane-runner") {
+          const runner = state.data.gameplay.laneRunner;
+          ensureLaneRounds(runner);
+          syncLaneRound(runner, 0);
         }
         state.orientation = payload.defaultOrientation;
         state.hydrated = true;

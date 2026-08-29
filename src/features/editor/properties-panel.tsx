@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
-import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
-import { MATCH_ITEMS, VEHICLES } from "@/lib/model-library";
+import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
+import { MATCH_ITEMS, OBSTACLES, VEHICLES } from "@/lib/model-library";
 import { ensureParkingRounds, repairParkingCars, setParkingRoundCount, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 import { ensureMatchRounds, propagateMatchFoods, setMatchRoundCount, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
+import { ensureLaneRounds, setLaneRoundCount, syncLaneRound } from "@/playable-runtime/engines/lane-runner/rounds";
 
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n));
@@ -34,6 +35,22 @@ function patchMatchRound(
     if (!round) return;
     patch(round, cfg);
     syncMatchRound(cfg, i);
+  });
+}
+
+function patchLaneRound(
+  updateData: (updater: (draft: ProjectData) => void) => void,
+  index: number,
+  patch: (round: LaneRunnerRound, cfg: LaneRunnerConfig) => void,
+) {
+  updateData((d) => {
+    const cfg = d.gameplay.laneRunner;
+    ensureLaneRounds(cfg);
+    const i = Math.max(0, Math.min(index, cfg.rounds.length - 1));
+    const round = cfg.rounds[i];
+    if (!round) return;
+    patch(round, cfg);
+    syncLaneRound(cfg, i);
   });
 }
 
@@ -461,20 +478,236 @@ function GameplaySettings() {
         <>
           <Separator />
           <h4 className="text-sm font-medium">Lane Runner</h4>
-          <Label>Win distance</Label>
-          <Input type="number" value={data.gameplay.laneRunner.winDistance} onChange={(e) => updateData((d) => { d.gameplay.laneRunner.winDistance = Number(e.target.value) || 180; })} />
-          <Label>Start speed</Label>
-          <Input type="number" value={data.gameplay.laneRunner.startSpeed} onChange={(e) => updateData((d) => { d.gameplay.laneRunner.startSpeed = Number(e.target.value) || 8; })} />
-          <Label>Lanes</Label>
-          <Input type="number" min={3} max={5} value={data.gameplay.laneRunner.laneCount} onChange={(e) => updateData((d) => { d.gameplay.laneRunner.laneCount = Number(e.target.value) || 3; })} />
-          <div className="flex gap-1">
-            {(["desert", "city", "neon"] as const).map((t) => (
-              <Button key={t} size="sm" variant={data.gameplay.laneRunner.environmentTheme === t ? "default" : "outline"} onClick={() => updateData((d) => { d.gameplay.laneRunner.environmentTheme = t; })}>
-                {t}
-              </Button>
-            ))}
-          </div>
-          <AssetUrlField label="Character GLB" kind="model" accept=".glb,.gltf" value={data.gameplay.laneRunner.characterModelUrl.startsWith("/") || data.gameplay.laneRunner.characterModelUrl.startsWith("http") ? data.gameplay.laneRunner.characterModelUrl : ""} onChange={(url) => updateData((d) => { d.gameplay.laneRunner.characterModelUrl = url || "runner"; })} />
+          {(() => {
+            const runner = data.gameplay.laneRunner;
+            const rounds = runner.rounds.length
+              ? runner.rounds
+              : [{
+                  winDistance: runner.winDistance,
+                  startSpeed: runner.startSpeed,
+                  speedRamp: runner.speedRamp,
+                  coins: 50,
+                }];
+            const roundIdx = Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
+            const round = rounds[roundIdx];
+            const trafficOptions = [...VEHICLES.filter((v) => v.id !== "sedan"), ...OBSTACLES.filter((o) => o.id === "cone")];
+            return (
+              <>
+                <Label>How many rounds</Label>
+                <p className="text-[11px] text-muted">
+                  Click a number to set the playable length. 4 means rounds 1–4 play in order.
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({ length: 9 }, (_, i) => {
+                    const count = i + 1;
+                    const included = count <= rounds.length;
+                    const selected = count === rounds.length;
+                    return (
+                      <Button
+                        key={count}
+                        size="sm"
+                        variant={selected ? "default" : included ? "secondary" : "outline"}
+                        aria-pressed={included}
+                        onClick={() => {
+                          if (count === rounds.length) return;
+                          const preview = Math.min(roundIdx, count - 1);
+                          updateData((d) => {
+                            const cfg = d.gameplay.laneRunner;
+                            setLaneRoundCount(cfg, count);
+                            syncLaneRound(cfg, preview);
+                          });
+                          setParkingRoundIndex(preview);
+                        }}
+                      >
+                        {count}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Label>Preview</Label>
+                <p className="text-[11px] text-muted">Shows this round in the canvas. Does not change how many rounds play.</p>
+                <div className="flex flex-wrap gap-1">
+                  {rounds.map((_, i) => (
+                    <Button
+                      key={i}
+                      size="sm"
+                      variant={i === roundIdx ? "default" : "outline"}
+                      aria-current={i === roundIdx ? "true" : undefined}
+                      onClick={() => setParkingRoundIndex(i)}
+                    >
+                      {i + 1}
+                    </Button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Win distance</Label>
+                    <Input
+                      type="number"
+                      min={40}
+                      max={800}
+                      value={round.winDistance}
+                      onChange={(e) =>
+                        patchLaneRound(updateData, roundIdx, (r) => {
+                          r.winDistance = Math.min(800, Math.max(40, Number(e.target.value) || 180));
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Coins</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={9999}
+                      value={round.coins}
+                      onChange={(e) =>
+                        patchLaneRound(updateData, roundIdx, (r) => {
+                          r.coins = clampInt(Number(e.target.value), 0, 9999, 50);
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Start speed</Label>
+                    <Input
+                      type="number"
+                      min={4}
+                      max={20}
+                      step={0.5}
+                      value={round.startSpeed}
+                      onChange={(e) =>
+                        patchLaneRound(updateData, roundIdx, (r) => {
+                          r.startSpeed = Math.min(20, Math.max(4, Number(e.target.value) || 8));
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Speed ramp</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={4}
+                      step={0.1}
+                      value={round.speedRamp}
+                      onChange={(e) =>
+                        patchLaneRound(updateData, roundIdx, (r) => {
+                          r.speedRamp = Math.min(4, Math.max(0, Number(e.target.value) || 0.6));
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <Label>Lanes</Label>
+                <Input
+                  type="number"
+                  min={3}
+                  max={5}
+                  value={runner.laneCount}
+                  onChange={(e) =>
+                    updateData((d) => {
+                      d.gameplay.laneRunner.laneCount = clampInt(Number(e.target.value), 3, 5, 3);
+                    })
+                  }
+                />
+                <Label>Theme</Label>
+                <div className="flex gap-1">
+                  {(["desert", "city", "neon"] as const).map((t) => (
+                    <Button
+                      key={t}
+                      size="sm"
+                      variant={runner.environmentTheme === t ? "default" : "outline"}
+                      onClick={() => updateData((d) => { d.gameplay.laneRunner.environmentTheme = t; })}
+                    >
+                      {t}
+                    </Button>
+                  ))}
+                </div>
+                <Label>Player car</Label>
+                <div className="flex flex-wrap gap-1">
+                  {VEHICLES.map((v) => (
+                    <Button
+                      key={v.id}
+                      size="sm"
+                      variant={runner.characterModelUrl === v.id ? "default" : "outline"}
+                      onClick={() =>
+                        updateData((d) => {
+                          d.gameplay.laneRunner.characterModelUrl = v.id;
+                        })
+                      }
+                    >
+                      {v.name}
+                    </Button>
+                  ))}
+                </div>
+                <AssetUrlField
+                  label="Custom car GLB"
+                  kind="model"
+                  accept=".glb,.gltf,model/gltf-binary"
+                  value={
+                    runner.characterModelUrl.startsWith("/") ||
+                    runner.characterModelUrl.startsWith("http") ||
+                    runner.characterModelUrl.startsWith("data:")
+                      ? runner.characterModelUrl
+                      : ""
+                  }
+                  onChange={(url) =>
+                    updateData((d) => {
+                      d.gameplay.laneRunner.characterModelUrl = url || "sedan";
+                    })
+                  }
+                />
+                <Label>Traffic</Label>
+                <div className="flex flex-wrap gap-1">
+                  {trafficOptions.map((v) => {
+                    const on = runner.obstacleSet.includes(v.id);
+                    return (
+                      <Button
+                        key={v.id}
+                        size="sm"
+                        variant={on ? "default" : "outline"}
+                        onClick={() =>
+                          updateData((d) => {
+                            const set = d.gameplay.laneRunner.obstacleSet;
+                            const has = set.includes(v.id);
+                            if (has && set.length === 1) return;
+                            d.gameplay.laneRunner.obstacleSet = has
+                              ? set.filter((id) => id !== v.id)
+                              : [...set, v.id];
+                          })
+                        }
+                      >
+                        {v.name}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <AssetUrlField
+                  label="Road surface"
+                  accept="image/*"
+                  value={runner.roadTextureUrl}
+                  onChange={(url) => updateData((d) => { d.gameplay.laneRunner.roadTextureUrl = url; })}
+                />
+                <AssetUrlField
+                  label="Grass"
+                  accept="image/*"
+                  value={runner.grassTextureUrl}
+                  onChange={(url) => updateData((d) => { d.gameplay.laneRunner.grassTextureUrl = url; })}
+                />
+                <p className="text-[11px] text-muted">Leave empty to keep the Kenney defaults. Uploads replace that layer only.</p>
+                <AssetUrlField
+                  label="Coin icon"
+                  accept="image/*"
+                  value={runner.coinImageUrl}
+                  onChange={(url) => updateData((d) => { d.gameplay.laneRunner.coinImageUrl = url; })}
+                />
+                <p className="text-[11px] text-muted">Empty uses the default coin. Shown in the HUD and payout animation.</p>
+              </>
+            );
+          })()}
         </>
       )}
 

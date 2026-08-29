@@ -43,6 +43,7 @@ const LIBRARY_CAR_URLS: Record<string, string> = {
   taxi: "/models/kenney/taxi.glb",
   police: "/models/kenney/police.glb",
   truck: "/models/kenney/truck.glb",
+  cone: "/models/kenney/cone.glb",
 };
 
 const LIBRARY_FOOD_URLS: Record<string, string> = {

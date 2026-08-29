@@ -55,12 +55,12 @@ export function collectAssetUrls(data: ProjectData): string[] {
     const item = resolveModelRef(slot);
     add(item.url);
   }
-  const char = data.gameplay.laneRunner.characterModelUrl;
-  if (char.startsWith("/") || char.startsWith("http") || char.startsWith("data:")) add(char);
-  else if (char) add(`/models/${char}.glb`);
+  add(data.gameplay.laneRunner.grassTextureUrl || "/kenney_road-textures/PNG/Retina/roadTexture_25.png");
+  add(data.gameplay.laneRunner.roadTextureUrl);
+  add(data.gameplay.laneRunner.coinImageUrl || "/coin.svg");
+  add(resolveModelRef(data.gameplay.laneRunner.characterModelUrl || "sedan").url);
   for (const ob of data.gameplay.laneRunner.obstacleSet) {
-    if (ob.startsWith("/") || ob.startsWith("http") || ob.startsWith("data:")) add(ob);
-    else if (ob) add(`/models/${ob}.glb`);
+    add(resolveModelRef(ob).url);
   }
 
   return [...urls];

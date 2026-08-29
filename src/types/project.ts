@@ -239,14 +239,26 @@ export const TripleMatchConfigSchema = z.object({
 });
 export type TripleMatchConfig = z.infer<typeof TripleMatchConfigSchema>;
 
+export const LaneRunnerRoundSchema = z.object({
+  winDistance: z.number().min(40).max(800).default(180),
+  startSpeed: z.number().min(4).max(20).default(8),
+  speedRamp: z.number().min(0).max(4).default(0.6),
+  coins: z.number().int().min(0).max(9999).default(50),
+});
+export type LaneRunnerRound = z.infer<typeof LaneRunnerRoundSchema>;
+
 export const LaneRunnerConfigSchema = z.object({
-  characterModelUrl: z.string().default("runner"),
-  obstacleSet: z.array(z.string()).default(["crate", "barrier", "cone"]),
+  characterModelUrl: z.string().default("sedan"),
+  obstacleSet: z.array(z.string()).default(["suv", "taxi", "truck", "cone"]),
   environmentTheme: z.enum(["desert", "city", "neon"]).default("city"),
   laneCount: z.number().int().min(3).max(5).default(3),
   startSpeed: z.number().min(4).max(20).default(8),
   speedRamp: z.number().min(0).max(4).default(0.6),
   winDistance: z.number().min(40).max(800).default(180),
+  roadTextureUrl: z.string().default(""),
+  grassTextureUrl: z.string().default(""),
+  coinImageUrl: z.string().default(""),
+  rounds: z.array(LaneRunnerRoundSchema).max(9).default([]),
 });
 export type LaneRunnerConfig = z.infer<typeof LaneRunnerConfigSchema>;
 

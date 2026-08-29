@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
-import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
+import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type TowerDefenseConfig, type TowerDefenseRound, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
 import { MATCH_ITEMS, OBSTACLES, VEHICLES } from "@/lib/model-library";
 import { ensureParkingRounds, repairParkingCars, setParkingRoundCount, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 import { ensureMatchRounds, propagateMatchFoods, setMatchRoundCount, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
 import { ensureLaneRounds, propagateLaneWinDistance, setLaneRoundCount, syncLaneRound } from "@/playable-runtime/engines/lane-runner/rounds";
+import { ensureTdRounds, setTdRoundCount } from "@/playable-runtime/engines/tower-defense/rounds";
 
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n));
@@ -65,6 +66,21 @@ function patchParkingRound(
     const i = Math.max(0, Math.min(index, jam.rounds.length - 1));
     patch(jam.rounds[i], jam);
     syncParkingRound(jam, i);
+  });
+}
+
+function patchTdRound(
+  updateData: (updater: (draft: ProjectData) => void) => void,
+  index: number,
+  patch: (round: TowerDefenseRound, cfg: TowerDefenseConfig) => void,
+) {
+  updateData((d) => {
+    const cfg = d.gameplay.towerDefense;
+    ensureTdRounds(cfg);
+    const i = Math.max(0, Math.min(index, cfg.rounds.length - 1));
+    const round = cfg.rounds[i];
+    if (!round) return;
+    patch(round, cfg);
   });
 }
 
@@ -930,6 +946,237 @@ function GameplaySettings() {
               />
             </div>
           ))}
+        </>
+      )}
+
+      {templateId === "tower-defense" && (
+        <>
+          <Separator />
+          <h4 className="text-sm font-medium">Tower Defense</h4>
+          <p className="text-[11px] leading-snug text-muted">
+            How to play: pick Arrow, Cannon, or Turret at the bottom of the canvas, then click a glowing pad beside the brown path. Gold buys towers. Monsters that reach the crystal cost lives — 0 lives loses, last wave wins. Preview (top) runs the full start → play → end ad.
+          </p>
+          {(() => {
+            const td = data.gameplay.towerDefense;
+            const rounds = td.rounds.length ? td.rounds : [{
+              impCount: 6,
+              puglinCount: 0,
+              spawnInterval: 1.1,
+              hpScale: 1,
+              speedScale: 1,
+              coins: 50,
+              goldBonus: 0,
+            }];
+            const roundIdx = Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
+            const round = rounds[roundIdx];
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Lives</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={30}
+                      value={td.lives}
+                      onChange={(e) =>
+                        updateData((d) => {
+                          d.gameplay.towerDefense.lives = clampInt(Number(e.target.value), 1, 30, 8);
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Starting gold</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={9999}
+                      value={td.startingGold}
+                      onChange={(e) =>
+                        updateData((d) => {
+                          d.gameplay.towerDefense.startingGold = clampInt(Number(e.target.value), 0, 9999, 80);
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <Label>How many rounds</Label>
+                <p className="text-[11px] text-muted">
+                  Click a number to set the playable length. 4 means rounds 1–4 play in order.
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({ length: 9 }, (_, i) => {
+                    const count = i + 1;
+                    const included = count <= rounds.length;
+                    const selected = count === rounds.length;
+                    return (
+                      <Button
+                        key={count}
+                        size="sm"
+                        variant={selected ? "default" : included ? "secondary" : "outline"}
+                        aria-pressed={included}
+                        onClick={() => {
+                          if (count === rounds.length) return;
+                          const preview = Math.min(roundIdx, count - 1);
+                          updateData((d) => {
+                            setTdRoundCount(d.gameplay.towerDefense, count);
+                          });
+                          setParkingRoundIndex(preview);
+                        }}
+                      >
+                        {count}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Label>Preview</Label>
+                <p className="text-[11px] text-muted">Shows this wave in the canvas. Does not change how many rounds play.</p>
+                <div className="flex flex-wrap gap-1">
+                  {rounds.map((_, i) => (
+                    <Button
+                      key={i}
+                      size="sm"
+                      variant={i === roundIdx ? "default" : "outline"}
+                      aria-current={i === roundIdx ? "true" : undefined}
+                      onClick={() => setParkingRoundIndex(i)}
+                    >
+                      {i + 1}
+                    </Button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Imps</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={40}
+                      value={round.impCount}
+                      onChange={(e) =>
+                        patchTdRound(updateData, roundIdx, (r) => {
+                          r.impCount = clampInt(Number(e.target.value), 0, 40, 6);
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Puglins</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={20}
+                      value={round.puglinCount}
+                      onChange={(e) =>
+                        patchTdRound(updateData, roundIdx, (r) => {
+                          r.puglinCount = clampInt(Number(e.target.value), 0, 20, 0);
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Spawn interval</Label>
+                    <Input
+                      type="number"
+                      min={0.2}
+                      max={5}
+                      step={0.05}
+                      value={round.spawnInterval}
+                      onChange={(e) =>
+                        patchTdRound(updateData, roundIdx, (r) => {
+                          r.spawnInterval = Math.min(5, Math.max(0.2, Number(e.target.value) || 1.1));
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Coins</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={9999}
+                      value={round.coins}
+                      onChange={(e) =>
+                        patchTdRound(updateData, roundIdx, (r) => {
+                          r.coins = clampInt(Number(e.target.value), 0, 9999, 50);
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>HP scale</Label>
+                    <Input
+                      type="number"
+                      min={0.4}
+                      max={5}
+                      step={0.05}
+                      value={round.hpScale}
+                      onChange={(e) =>
+                        patchTdRound(updateData, roundIdx, (r) => {
+                          r.hpScale = Math.min(5, Math.max(0.4, Number(e.target.value) || 1));
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Speed scale</Label>
+                    <Input
+                      type="number"
+                      min={0.4}
+                      max={3}
+                      step={0.05}
+                      value={round.speedScale}
+                      onChange={(e) =>
+                        patchTdRound(updateData, roundIdx, (r) => {
+                          r.speedScale = Math.min(3, Math.max(0.4, Number(e.target.value) || 1));
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Gold bonus</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={999}
+                      value={round.goldBonus}
+                      onChange={(e) =>
+                        patchTdRound(updateData, roundIdx, (r) => {
+                          r.goldBonus = clampInt(Number(e.target.value), 0, 999, 0);
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted">Tower costs</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["arrow", "cannon", "turret"] as const).map((kind) => (
+                    <div key={kind}>
+                      <Label className="capitalize">{kind}</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={999}
+                        value={td.towers[kind].cost}
+                        onChange={(e) =>
+                          updateData((d) => {
+                            d.gameplay.towerDefense.towers[kind].cost = clampInt(Number(e.target.value), 1, 999, 50);
+                          })
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+                <AssetUrlField
+                  label="Coin icon"
+                  accept="image/*"
+                  value={td.coinImageUrl}
+                  onChange={(url) => updateData((d) => { d.gameplay.towerDefense.coinImageUrl = url; })}
+                />
+                <p className="text-[11px] text-muted">Empty uses the default coin. Shown in the HUD and payout animation.</p>
+              </>
+            );
+          })()}
         </>
       )}
     </div>

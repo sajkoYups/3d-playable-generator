@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { createDefaultProjectData, TEMPLATE_NAMES } from "@/lib/project-defaults";
 import type { TemplateId } from "@/types/project";
 
-const DEMO_TEMPLATES: TemplateId[] = ["stack-tower", "triple-match", "lane-runner", "parking-jam"];
+const DEMO_TEMPLATES: TemplateId[] = ["stack-tower", "triple-match", "lane-runner", "parking-jam", "tower-defense"];
 
 export async function ensureDemoProjects(userId: string) {
   const existing = await prisma.project.findMany({

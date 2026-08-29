@@ -4,6 +4,7 @@ import { createStackTowerEngine } from "@/playable-runtime/engines/stack-tower";
 import { createTripleMatchEngine } from "@/playable-runtime/engines/triple-match";
 import { createLaneRunnerEngine } from "@/playable-runtime/engines/lane-runner";
 import { createParkingJamEngine } from "@/playable-runtime/engines/parking-jam";
+import { createTowerDefenseEngine } from "@/playable-runtime/engines/tower-defense";
 
 export function createEngine(templateId: TemplateId): Playable3DEngine {
   switch (templateId) {
@@ -13,6 +14,8 @@ export function createEngine(templateId: TemplateId): Playable3DEngine {
       return createLaneRunnerEngine();
     case "parking-jam":
       return createParkingJamEngine();
+    case "tower-defense":
+      return createTowerDefenseEngine();
     default:
       return createStackTowerEngine();
   }

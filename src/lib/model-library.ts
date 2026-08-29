@@ -3,7 +3,7 @@ import type { TemplateId } from "@/types/project";
 export type LibraryModel = {
   id: string;
   name: string;
-  category: "match-item" | "character" | "obstacle" | "vehicle";
+  category: "match-item" | "character" | "obstacle" | "vehicle" | "td-prop";
   color: string;
   /** Public URL if a packed GLB exists; engines fall back to procedural geometry. */
   url: string;
@@ -62,11 +62,49 @@ export const VEHICLES: LibraryModel[] = [
   { id: "truck", name: "Truck", category: "vehicle", color: "#e85d4c", url: "/models/kenney/truck.glb" },
 ];
 
+export const TD_MODELS: LibraryModel[] = [
+  { id: "tile", name: "Grass tile", category: "td-prop", color: "#5a8f3a", url: "/models/kenney/td/tile.glb" },
+  { id: "imp", name: "Imp", category: "character", color: "#c45a3a", url: "/models/bestiary/imp.glb" },
+  { id: "puglin", name: "Puglin", category: "character", color: "#5cbf5a", url: "/models/bestiary/puglin.glb" },
+];
+
+export const TD_MODEL_URLS = [
+  "/models/kenney/td/colormap.png",
+  "/models/kenney/td/tile.glb",
+  "/models/kenney/td/tile-straight.glb",
+  "/models/kenney/td/tile-corner-round.glb",
+  "/models/kenney/td/tile-spawn.glb",
+  "/models/kenney/td/tile-end.glb",
+  "/models/kenney/td/tile-crystal.glb",
+  "/models/kenney/td/tile-tree.glb",
+  "/models/kenney/td/tile-rock.glb",
+  "/models/kenney/td/detail-tree.glb",
+  "/models/kenney/td/detail-rocks.glb",
+  "/models/kenney/td/selection-a.glb",
+  "/models/kenney/td/spawn-round.glb",
+  "/models/kenney/td/tower-round-base.glb",
+  "/models/kenney/td/tower-round-bottom-a.glb",
+  "/models/kenney/td/tower-round-middle-a.glb",
+  "/models/kenney/td/tower-round-top-a.glb",
+  "/models/kenney/td/tower-square-bottom-a.glb",
+  "/models/kenney/td/tower-square-middle-a.glb",
+  "/models/kenney/td/tower-square-top-a.glb",
+  "/models/kenney/td/weapon-ballista.glb",
+  "/models/kenney/td/weapon-cannon.glb",
+  "/models/kenney/td/weapon-turret.glb",
+  "/models/kenney/td/weapon-ammo-arrow.glb",
+  "/models/kenney/td/weapon-ammo-cannonball.glb",
+  "/models/kenney/td/weapon-ammo-bullet.glb",
+  "/models/bestiary/imp.glb",
+  "/models/bestiary/puglin.glb",
+] as const;
+
 export const ALL_LIBRARY_MODELS: LibraryModel[] = [
   ...MATCH_ITEMS,
   ...CHARACTERS,
   ...OBSTACLES,
   ...VEHICLES,
+  ...TD_MODELS,
 ];
 
 export function getLibraryModel(id: string): LibraryModel | undefined {
@@ -103,5 +141,6 @@ export function modelsForTemplate(templateId: TemplateId): LibraryModel[] {
     return cone ? [...VEHICLES, cone] : [...VEHICLES];
   }
   if (templateId === "parking-jam") return VEHICLES;
+  if (templateId === "tower-defense") return TD_MODELS;
   return [];
 }

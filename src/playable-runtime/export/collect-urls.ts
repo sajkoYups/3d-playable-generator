@@ -1,7 +1,7 @@
-import type { ProjectData } from "@/types/project";
-import { getLibraryModel, resolveModelRef } from "@/lib/model-library";
+import type { ProjectData, TemplateId } from "@/types/project";
+import { getLibraryModel, resolveModelRef, TD_MODEL_URLS } from "@/lib/model-library";
 
-export function collectAssetUrls(data: ProjectData): string[] {
+export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): string[] {
   const urls = new Set<string>();
   const add = (u?: string) => {
     if (u) urls.add(u);
@@ -61,6 +61,11 @@ export function collectAssetUrls(data: ProjectData): string[] {
   add(resolveModelRef(data.gameplay.laneRunner.characterModelUrl || "sedan").url);
   for (const ob of data.gameplay.laneRunner.obstacleSet) {
     add(resolveModelRef(ob).url);
+  }
+
+  if (templateId === "tower-defense") {
+    for (const url of TD_MODEL_URLS) add(url);
+    add(data.gameplay.towerDefense.coinImageUrl || "/coin.svg");
   }
 
   return [...urls];

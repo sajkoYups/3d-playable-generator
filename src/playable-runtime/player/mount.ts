@@ -164,6 +164,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         tripleMatch: data.gameplay.tripleMatch,
         laneRunner: data.gameplay.laneRunner,
         parkingJam: data.gameplay.parkingJam,
+        towerDefense: data.gameplay.towerDefense,
         playAllRounds: true,
       } as object),
     } as never);
@@ -330,6 +331,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         tripleMatch: next.gameplay.tripleMatch,
         laneRunner: next.gameplay.laneRunner,
         parkingJam: next.gameplay.parkingJam,
+        towerDefense: next.gameplay.towerDefense,
       });
       if (phase === "game") paintGameOverlays();
       else paintScreen();

@@ -8,6 +8,7 @@ import { createDefaultProjectData } from "@/lib/project-defaults";
 import { ensureParkingRounds, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 import { ensureMatchRounds, propagateMatchFoods, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
 import { ensureLaneRounds, syncLaneRound } from "@/playable-runtime/engines/lane-runner/rounds";
+import { ensureTdRounds } from "@/playable-runtime/engines/tower-defense/rounds";
 
 export type EditorStage = "start" | "gameplay" | "end";
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -22,6 +23,7 @@ function activeRoundCount(templateId: TemplateId, data: ProjectData) {
   if (templateId === "triple-match") return data.gameplay.tripleMatch.rounds.length;
   if (templateId === "parking-jam") return data.gameplay.parkingJam.rounds.length;
   if (templateId === "lane-runner") return data.gameplay.laneRunner.rounds.length;
+  if (templateId === "tower-defense") return data.gameplay.towerDefense.rounds.length;
   return 1;
 }
 
@@ -113,6 +115,9 @@ export const useEditorStore = create<EditorState>()(
           const runner = state.data.gameplay.laneRunner;
           ensureLaneRounds(runner); // also unifies winDistance across all rounds
           syncLaneRound(runner, 0);
+        }
+        if (payload.templateId === "tower-defense") {
+          ensureTdRounds(state.data.gameplay.towerDefense);
         }
         state.orientation = payload.defaultOrientation;
         state.hydrated = true;

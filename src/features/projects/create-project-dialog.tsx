@@ -18,7 +18,7 @@ import type { Orientation, TemplateId } from "@/types/project";
 import { TEMPLATE_BLURBS, TEMPLATE_NAMES } from "@/lib/project-defaults";
 import { TemplateGlyph } from "@/features/projects/template-glyph";
 
-const TEMPLATES: TemplateId[] = ["stack-tower", "triple-match", "lane-runner", "parking-jam"];
+const TEMPLATES: TemplateId[] = ["stack-tower", "triple-match", "lane-runner", "parking-jam", "tower-defense"];
 
 export function CreateProjectDialog({
   open,

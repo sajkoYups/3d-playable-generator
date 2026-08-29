@@ -8,6 +8,7 @@ export const TemplateIdSchema = z.enum([
   "triple-match",
   "lane-runner",
   "parking-jam",
+  "tower-defense",
 ]);
 export type TemplateId = z.infer<typeof TemplateIdSchema>;
 
@@ -307,6 +308,55 @@ export const ParkingJamConfigSchema = z.object({
 });
 export type ParkingJamConfig = z.infer<typeof ParkingJamConfigSchema>;
 
+export const TowerDefenseTowerStatsSchema = z.object({
+  cost: z.number().int().min(1).max(999).default(50),
+  damage: z.number().min(0.5).max(100).default(8),
+  range: z.number().min(1).max(20).default(1.8),
+  fireRate: z.number().min(0.2).max(20).default(1.5),
+});
+export type TowerDefenseTowerStats = z.infer<typeof TowerDefenseTowerStatsSchema>;
+
+export const TowerDefenseRoundSchema = z.object({
+  impCount: z.number().int().min(0).max(40).default(6),
+  puglinCount: z.number().int().min(0).max(20).default(0),
+  spawnInterval: z.number().min(0.2).max(5).default(1.1),
+  hpScale: z.number().min(0.4).max(5).default(1),
+  speedScale: z.number().min(0.4).max(3).default(1),
+  coins: z.number().int().min(0).max(9999).default(50),
+  goldBonus: z.number().int().min(0).max(999).default(0),
+});
+export type TowerDefenseRound = z.infer<typeof TowerDefenseRoundSchema>;
+
+export const TowerDefenseConfigSchema = z.object({
+  lives: z.number().int().min(1).max(30).default(8),
+  startingGold: z.number().int().min(0).max(9999).default(80),
+  coinImageUrl: z.string().default(""),
+  towers: z
+    .object({
+      arrow: TowerDefenseTowerStatsSchema.prefault({
+        cost: 50,
+        damage: 8,
+        range: 1.8,
+        fireRate: 1.5,
+      }),
+      cannon: TowerDefenseTowerStatsSchema.prefault({
+        cost: 80,
+        damage: 20,
+        range: 1.7,
+        fireRate: 0.65,
+      }),
+      turret: TowerDefenseTowerStatsSchema.prefault({
+        cost: 110,
+        damage: 4,
+        range: 1.4,
+        fireRate: 5,
+      }),
+    })
+    .prefault({}),
+  rounds: z.array(TowerDefenseRoundSchema).max(9).default([]),
+});
+export type TowerDefenseConfig = z.infer<typeof TowerDefenseConfigSchema>;
+
 const DefaultGameplayBackground: Background = {
   type: "gradient",
   color: "#12141a",
@@ -363,6 +413,7 @@ export const GameplaySchema = z.object({
   tripleMatch: TripleMatchConfigSchema.prefault({}),
   laneRunner: LaneRunnerConfigSchema.prefault({}),
   parkingJam: ParkingJamConfigSchema.prefault({}),
+  towerDefense: TowerDefenseConfigSchema.prefault({}),
 });
 export type GameplayData = z.infer<typeof GameplaySchema>;
 

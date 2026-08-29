@@ -15,6 +15,7 @@ import {
   Vector3,
 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { clone as cloneSkeleton } from "three/addons/utils/SkeletonUtils.js";
 import type { ResourceTracker } from "@/playable-runtime/three/resources";
 
 const loadingManager = new LoadingManager();
@@ -25,9 +26,17 @@ export function setRuntimeAssets(assets: Record<string, string>) {
 }
 
 loadingManager.setURLModifier((url) => {
+  if (runtimeAssets[url]) return runtimeAssets[url];
   if (/colormap\.png(?:\?|$)/i.test(url)) {
-    const bundled = "/models/kenney/food/colormap.png";
-    return runtimeAssets[bundled] || bundled;
+    const td = "/models/kenney/td/colormap.png";
+    const food = "/models/kenney/food/colormap.png";
+    if (/kenney\/td/i.test(url) || /td-colormap/i.test(url)) {
+      return runtimeAssets[td] || td;
+    }
+    if (runtimeAssets[td] && !/kenney\/food/i.test(url)) {
+      return runtimeAssets[td];
+    }
+    return runtimeAssets[food] || food;
   }
   return url;
 });
@@ -81,6 +90,41 @@ const LIBRARY_FOOD_URLS: Record<string, string> = {
   crown: "/models/kenney/food/muffin.glb",
 };
 
+export const TD_COLORMAP_URL = "/models/kenney/td/colormap.png";
+
+export const LIBRARY_TD_URLS: Record<string, string> = {
+  tile: "/models/kenney/td/tile.glb",
+  "tile-straight": "/models/kenney/td/tile-straight.glb",
+  "tile-corner-round": "/models/kenney/td/tile-corner-round.glb",
+  "tile-spawn": "/models/kenney/td/tile-spawn.glb",
+  "tile-end": "/models/kenney/td/tile-end.glb",
+  "tile-crystal": "/models/kenney/td/tile-crystal.glb",
+  "tile-tree": "/models/kenney/td/tile-tree.glb",
+  "tile-rock": "/models/kenney/td/tile-rock.glb",
+  "detail-tree": "/models/kenney/td/detail-tree.glb",
+  "detail-rocks": "/models/kenney/td/detail-rocks.glb",
+  "selection-a": "/models/kenney/td/selection-a.glb",
+  "spawn-round": "/models/kenney/td/spawn-round.glb",
+  "tower-round-base": "/models/kenney/td/tower-round-base.glb",
+  "tower-round-bottom-a": "/models/kenney/td/tower-round-bottom-a.glb",
+  "tower-round-middle-a": "/models/kenney/td/tower-round-middle-a.glb",
+  "tower-round-top-a": "/models/kenney/td/tower-round-top-a.glb",
+  "tower-square-bottom-a": "/models/kenney/td/tower-square-bottom-a.glb",
+  "tower-square-middle-a": "/models/kenney/td/tower-square-middle-a.glb",
+  "tower-square-top-a": "/models/kenney/td/tower-square-top-a.glb",
+  "weapon-ballista": "/models/kenney/td/weapon-ballista.glb",
+  "weapon-cannon": "/models/kenney/td/weapon-cannon.glb",
+  "weapon-turret": "/models/kenney/td/weapon-turret.glb",
+  "weapon-ammo-arrow": "/models/kenney/td/weapon-ammo-arrow.glb",
+  "weapon-ammo-cannonball": "/models/kenney/td/weapon-ammo-cannonball.glb",
+  "weapon-ammo-bullet": "/models/kenney/td/weapon-ammo-bullet.glb",
+};
+
+export const LIBRARY_BESTIARY_URLS: Record<string, string> = {
+  imp: "/models/bestiary/imp.glb",
+  puglin: "/models/bestiary/puglin.glb",
+};
+
 export const CUTTING_BOARD_URL = LIBRARY_FOOD_URLS["cutting-board"];
 
 export function isUploadedAsset(ref: string) {
@@ -96,9 +140,13 @@ export function isUploadedAsset(ref: string) {
 function bundledKenneyUrl(ref: string) {
   if (LIBRARY_FOOD_URLS[ref]) return LIBRARY_FOOD_URLS[ref];
   if (LIBRARY_CAR_URLS[ref]) return LIBRARY_CAR_URLS[ref];
+  if (LIBRARY_TD_URLS[ref]) return LIBRARY_TD_URLS[ref];
+  if (LIBRARY_BESTIARY_URLS[ref]) return LIBRARY_BESTIARY_URLS[ref];
   const file = ref.match(/(?:^|\/)([a-z0-9-]+)\.glb$/i)?.[1]?.toLowerCase();
   if (file && LIBRARY_FOOD_URLS[file]) return LIBRARY_FOOD_URLS[file];
   if (file && LIBRARY_CAR_URLS[file]) return LIBRARY_CAR_URLS[file];
+  if (file && LIBRARY_TD_URLS[file]) return LIBRARY_TD_URLS[file];
+  if (file && LIBRARY_BESTIARY_URLS[file]) return LIBRARY_BESTIARY_URLS[file];
   return "";
 }
 
@@ -255,6 +303,34 @@ export function cloneTexturedModel(source: Object3D, tracker: ResourceTracker): 
         return prepared;
       }
       const fallback = new MeshStandardMaterial({ color: "#ffffff", roughness: 0.55, metalness: 0, side: DoubleSide });
+      tracker.track(fallback);
+      return fallback;
+    });
+    mesh.material = next.length === 1 ? next[0] : next;
+    mesh.frustumCulled = false;
+  });
+  root.add(cloned);
+  return root;
+}
+
+export function cloneSkinnedModel(source: Object3D, tracker: ResourceTracker): Group {
+  const root = new Group();
+  const cloned = cloneSkeleton(source);
+  cloned.traverse((child) => {
+    const mesh = child as Mesh;
+    if (!mesh.isMesh) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const next = mats.map((m) => {
+      if (m instanceof MeshStandardMaterial) {
+        const prepared = m.clone();
+        prepared.metalness = Math.min(prepared.metalness, 0.12);
+        prepared.envMapIntensity = 0;
+        if (prepared.map) prepared.map.colorSpace = SRGBColorSpace;
+        prepared.needsUpdate = true;
+        tracker.track(prepared);
+        return prepared;
+      }
+      const fallback = new MeshStandardMaterial({ color: "#6b3a3a", roughness: 0.6, metalness: 0 });
       tracker.track(fallback);
       return fallback;
     });

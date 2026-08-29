@@ -47,6 +47,7 @@ export function GameplayHost({
         tripleMatch: current.gameplay.tripleMatch,
         laneRunner: current.gameplay.laneRunner,
         parkingJam: current.gameplay.parkingJam,
+        towerDefense: current.gameplay.towerDefense,
         playAllRounds: true,
         parkingRoundIndex: parkingRoundIndexRef.current,
       } as object),
@@ -81,6 +82,7 @@ export function GameplayHost({
       tripleMatch: data.gameplay.tripleMatch,
       laneRunner: data.gameplay.laneRunner,
       parkingJam: data.gameplay.parkingJam,
+      towerDefense: data.gameplay.towerDefense,
       playAllRounds: true,
       parkingRoundIndex,
     });
@@ -93,6 +95,7 @@ export function GameplayHost({
     data.gameplay.tripleMatch,
     data.gameplay.laneRunner,
     data.gameplay.parkingJam,
+    data.gameplay.towerDefense,
   ]);
 
   return (

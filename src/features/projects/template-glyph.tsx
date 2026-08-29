@@ -39,6 +39,16 @@ export function TemplateGlyph({ templateId }: { templateId: TemplateId }) {
           <rect x="188" y="48" width="12" height="24" fill="#e07a3d" />
         </>
       )}
+      {templateId === "tower-defense" && (
+        <>
+          <rect x="28" y="22" width="184" height="80" rx="8" fill="#3d5c32" />
+          <path d="M40 48h70v14H92v28h70" fill="none" stroke="#7a5a32" strokeWidth="10" strokeLinejoin="round" />
+          <rect x="58" y="28" width="14" height="28" rx="3" fill="#c4a574" />
+          <rect x="118" y="58" width="16" height="32" rx="3" fill="#8a6a48" />
+          <circle cx="176" cy="42" r="8" fill="#c45a3a" />
+          <circle cx="196" cy="70" r="10" fill="#5cbf5a" />
+        </>
+      )}
     </svg>
   );
 }

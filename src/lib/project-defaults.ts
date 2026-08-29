@@ -8,12 +8,14 @@ import {
 import { DEFAULT_PARKING_CARS, defaultParkingRoundsPack } from "@/playable-runtime/engines/parking-jam/layout";
 import { defaultMatchRoundsPack } from "@/playable-runtime/engines/triple-match/rounds";
 import { defaultLaneRoundsPack } from "@/playable-runtime/engines/lane-runner/rounds";
+import { defaultTdRoundsPack } from "@/playable-runtime/engines/tower-defense/rounds";
 
 export const TEMPLATE_NAMES: Record<TemplateId, string> = {
   "stack-tower": "Stack Tower",
   "triple-match": "Triple Match 3D",
   "lane-runner": "Lane Runner",
   "parking-jam": "Parking Jam",
+  "tower-defense": "Tower Defense",
 };
 
 export const TEMPLATE_BLURBS: Record<TemplateId, string> = {
@@ -21,6 +23,7 @@ export const TEMPLATE_BLURBS: Record<TemplateId, string> = {
   "triple-match": "Tap matching snacks into a tray. Three of a kind clears.",
   "lane-runner": "Swipe lanes, dodge traffic, collect coins across rounds.",
   "parking-jam": "Slide cars out of a jammed lot. Grid puzzle with tinted vehicles.",
+  "tower-defense": "Place towers, stop the dungeon monsters. Short wave defense.",
 };
 
 export const DEMO_URLS = {
@@ -235,7 +238,9 @@ function createStartScreen(templateId: TemplateId): ProjectData["startScreen"] {
       textEl(
         "subtitle",
         "Subtitle",
-        "Tap to start. One round. Install at the end.",
+        templateId === "tower-defense"
+          ? "Pick a tower, tap a glowing pad. Stop the monsters."
+          : "Tap to start. One round. Install at the end.",
         layout({ x: 0.1, y: 0.44, width: 0.8, height: 0.06, zIndex: 4 }),
         layout({ x: 0.4, y: 0.34, width: 0.52, height: 0.1, zIndex: 4 }),
         { fontSize: 16, fontWeight: 500, color: "#c4bfb4" },
@@ -381,7 +386,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       },
     },
     stageBackground:
-      templateId === "parking-jam"
+      templateId === "parking-jam" || templateId === "tower-defense"
         ? {
             portrait: {
               type: "gradient",
@@ -481,7 +486,12 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
             },
           },
     camera:
-      templateId === "parking-jam"
+      templateId === "tower-defense"
+        ? {
+            portrait: { fov: 42, position: { x: 0, y: 12, z: 10 }, target: { x: 0, y: 0, z: 0.4 } },
+            landscape: { fov: 36, position: { x: 0, y: 9.5, z: 8 }, target: { x: 0, y: 0, z: 0.4 } },
+          }
+        : templateId === "parking-jam"
         ? {
             portrait: { fov: 46, position: { x: 0, y: 11, z: 8 }, target: { x: 0, y: 0, z: 0 } },
             landscape: { fov: 40, position: { x: 0, y: 9, z: 7 }, target: { x: 0, y: 0, z: 0 } },
@@ -500,7 +510,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
                 portrait: { fov: 50, position: { x: 0, y: 8, z: 12 }, target: { x: 0, y: 2, z: 0 } },
                 landscape: { fov: 42, position: { x: 0, y: 6, z: 10 }, target: { x: 0, y: 1.6, z: 0 } },
               },
-    lighting: templateId === "lane-runner" ? "overcast" : "studio",
+    lighting: templateId === "lane-runner" || templateId === "tower-defense" ? "overcast" : "studio",
     environment: "gradient-sky",
     audio: { musicUrl: "", tapUrl: "", winUrl: "", loseUrl: "", playFromStart: false },
     stackTower: {
@@ -548,6 +558,17 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       cars: DEFAULT_PARKING_CARS.map((c) => ({ ...c })),
       rounds: defaultParkingRoundsPack(),
       coinImageUrl: "",
+    },
+    towerDefense: {
+      lives: 8,
+      startingGold: 80,
+      coinImageUrl: "",
+      towers: {
+        arrow: { cost: 50, damage: 8, range: 1.8, fireRate: 1.5 },
+        cannon: { cost: 80, damage: 20, range: 1.7, fireRate: 0.65 },
+        turret: { cost: 110, damage: 4, range: 1.4, fireRate: 5 },
+      },
+      rounds: defaultTdRoundsPack(),
     },
     overlays: [
       imageEl(

@@ -13,6 +13,8 @@
     "models:generate": "npx tsx scripts/generate-models.ts",
     "models:embed-kenney": "npx tsx scripts/embed-kenney-cars.ts",
     "models:embed-kenney-food": "npx tsx scripts/embed-kenney-food.ts",
+    "models:embed-kenney-td": "npx tsx scripts/embed-kenney-td.ts",
+    "models:embed-bestiary": "npx tsx scripts/embed-bestiary.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

@@ -29,6 +29,7 @@ const ENGINE_FACTORY: Record<TemplateId, string> = {
   "triple-match": "createTripleMatchEngine",
   "lane-runner": "createLaneRunnerEngine",
   "parking-jam": "createParkingJamEngine",
+  "tower-defense": "createTowerDefenseEngine",
 };
 
 const ENGINE_FILE: Record<TemplateId, string> = {
@@ -36,6 +37,7 @@ const ENGINE_FILE: Record<TemplateId, string> = {
   "triple-match": "src/playable-runtime/engines/triple-match/index.ts",
   "lane-runner": "src/playable-runtime/engines/lane-runner/index.ts",
   "parking-jam": "src/playable-runtime/engines/parking-jam/index.ts",
+  "tower-defense": "src/playable-runtime/engines/tower-defense/index.ts",
 };
 
 function mimeFromUrl(url: string): string {
@@ -82,7 +84,7 @@ export async function exportPlayableHtml(options: {
     total: 0,
   };
 
-  const urls = collectAssetUrls(data);
+  const urls = collectAssetUrls(data, options.templateId);
   const json = JSON.stringify(data);
   let rewritten = json;
   const assets: Record<string, string> = {};

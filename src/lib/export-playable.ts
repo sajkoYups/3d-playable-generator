@@ -1,7 +1,7 @@
 import type { NetworkId, ProjectData, TemplateId } from "@/types/project";
 import { ProjectDataSchema } from "@/types/project";
 import { readObjectBuffer } from "@/lib/storage";
-import { createNetworkAdapter, NETWORK_LIMITS } from "@/playable-runtime/networks";
+import { createNetworkAdapter, META_CTA_CALL, NETWORK_LIMITS } from "@/playable-runtime/networks";
 import { collectAssetUrls } from "@/playable-runtime/export/collect-urls";
 import path from "path";
 import { build } from "esbuild";
@@ -185,6 +185,9 @@ button{font-family:system-ui,sans-serif}
   const limit = NETWORK_LIMITS[networkId];
   if (breakdown.total > limit) {
     warnings.push(`${adapter.name} limit is ${Math.round(limit / 1024 / 1024)} MB; this file is ${(breakdown.total / 1024 / 1024).toFixed(2)} MB.`);
+  }
+  if (networkId === "meta" && !html.includes(META_CTA_CALL)) {
+    warnings.push("Meta/Moloco require a parameterless FbPlayableAd.onCTAClick() call in the HTML; it is missing from this export.");
   }
 
   return { html, size: breakdown.total, networkId, breakdown, warnings };

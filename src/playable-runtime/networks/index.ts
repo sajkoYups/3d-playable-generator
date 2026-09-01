@@ -10,7 +10,11 @@ export type NetworkAdapter = {
   wrapHtml(html: string): string;
 };
 
+/** Moloco/Meta scanners look for this exact call in the HTML source. */
+export const META_CTA_CALL = "FbPlayableAd.onCTAClick()";
+
 declare global {
+  var FbPlayableAd: { onCTAClick: () => void };
   interface Window {
     __PLAYABLE_CONFIG__?: {
       data: unknown;
@@ -32,6 +36,7 @@ declare global {
     applyClickTag?: () => void;
     install?: (url?: string) => void;
     playableSDK?: { openAppStore: () => void };
+    __playableOnCTAClick?: () => void;
   }
 }
 
@@ -95,12 +100,14 @@ export function createNetworkAdapter(id: NetworkId): NetworkAdapter {
         wrapHtml(html) {
           return html.replace(
             "<head>",
-            "<head><script>window.FbPlayableAd=window.FbPlayableAd||{onCTAClick:function(){}}</script>",
+            "<head><script>window.FbPlayableAd=window.FbPlayableAd||{onCTAClick:function(){}};window.__playableOnCTAClick=function(){FbPlayableAd.onCTAClick()};</script>",
           );
         },
-        openStore(url) {
-          window.FbPlayableAd?.onCTAClick();
-          openFallback(url);
+        openStore() {
+          // Head helper keeps FbPlayableAd.onCTAClick() unminified for scanners.
+          // Bare call is the runtime fallback; do not window.open — Meta handles the store.
+          if (typeof window.__playableOnCTAClick === "function") window.__playableOnCTAClick();
+          else if (typeof FbPlayableAd !== "undefined") FbPlayableAd.onCTAClick();
         },
       });
     case "applovin":

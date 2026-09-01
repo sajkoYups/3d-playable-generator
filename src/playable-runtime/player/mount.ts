@@ -77,7 +77,8 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     if (screenVideo) screenVideo.muted = true;
     const videoUrl = screenVideoUrl();
     if (videoUrl && (phase === "start" || phase === "end")) {
-      if (!muted) startLoopMusic(videoUrl, muted);
+      const loop = !(phase === "start" && data.startScreen.startAfterVideo);
+      if (!muted) startLoopMusic(videoUrl, muted, loop);
       return;
     }
     if (phase === "start" && data.gameplay.audio.playFromStart && audioUnlocked && !muted) {
@@ -87,9 +88,12 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
 
   function discardScreenVideo() {
     if (!screenVideo) return;
-    screenVideo.pause();
-    screenVideo.removeAttribute("src");
+    const video = screenVideo;
     screenVideo = null;
+    video.onended = null;
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
   }
 
   function measure() {
@@ -98,12 +102,17 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
       options.forcedOrientation || (size.h >= size.w ? "portrait" : "landscape");
   }
 
+  function beginGameplay() {
+    if (phase !== "start") return;
+    audioUnlocked = true;
+    void audio.unlock();
+    setPhase("game");
+  }
+
   function handleAction(type: string) {
     if (type === "START_PLAYABLE") {
-      audioUnlocked = true;
-      void audio.unlock();
       audio.play("tap");
-      setPhase("game");
+      beginGameplay();
     }
     if (type === "REPLAY") {
       audio.play("tap");
@@ -220,14 +229,21 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     applyStyle(bg, backgroundToStyle(screen.background, orientation));
     if (screen.videoUrl && screen.background.type === "video") {
       const video = document.createElement("video");
+      const startAfterVideo = phase === "start" && data.startScreen.startAfterVideo;
       video.src = screen.videoUrl;
       video.autoplay = true;
-      video.loop = true;
+      video.loop = !startAfterVideo;
       video.muted = true;
       video.playsInline = true;
       video.style.width = "100%";
       video.style.height = "100%";
       video.style.objectFit = "cover";
+      if (startAfterVideo) {
+        video.onended = () => {
+          if (screenVideo !== video || phase !== "start") return;
+          beginGameplay();
+        };
+      }
       bg.appendChild(video);
       screenVideo = video;
     }

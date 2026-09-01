@@ -1285,6 +1285,8 @@ export function PropertiesPanel() {
   if (selected) return <ContentEditor element={selected} />;
 
   const screen = stage === "start" ? data.startScreen : data.endScreen;
+  const startVideoActive =
+    stage === "start" && (screen.background.type === "video" || Boolean(screen.videoUrl));
   return (
     <div className="space-y-4 p-4">
       <h3 className="font-semibold">Background</h3>
@@ -1302,6 +1304,25 @@ export function PropertiesPanel() {
           })
         }
       />
+      {startVideoActive && (
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <Label htmlFor="start-after-video">Start after video ends</Label>
+            <p className="text-[11px] leading-snug text-muted">
+              When off, the playable starts on a button click. The CTA still skips the video if tapped early.
+            </p>
+          </div>
+          <Switch
+            id="start-after-video"
+            checked={Boolean(data.startScreen.startAfterVideo)}
+            onCheckedChange={(checked) =>
+              updateData((d) => {
+                d.startScreen.startAfterVideo = checked;
+              })
+            }
+          />
+        </div>
+      )}
     </div>
   );
 }

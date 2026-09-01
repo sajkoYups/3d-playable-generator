@@ -164,6 +164,7 @@ export type PlayableElement = z.infer<typeof PlayableElementSchema>;
 export const ScreenSchema = z.object({
   background: BackgroundSchema,
   videoUrl: z.string().default(""),
+  startAfterVideo: z.boolean().default(false),
   elements: z.array(PlayableElementSchema),
 });
 export type ScreenData = z.infer<typeof ScreenSchema>;

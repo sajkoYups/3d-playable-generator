@@ -18,10 +18,11 @@ function ignoreInterruptedPlay(err: unknown) {
   if (name === "AbortError" || name === "NotAllowedError") return;
 }
 
-export function startLoopMusic(url: string, muted = false) {
+export function startLoopMusic(url: string, muted = false, loop = true) {
   if (!url) return;
   const el = ensureBed();
   el.muted = muted;
+  el.loop = loop;
   el.volume = 0.45;
   const abs = new URL(url, window.location.href).href;
   if (el.src === abs) {

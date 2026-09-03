@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import type { Orientation, PlayableElement, ProjectData, TemplateId } from "@/types/project";
 import { BRAND_LOGO_SLOT_IDS, END_POLICY_SLOT_ID, isBrandSlotId, isOverridableSlotId, ProjectDataSchema } from "@/types/project";
-import { createDefaultProjectData, createEndPolicyElement } from "@/lib/project-defaults";
+import { createDefaultProjectData, createEndPolicyElement, ensureAppBrandLayers } from "@/lib/project-defaults";
 import { ensureParkingRounds, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 import { ensureMatchRounds, propagateMatchFoods, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
 import { ensureLaneRounds, syncLaneRound } from "@/playable-runtime/engines/lane-runner/rounds";
@@ -46,6 +46,8 @@ type EditorState = {
   parkingRoundIndex: number;
   brandId: string | null;
   brandName: string | null;
+  appBrandId: string | null;
+  appBrandName: string | null;
   editorMode: EditorMode;
   unlockedSlotIds: string[];
 
@@ -59,6 +61,8 @@ type EditorState = {
     defaultOrientation: Orientation;
     brandId?: string | null;
     brandName?: string | null;
+    appBrandId?: string | null;
+    appBrandName?: string | null;
     editorMode?: EditorMode;
     unlockedSlotIds?: string[];
   }) => void;
@@ -67,6 +71,11 @@ type EditorState = {
     brandName: string | null;
     data: ProjectData;
     unlockedSlotIds?: string[];
+  }) => void;
+  applyAppBrand: (payload: {
+    appBrandId: string | null;
+    appBrandName: string | null;
+    data: ProjectData;
   }) => void;
   setStage: (stage: EditorStage) => void;
   setOrientation: (orientation: Orientation) => void;
@@ -128,6 +137,8 @@ export const useEditorStore = create<EditorState>()(
     parkingRoundIndex: 0,
     brandId: null,
     brandName: null,
+    appBrandId: null,
+    appBrandName: null,
     editorMode: "playable",
     unlockedSlotIds: [],
 
@@ -139,7 +150,7 @@ export const useEditorStore = create<EditorState>()(
         state.galleryName = payload.galleryName ?? payload.projectName;
         state.templateId = payload.templateId;
         const parsed = ProjectDataSchema.safeParse(payload.data);
-        state.data = parsed.success ? parsed.data : payload.data;
+        state.data = ensureAppBrandLayers(parsed.success ? parsed.data : payload.data);
         const jam = state.data.gameplay.parkingJam;
         ensureParkingRounds(jam);
         state.parkingRoundIndex = 0;
@@ -166,6 +177,8 @@ export const useEditorStore = create<EditorState>()(
         state.stage = "start";
         state.brandId = payload.brandId ?? null;
         state.brandName = payload.brandName ?? null;
+        state.appBrandId = payload.appBrandId ?? null;
+        state.appBrandName = payload.appBrandName ?? null;
         state.editorMode = payload.editorMode ?? "playable";
         state.unlockedSlotIds = payload.unlockedSlotIds ?? [];
       }),
@@ -181,6 +194,18 @@ export const useEditorStore = create<EditorState>()(
         state.future = [];
         state.saveStatus = "saved";
         state.unlockedSlotIds = payload.unlockedSlotIds ?? [];
+      }),
+
+    applyAppBrand: (payload) =>
+      set((state) => {
+        const parsed = ProjectDataSchema.safeParse(payload.data);
+        state.data = parsed.success ? parsed.data : payload.data;
+        state.appBrandId = payload.appBrandId;
+        state.appBrandName = payload.appBrandName;
+        state.selectedElementId = null;
+        state.past = [];
+        state.future = [];
+        state.saveStatus = "saved";
       }),
 
     setStage: (stage) =>

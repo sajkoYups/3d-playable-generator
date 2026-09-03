@@ -1,17 +1,24 @@
 import {
+  APP_BRAND_DISCLAIMER_ID,
+  APP_BRAND_HORIZONTAL_LOGO_ID,
+  APP_BRAND_ICON_ID,
+  APP_BRAND_VERTICAL_LOGO_ID,
+  AppBrandDataSchema,
   BrandDataSchema,
+  BRAND_LOGO_SLOT_IDS,
   ProjectDataSchema,
   UNLOCK_COIN_SLOT_ID,
   UNLOCK_END_BG_SLOT_ID,
   UNLOCK_LINKS_SLOT_ID,
   UNLOCK_START_BG_SLOT_ID,
   VariationOverridesSchema,
+  type AppBrandData,
   type BrandData,
   type PlayableElement,
   type ProjectData,
   type VariationOverrides,
 } from "@/types/project";
-import { stampCoinImage } from "@/lib/project-defaults";
+import { ensureAppBrandLayers, stampCoinImage } from "@/lib/project-defaults";
 
 function upsertElements(
   target: PlayableElement[],
@@ -59,11 +66,99 @@ function applyOverrides(
 }
 
 export function parseProjectData(raw: unknown): ProjectData {
-  return ProjectDataSchema.parse(raw);
+  return ensureAppBrandLayers(ProjectDataSchema.parse(raw));
 }
 
 export function parseBrandData(raw: unknown): BrandData {
   return BrandDataSchema.parse(raw);
+}
+
+export function parseAppBrandData(raw: unknown): AppBrandData {
+  return AppBrandDataSchema.parse(raw ?? {});
+}
+
+function readableTextOn(hex: string): string {
+  const raw = hex.trim().replace("#", "");
+  const full = raw.length === 3 ? raw.split("").map((c) => c + c).join("") : raw;
+  if (full.length !== 6) return "#ffffff";
+  const n = Number.parseInt(full, 16);
+  if (Number.isNaN(n)) return "#ffffff";
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 140 ? "#12141a" : "#ffffff";
+}
+
+function allElements(data: ProjectData): PlayableElement[] {
+  return [...data.startScreen.elements, ...data.endScreen.elements, ...data.gameplay.overlays];
+}
+
+function setImageSlot(
+  data: ProjectData,
+  id: string,
+  url: string,
+  visibility: { portrait: boolean; landscape: boolean },
+) {
+  for (const el of allElements(data)) {
+    if (el.id !== id) continue;
+    el.content.imageUrl = url;
+    el.layout.portrait.visible = Boolean(url) && visibility.portrait;
+    el.layout.landscape.visible = Boolean(url) && visibility.landscape;
+  }
+}
+
+function applyAppBrandKit(data: ProjectData, kit: AppBrandData) {
+  ensureAppBrandLayers(data);
+  if (kit.appStoreUrl) data.links.appStoreUrl = kit.appStoreUrl;
+  if (kit.googlePlayUrl) data.links.googlePlayUrl = kit.googlePlayUrl;
+  if (kit.coinImageUrl) stampCoinImage(data, kit.coinImageUrl);
+
+  setImageSlot(data, APP_BRAND_VERTICAL_LOGO_ID, kit.logoVerticalUrl, {
+    portrait: true,
+    landscape: false,
+  });
+  setImageSlot(data, APP_BRAND_HORIZONTAL_LOGO_ID, kit.logoHorizontalUrl, {
+    portrait: false,
+    landscape: true,
+  });
+  setImageSlot(data, APP_BRAND_ICON_ID, kit.appIconUrl, { portrait: true, landscape: true });
+
+  if (kit.logoVerticalUrl || kit.logoHorizontalUrl) {
+    for (const el of allElements(data)) {
+      if (!BRAND_LOGO_SLOT_IDS.includes(el.id)) continue;
+      el.layout.portrait.visible = false;
+      el.layout.landscape.visible = false;
+    }
+  }
+
+  for (const el of data.endScreen.elements) {
+    if (el.id !== APP_BRAND_DISCLAIMER_ID) continue;
+    el.content.text = kit.disclaimerText;
+    const show = Boolean(kit.disclaimerText.trim());
+    el.layout.portrait.visible = show;
+    el.layout.landscape.visible = show;
+  }
+
+  const primary = kit.primaryColor || "#e07a3d";
+  const secondary = kit.secondaryColor || "#1c1f2a";
+  const primaryText = readableTextOn(primary);
+  const secondaryText = readableTextOn(secondary);
+  for (const el of allElements(data)) {
+    if (el.id === "end-cta" || el.id === "cta-button") {
+      el.style.backgroundColor = primary;
+      el.style.textColor = primaryText;
+    }
+    if (
+      el.id === "app-store-button" ||
+      el.id === "google-play-button" ||
+      el.id === "end-app-store" ||
+      el.id === "end-google-play"
+    ) {
+      el.style.backgroundColor = secondary;
+      el.style.textColor = secondaryText;
+    }
+  }
 }
 
 export function parseOverrides(raw: unknown): VariationOverrides {
@@ -81,10 +176,11 @@ export function resolvePlayable(
   projectData: ProjectData,
   brand: BrandData | null | undefined,
   overrides?: VariationOverrides | null,
+  appBrand?: AppBrandData | null,
 ) : ProjectData {
   const parsedOverrides = overrides ?? { elements: {}, unlockedSlotIds: [] };
   const unlocked = new Set(parsedOverrides.unlockedSlotIds ?? []);
-  const result = structuredClone(projectData);
+  const result = ensureAppBrandLayers(structuredClone(projectData));
   if (brand) {
     if (!unlocked.has(UNLOCK_LINKS_SLOT_ID)) {
       result.links = { ...brand.links };
@@ -107,6 +203,7 @@ export function resolvePlayable(
     upsertElements(result.gameplay.overlays, brand.overlays, unlocked);
   }
   applyOverrides(result, parsedOverrides, unlocked);
+  if (appBrand) applyAppBrandKit(result, appBrand);
   return result;
 }
 

@@ -34,6 +34,7 @@ export async function POST(
           name: v.name,
           projectData: v.projectData as Prisma.InputJsonValue,
           brandId: v.brandId,
+          appBrandId: v.appBrandId,
           overrides: v.overrides as Prisma.InputJsonValue,
           thumbnailUrl: v.thumbnailUrl,
           status: "draft" as const,

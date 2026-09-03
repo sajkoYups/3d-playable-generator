@@ -506,6 +506,40 @@ export const BrandDataSchema = z.object({
 });
 export type BrandData = z.infer<typeof BrandDataSchema>;
 
+/** Identity kit applied as variables onto a playable. Separate from personal templates. */
+export const APP_BRAND_VERTICAL_LOGO_ID = "app-logo-vertical";
+export const APP_BRAND_HORIZONTAL_LOGO_ID = "app-logo-horizontal";
+export const APP_BRAND_ICON_ID = "app-icon";
+export const APP_BRAND_DISCLAIMER_ID = "end-disclaimer";
+
+export const APP_BRAND_LOGO_SLOT_IDS: readonly string[] = [
+  APP_BRAND_VERTICAL_LOGO_ID,
+  APP_BRAND_HORIZONTAL_LOGO_ID,
+];
+
+export const APP_BRAND_IMAGE_SLOT_IDS: readonly string[] = [
+  ...APP_BRAND_LOGO_SLOT_IDS,
+  APP_BRAND_ICON_ID,
+];
+
+export const TEMPLATE_LOGO_SLOT_IDS: readonly string[] = BRAND_LOGO_SLOT_IDS;
+
+export const AppBrandDataSchema = z.object({
+  appName: z.string().default(""),
+  googlePlayUrl: z.string().default(""),
+  appStoreUrl: z.string().default(""),
+  logoVerticalUrl: z.string().default(""),
+  logoHorizontalUrl: z.string().default(""),
+  appIconUrl: z.string().default(""),
+  coinImageUrl: z.string().default(""),
+  geo: z.string().default("US"),
+  language: z.string().default("en"),
+  disclaimerText: z.string().default(""),
+  primaryColor: z.string().default("#e07a3d"),
+  secondaryColor: z.string().default("#1c1f2a"),
+});
+export type AppBrandData = z.infer<typeof AppBrandDataSchema>;
+
 export const ElementContentOverrideSchema = z
   .object({
     text: z.string().optional(),

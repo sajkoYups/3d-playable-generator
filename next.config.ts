@@ -11,12 +11,6 @@ const nextConfig: NextConfig = {
     "@gltf-transform/extensions",
     "meshoptimizer",
   ],
-  async redirects() {
-    return [
-      { source: "/brands", destination: "/templates", permanent: false },
-      { source: "/brands/:id", destination: "/templates/:id", permanent: false },
-    ];
-  },
 };
 
 export default nextConfig;

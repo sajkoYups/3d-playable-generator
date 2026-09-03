@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireSession } from "@/lib/session";
 import { SignOutButton } from "@/features/projects/sign-out-button";
 import { DashboardNav } from "@/features/projects/dashboard-nav";
+import { BrandHeaderLink } from "@/features/app-brands/brand-header-link";
 
 export default async function DashboardLayout({
   children,
@@ -21,6 +22,7 @@ export default async function DashboardLayout({
             <DashboardNav />
           </div>
           <div className="flex items-center gap-3 text-sm text-muted">
+            <BrandHeaderLink />
             <span>{session.user.name || session.user.email}</span>
             <SignOutButton />
           </div>

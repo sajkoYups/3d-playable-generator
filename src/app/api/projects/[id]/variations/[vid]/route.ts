@@ -17,6 +17,7 @@ const PatchSchema = z.object({
   projectData: ProjectDataSchema.optional(),
   overrides: VariationOverridesSchema.optional(),
   brandId: z.string().nullable().optional(),
+  appBrandId: z.string().nullable().optional(),
   status: z.enum(["draft", "ready", "exported"]).optional(),
   thumbnailUrl: z.string().nullable().optional(),
 });
@@ -35,6 +36,7 @@ export async function GET(
     projectData: access.variation.projectData,
     templateId: access.project.templateId,
     brandId: access.variation.brandId,
+    appBrandId: access.variation.appBrandId,
     overrides: access.variation.overrides,
   });
 
@@ -75,6 +77,13 @@ export async function PATCH(
     if (!brand) return NextResponse.json({ error: "Template not found" }, { status: 404 });
   }
 
+  if (body.appBrandId !== undefined && body.appBrandId !== null) {
+    const appBrand = await prisma.appBrand.findFirst({
+      where: { id: body.appBrandId, members: { some: { userId: session.user.id } } },
+    });
+    if (!appBrand) return NextResponse.json({ error: "Brand not found" }, { status: 404 });
+  }
+
   let overrides = body.overrides;
   if (body.brandId !== undefined && body.overrides === undefined) {
     overrides = { elements: {}, unlockedSlotIds: [] };
@@ -100,10 +109,11 @@ export async function PATCH(
         : {}),
       ...(overrides !== undefined ? { overrides: overrides as Prisma.InputJsonValue } : {}),
       ...(body.brandId !== undefined ? { brandId: body.brandId } : {}),
+      ...(body.appBrandId !== undefined ? { appBrandId: body.appBrandId } : {}),
       ...(body.status !== undefined ? { status: body.status } : {}),
       ...(body.thumbnailUrl !== undefined ? { thumbnailUrl: body.thumbnailUrl } : {}),
     },
-    include: { brand: true },
+    include: { brand: true, appBrand: true },
   });
 
   await prisma.project.update({ where: { id }, data: { updatedAt: new Date() } });
@@ -112,6 +122,7 @@ export async function PATCH(
     projectData: variation.projectData,
     templateId: access.project.templateId,
     brandId: variation.brandId,
+    appBrandId: variation.appBrandId,
     overrides: variation.overrides ?? parseOverrides(overrides),
   });
 

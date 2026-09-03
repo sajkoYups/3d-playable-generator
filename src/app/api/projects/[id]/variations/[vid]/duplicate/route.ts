@@ -21,11 +21,12 @@ export async function POST(
       name: `${source.name} (Copy)`,
       projectData: parseProjectData(source.projectData) as Prisma.InputJsonValue,
       brandId: source.brandId,
+      appBrandId: source.appBrandId,
       overrides: parseOverrides(source.overrides) as Prisma.InputJsonValue,
       thumbnailUrl: source.thumbnailUrl,
       status: "draft",
     },
-    include: { brand: { select: { id: true, name: true, thumbnailUrl: true } } },
+    include: { brand: { select: { id: true, name: true, thumbnailUrl: true } }, appBrand: { select: { id: true, name: true, thumbnailUrl: true } } },
   });
 
   await prisma.project.update({ where: { id }, data: { updatedAt: new Date() } });

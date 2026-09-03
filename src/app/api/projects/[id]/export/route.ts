@@ -36,6 +36,7 @@ export async function POST(
     projectData: access.variation.projectData,
     templateId: access.project.templateId,
     brandId: access.variation.brandId,
+    appBrandId: access.variation.appBrandId,
     overrides: access.variation.overrides,
   });
 

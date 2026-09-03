@@ -13,6 +13,7 @@ import { ProjectSettingsDialog } from "@/features/editor/project-settings-dialog
 import { ImplementOnProjectButton } from "@/features/brands/implement-on-project";
 import { BrandUsedOnButton } from "@/features/brands/brand-used-on";
 import { ApplyBrandButton } from "@/features/editor/apply-brand-dialog";
+import { ApplyAppBrandButton } from "@/features/editor/apply-app-brand-dialog";
 import { startLoopMusic, stopLoopMusic } from "@/playable-runtime/audio/loop";
 import { projectDataToBrandData } from "@/lib/brand-defaults";
 
@@ -32,6 +33,7 @@ export function EditorToolbar() {
   const editorMode = useEditorStore((s) => s.editorMode);
   const brandId = useEditorStore((s) => s.brandId);
   const brandName = useEditorStore((s) => s.brandName);
+  const appBrandName = useEditorStore((s) => s.appBrandName);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -74,6 +76,9 @@ export function EditorToolbar() {
       {editorMode === "playable" && brandName && (
         <Badge className="bg-[#2a2118] text-accent">From {brandName}</Badge>
       )}
+      {editorMode === "playable" && appBrandName && (
+        <Badge className="bg-[#1c2430] text-[#9ec9c0]">Brand {appBrandName}</Badge>
+      )}
       <Badge
         className={
           saveStatus === "error"
@@ -108,7 +113,12 @@ export function EditorToolbar() {
             <ImplementOnProjectButton />
           </>
         )}
-        {editorMode === "playable" && <ApplyBrandButton />}
+        {editorMode === "playable" && (
+          <>
+            <ApplyBrandButton />
+            <ApplyAppBrandButton />
+          </>
+        )}
         <Button size="sm" variant="outline" onClick={() => setSettingsOpen(true)}>
           <Settings className="h-4 w-4" />
           Links

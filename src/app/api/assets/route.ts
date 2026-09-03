@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAccessibleBrand, getAccessibleProject, requireApiSession } from "@/lib/api-auth";
+import { getAccessibleAppBrand, getAccessibleBrand, getAccessibleProject, requireApiSession } from "@/lib/api-auth";
 import { optimizeImage } from "@/lib/sharp";
 import { optimizeGlb } from "@/lib/optimize-model";
 import { optimizeAudio, optimizeVideo } from "@/lib/optimize-media";
@@ -29,12 +29,18 @@ export async function GET(req: NextRequest) {
 
   const projectId = req.nextUrl.searchParams.get("projectId");
   const brandId = req.nextUrl.searchParams.get("brandId");
+  const appBrandId = req.nextUrl.searchParams.get("appBrandId");
+  if (appBrandId) {
+    const brand = await getAccessibleAppBrand(appBrandId, session.user.id);
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ assets: brand.assets });
+  }
   if (brandId) {
     const brand = await getAccessibleBrand(brandId, session.user.id);
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ assets: brand.assets });
   }
-  if (!projectId) return NextResponse.json({ error: "projectId or brandId required" }, { status: 400 });
+  if (!projectId) return NextResponse.json({ error: "projectId, brandId, or appBrandId required" }, { status: 400 });
 
   const project = await getAccessibleProject(projectId, session.user.id);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -49,13 +55,17 @@ export async function POST(req: NextRequest) {
   const form = await req.formData();
   const projectId = String(form.get("projectId") || "");
   const brandId = String(form.get("brandId") || "");
+  const appBrandId = String(form.get("appBrandId") || "");
   const file = form.get("file");
 
-  if ((!(projectId || brandId)) || !(file instanceof File)) {
-    return NextResponse.json({ error: "projectId or brandId, and file, required" }, { status: 400 });
+  if ((!(projectId || brandId || appBrandId)) || !(file instanceof File)) {
+    return NextResponse.json({ error: "projectId, brandId, or appBrandId, and file, required" }, { status: 400 });
   }
 
-  if (brandId) {
+  if (appBrandId) {
+    const brand = await getAccessibleAppBrand(appBrandId, session.user.id);
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  } else if (brandId) {
     const brand = await getAccessibleBrand(brandId, session.user.id);
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
   } else {
@@ -63,7 +73,11 @@ export async function POST(req: NextRequest) {
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const folderRoot = brandId ? `brands/${brandId}` : `projects/${projectId}`;
+  const folderRoot = appBrandId
+    ? `app-brands/${appBrandId}`
+    : brandId
+      ? `brands/${brandId}`
+      : `projects/${projectId}`;
 
   const kind = kindOf(file);
   if (!kind) {
@@ -158,6 +172,7 @@ export async function POST(req: NextRequest) {
     data: {
       projectId: projectId || null,
       brandId: brandId || null,
+      appBrandId: appBrandId || null,
       fileName: file.name,
       fileType,
       kind,

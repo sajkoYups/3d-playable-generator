@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/session";
 import { getAccessibleVariation } from "@/lib/api-auth";
 import { notFound } from "next/navigation";
 import { EditorShell } from "@/features/editor/editor-shell";
-import { parseBrandData, parseOverrides, parseProjectData, resolvePlayable } from "@/lib/resolve-playable";
+import { parseAppBrandData, parseBrandData, parseOverrides, parseProjectData, resolvePlayable } from "@/lib/resolve-playable";
 import { createDefaultProjectData } from "@/lib/project-defaults";
 import type { Orientation, TemplateId } from "@/types/project";
 
@@ -27,8 +27,11 @@ export default async function VariationEditorPage({
   const brandData = access.variation.brand
     ? parseBrandData(access.variation.brand.brandData)
     : null;
+  const appBrandData = access.variation.appBrand
+    ? parseAppBrandData(access.variation.appBrand.brandData)
+    : null;
   const overrides = parseOverrides(access.variation.overrides);
-  const data = resolvePlayable(stored, brandData, overrides);
+  const data = resolvePlayable(stored, brandData, overrides, appBrandData);
 
   return (
     <EditorShell
@@ -41,6 +44,8 @@ export default async function VariationEditorPage({
       initialData={data}
       brandId={access.variation.brandId}
       brandName={access.variation.brand?.name ?? null}
+      appBrandId={access.variation.appBrandId}
+      appBrandName={access.variation.appBrand?.name ?? null}
       editorMode="playable"
       unlockedSlotIds={overrides.unlockedSlotIds}
     />

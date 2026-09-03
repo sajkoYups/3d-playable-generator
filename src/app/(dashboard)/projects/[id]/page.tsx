@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/session";
 import { getAccessibleProject } from "@/lib/api-auth";
 import { notFound } from "next/navigation";
 import { VariationGallery } from "@/features/projects/variation-gallery";
-import { parseBrandData } from "@/lib/resolve-playable";
+import { parseAppBrandData, parseBrandData } from "@/lib/resolve-playable";
 import { DEMO_URLS } from "@/lib/project-defaults";
 import type { TemplateId } from "@/types/project";
 
@@ -28,6 +28,15 @@ export default async function ProjectGalleryPage({
         brandLogo = v.brand.thumbnailUrl;
       }
     }
+    let appBrandIcon: string | null = null;
+    if (v.appBrand) {
+      try {
+        const kit = parseAppBrandData(v.appBrand.brandData);
+        appBrandIcon = kit.appIconUrl || kit.logoVerticalUrl || v.appBrand.thumbnailUrl;
+      } catch {
+        appBrandIcon = v.appBrand.thumbnailUrl;
+      }
+    }
     return {
       id: v.id,
       name: v.name,
@@ -37,6 +46,9 @@ export default async function ProjectGalleryPage({
       brandId: v.brandId,
       brandName: v.brand?.name ?? null,
       brandLogo,
+      appBrandId: v.appBrandId,
+      appBrandName: v.appBrand?.name ?? null,
+      appBrandIcon,
     };
   });
 

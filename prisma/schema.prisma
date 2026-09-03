@@ -17,8 +17,9 @@ model User {
   updatedAt        DateTime        @updatedAt
   sessions         Session[]
   accounts         Account[]
-  memberships      ProjectMember[]
-  brandMemberships BrandMember[]
+  memberships         ProjectMember[]
+  brandMemberships    BrandMember[]
+  appBrandMemberships AppBrandMember[]
 
   @@map("user")
 }
@@ -130,6 +131,7 @@ model Variation {
   name         String
   projectData  Json
   brandId      String?
+  appBrandId   String?
   overrides    Json          @default("{}")
   thumbnailUrl String?
   status       ProjectStatus @default(draft)
@@ -137,9 +139,11 @@ model Variation {
   updatedAt    DateTime      @updatedAt
   project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   brand        Brand?        @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  appBrand     AppBrand?     @relation(fields: [appBrandId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([brandId])
+  @@index([appBrandId])
   @@index([updatedAt])
   @@map("variation")
 }
@@ -173,10 +177,40 @@ model BrandMember {
   @@map("brand_member")
 }
 
+model AppBrand {
+  id           String           @id @default(cuid())
+  name         String
+  brandData    Json
+  thumbnailUrl String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  members      AppBrandMember[]
+  assets       Asset[]
+  variations   Variation[]
+
+  @@index([updatedAt])
+  @@map("app_brand")
+}
+
+model AppBrandMember {
+  id         String      @id @default(cuid())
+  appBrandId String
+  userId     String
+  role       ProjectRole @default(owner)
+  createdAt  DateTime    @default(now())
+  appBrand   AppBrand    @relation(fields: [appBrandId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([appBrandId, userId])
+  @@index([userId])
+  @@map("app_brand_member")
+}
+
 model Asset {
   id             String    @id @default(cuid())
   projectId      String?
   brandId        String?
+  appBrandId     String?
   fileName       String
   fileType       String
   kind           AssetKind @default(image)
@@ -194,8 +228,10 @@ model Asset {
   updatedAt      DateTime  @updatedAt
   project        Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   brand          Brand?    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  appBrand       AppBrand? @relation(fields: [appBrandId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([brandId])
+  @@index([appBrandId])
   @@map("asset")
 }

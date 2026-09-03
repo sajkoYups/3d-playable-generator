@@ -13,12 +13,13 @@ export type UploadedAsset = {
 };
 
 export async function uploadOwnedAsset(
-  owner: { projectId: string } | { brandId: string },
+  owner: { projectId: string } | { brandId: string } | { appBrandId: string },
   file: File,
 ) {
   const form = new FormData();
   if ("projectId" in owner) form.set("projectId", owner.projectId);
   if ("brandId" in owner) form.set("brandId", owner.brandId);
+  if ("appBrandId" in owner) form.set("appBrandId", owner.appBrandId);
   form.set("file", file);
   const res = await fetch("/api/assets", { method: "POST", body: form });
   if (!res.ok) {

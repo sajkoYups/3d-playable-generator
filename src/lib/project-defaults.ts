@@ -1,4 +1,8 @@
 import {
+  APP_BRAND_DISCLAIMER_ID,
+  APP_BRAND_HORIZONTAL_LOGO_ID,
+  APP_BRAND_ICON_ID,
+  APP_BRAND_VERTICAL_LOGO_ID,
   layout,
   type Background,
   type PlayableElement,
@@ -199,6 +203,110 @@ export function createEndPolicyElement(): PlayableElement {
   return el;
 }
 
+function orientationLogo(
+  id: string,
+  name: string,
+  portrait: ReturnType<typeof layout>,
+  landscape: ReturnType<typeof layout>,
+): PlayableElement {
+  return imageEl(id, name, portrait, landscape, "");
+}
+
+export function createAppLogoVerticalElement(stage: "start" | "gameplay" | "end"): PlayableElement {
+  if (stage === "gameplay") {
+    return orientationLogo(
+      APP_BRAND_VERTICAL_LOGO_ID,
+      "App Logo Vertical",
+      layout({ x: 0.35, y: 0.02, width: 0.3, height: 0.08, zIndex: 21, visible: false }),
+      layout({ x: 0.02, y: 0.05, width: 0.12, height: 0.18, zIndex: 21, visible: false }),
+    );
+  }
+  if (stage === "end") {
+    return orientationLogo(
+      APP_BRAND_VERTICAL_LOGO_ID,
+      "App Logo Vertical",
+      layout({ x: 0.35, y: 0.08, width: 0.3, height: 0.1, zIndex: 3, visible: false }),
+      layout({ x: 0.08, y: 0.2, width: 0.16, height: 0.18, zIndex: 3, visible: false }),
+    );
+  }
+  return orientationLogo(
+    APP_BRAND_VERTICAL_LOGO_ID,
+    "App Logo Vertical",
+    layout({ x: 0.35, y: 0.08, width: 0.3, height: 0.12, zIndex: 3, visible: false }),
+    layout({ x: 0.08, y: 0.15, width: 0.18, height: 0.2, zIndex: 3, visible: false }),
+  );
+}
+
+export function createAppLogoHorizontalElement(stage: "start" | "gameplay" | "end"): PlayableElement {
+  if (stage === "gameplay") {
+    return orientationLogo(
+      APP_BRAND_HORIZONTAL_LOGO_ID,
+      "App Logo Horizontal",
+      layout({ x: 0.28, y: 0.02, width: 0.44, height: 0.06, zIndex: 21, visible: false }),
+      layout({ x: 0.02, y: 0.06, width: 0.2, height: 0.1, zIndex: 21, visible: false }),
+    );
+  }
+  if (stage === "end") {
+    return orientationLogo(
+      APP_BRAND_HORIZONTAL_LOGO_ID,
+      "App Logo Horizontal",
+      layout({ x: 0.22, y: 0.08, width: 0.56, height: 0.08, zIndex: 3, visible: false }),
+      layout({ x: 0.06, y: 0.22, width: 0.24, height: 0.12, zIndex: 3, visible: false }),
+    );
+  }
+  return orientationLogo(
+    APP_BRAND_HORIZONTAL_LOGO_ID,
+    "App Logo Horizontal",
+    layout({ x: 0.22, y: 0.08, width: 0.56, height: 0.1, zIndex: 3, visible: false }),
+    layout({ x: 0.06, y: 0.16, width: 0.28, height: 0.14, zIndex: 3, visible: false }),
+  );
+}
+
+export function createAppIconElement(_stage: "start" | "end"): PlayableElement {
+  return imageEl(
+    APP_BRAND_ICON_ID,
+    "App Icon",
+    layout({ x: 0.03, y: 0.03, width: 0.1, height: 0.06, zIndex: 12, visible: false }),
+    layout({ x: 0.02, y: 0.04, width: 0.06, height: 0.1, zIndex: 12, visible: false }),
+    "",
+  );
+}
+
+export function createEndDisclaimerElement(): PlayableElement {
+  return textEl(
+    APP_BRAND_DISCLAIMER_ID,
+    "Disclaimer",
+    "",
+    layout({ x: 0.08, y: 0.945, width: 0.84, height: 0.04, zIndex: 6, visible: false }),
+    layout({ x: 0.22, y: 0.94, width: 0.56, height: 0.05, zIndex: 6, visible: false }),
+    { fontSize: 10, fontWeight: 500, color: "#8a8494" },
+  );
+}
+
+function insertIfMissing(list: PlayableElement[], el: PlayableElement, afterId?: string) {
+  if (list.some((item) => item.id === el.id)) return;
+  const after = afterId ? list.findIndex((item) => item.id === afterId) : -1;
+  if (after >= 0) {
+    list.splice(after + 1, 0, el);
+    return;
+  }
+  list.unshift(el);
+}
+
+/** Add identity-kit layers to stored playables that predate them. */
+export function ensureAppBrandLayers(data: ProjectData): ProjectData {
+  insertIfMissing(data.startScreen.elements, createAppLogoVerticalElement("start"), "app-logo");
+  insertIfMissing(data.startScreen.elements, createAppLogoHorizontalElement("start"), APP_BRAND_VERTICAL_LOGO_ID);
+  insertIfMissing(data.startScreen.elements, createAppIconElement("start"));
+  insertIfMissing(data.endScreen.elements, createAppLogoVerticalElement("end"), "end-app-logo");
+  insertIfMissing(data.endScreen.elements, createAppLogoHorizontalElement("end"), APP_BRAND_VERTICAL_LOGO_ID);
+  insertIfMissing(data.endScreen.elements, createAppIconElement("end"));
+  insertIfMissing(data.endScreen.elements, createEndDisclaimerElement());
+  insertIfMissing(data.gameplay.overlays, createAppLogoVerticalElement("gameplay"), "gameplay-logo");
+  insertIfMissing(data.gameplay.overlays, createAppLogoHorizontalElement("gameplay"), APP_BRAND_VERTICAL_LOGO_ID);
+  return data;
+}
+
 /** Keep project-level coin and every template slot in sync. */
 export function stampCoinImage(data: ProjectData, url: string) {
   data.coinImageUrl = url;
@@ -250,6 +358,9 @@ function createStartScreen(templateId: TemplateId): ProjectData["startScreen"] {
         layout({ x: 0.08, y: 0.15, width: 0.18, height: 0.2, zIndex: 2 }),
         DEMO_URLS.appLogo,
       ),
+      createAppLogoVerticalElement("start"),
+      createAppLogoHorizontalElement("start"),
+      createAppIconElement("start"),
       textEl(
         "headline",
         "Headline",
@@ -316,6 +427,9 @@ function createEndScreen(): ProjectData["endScreen"] {
         layout({ x: 0.08, y: 0.2, width: 0.16, height: 0.18, zIndex: 2 }),
         DEMO_URLS.appLogo,
       ),
+      createAppLogoVerticalElement("end"),
+      createAppLogoHorizontalElement("end"),
+      createAppIconElement("end"),
       textEl(
         "end-headline",
         "Headline",
@@ -378,6 +492,7 @@ function createEndScreen(): ProjectData["endScreen"] {
         layout({ x: 0.88, y: 0.03, width: 0.09, height: 0.05, zIndex: 10 }),
         layout({ x: 0.93, y: 0.04, width: 0.05, height: 0.08, zIndex: 10 }),
       ),
+      createEndDisclaimerElement(),
     ],
   };
 }
@@ -612,6 +727,8 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
         layout({ x: 0.02, y: 0.05, width: 0.15, height: 0.15, zIndex: 20 }),
         DEMO_URLS.appLogo,
       ),
+      createAppLogoVerticalElement("gameplay"),
+      createAppLogoHorizontalElement("gameplay"),
       textEl(
         "gameplay-label",
         "Label",

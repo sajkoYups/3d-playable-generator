@@ -23,6 +23,8 @@ export function EditorShell({
   initialData,
   brandId,
   brandName,
+  appBrandId,
+  appBrandName,
   editorMode = "playable",
   unlockedSlotIds = EMPTY_UNLOCKED_SLOT_IDS,
 }: {
@@ -35,6 +37,8 @@ export function EditorShell({
   initialData: ProjectData;
   brandId?: string | null;
   brandName?: string | null;
+  appBrandId?: string | null;
+  appBrandName?: string | null;
   editorMode?: EditorMode;
   unlockedSlotIds?: string[];
 }) {
@@ -63,6 +67,8 @@ export function EditorShell({
       defaultOrientation,
       brandId,
       brandName,
+      appBrandId,
+      appBrandName,
       editorMode,
       unlockedSlotIds,
     });
@@ -77,6 +83,8 @@ export function EditorShell({
     defaultOrientation,
     brandId,
     brandName,
+    appBrandId,
+    appBrandName,
     editorMode,
     unlockedSlotIds,
   ]);

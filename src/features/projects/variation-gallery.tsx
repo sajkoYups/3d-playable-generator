@@ -13,6 +13,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { TEMPLATE_NAMES } from "@/lib/project-defaults";
 import { TemplateGlyph } from "@/features/projects/template-glyph";
 import { AddFromBrandDialog } from "@/features/projects/add-from-brand-dialog";
+import { ApplyAppBrandButton } from "@/features/editor/apply-app-brand-dialog";
 import type { TemplateId } from "@/types/project";
 
 type VariationRow = {
@@ -24,6 +25,9 @@ type VariationRow = {
   brandId: string | null;
   brandName: string | null;
   brandLogo: string | null;
+  appBrandId: string | null;
+  appBrandName: string | null;
+  appBrandIcon: string | null;
 };
 
 export function VariationGallery({
@@ -50,7 +54,8 @@ export function VariationGallery({
     return variations.filter(
       (v) =>
         v.name.toLowerCase().includes(q) ||
-        (v.brandName && v.brandName.toLowerCase().includes(q)),
+        (v.brandName && v.brandName.toLowerCase().includes(q)) ||
+        (v.appBrandName && v.appBrandName.toLowerCase().includes(q)),
     );
   }, [variations, query]);
 
@@ -153,10 +158,10 @@ export function VariationGallery({
               onClick={() => router.push(`/projects/${project.id}/variations/${variation.id}/editor`)}
             >
               <div className="relative flex h-36 items-center justify-center bg-[#161821]">
-                {variation.brandLogo || variation.thumbnailUrl ? (
+                {variation.brandLogo || variation.appBrandIcon || variation.thumbnailUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={variation.brandLogo || variation.thumbnailUrl || ""}
+                    src={variation.brandLogo || variation.appBrandIcon || variation.thumbnailUrl || ""}
                     alt=""
                     className="h-20 w-20 object-contain"
                   />
@@ -183,7 +188,12 @@ export function VariationGallery({
                   {variation.brandName ? (
                     <Badge>{variation.brandName}</Badge>
                   ) : (
-                    <Badge className="bg-[#1c1f2a] text-muted">Unbranded</Badge>
+                    <Badge className="bg-[#1c1f2a] text-muted">No template</Badge>
+                  )}
+                  {variation.appBrandName ? (
+                    <Badge className="bg-[#1c2430] text-[#9ec9c0]">{variation.appBrandName}</Badge>
+                  ) : (
+                    <Badge className="bg-[#1c1f2a] text-muted">No brand</Badge>
                   )}
                   <span className="text-[11px] text-muted">
                     {formatDistanceToNow(new Date(variation.updatedAt), { addSuffix: true })}
@@ -197,6 +207,13 @@ export function VariationGallery({
                 >
                   Open
                 </Button>
+                <ApplyAppBrandButton
+                  projectId={project.id}
+                  variationId={variation.id}
+                  appBrandId={variation.appBrandId}
+                  appBrandName={variation.appBrandName}
+                  onApplied={() => router.refresh()}
+                />
                 <Button
                   size="sm"
                   variant="outline"

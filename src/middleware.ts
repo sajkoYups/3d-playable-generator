@@ -12,6 +12,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/projects") ||
     pathname.startsWith("/api/brands") ||
     pathname.startsWith("/api/templates") ||
+    pathname.startsWith("/api/app-brands") ||
     pathname.startsWith("/api/assets") ||
     pathname.startsWith("/api/export");
 
@@ -42,6 +43,8 @@ export const config = {
     "/api/brands/:path*",
     "/api/templates",
     "/api/templates/:path*",
+    "/api/app-brands",
+    "/api/app-brands/:path*",
     "/api/assets",
     "/api/export/:path*",
   ],

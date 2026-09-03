@@ -1,4 +1,5 @@
 import type { Orientation, PlayableElement, ProjectData, TemplateId } from "@/types/project";
+import { screenVideoUrl } from "@/types/project";
 import type { Playable3DEngine } from "@/playable-runtime/engines/types";
 import type { NetworkAdapter } from "@/playable-runtime/networks";
 import { applyStyle, backgroundToStyle, layoutToStyle } from "@/playable-runtime/layout/layout";
@@ -67,16 +68,15 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     });
   }
 
-  function screenVideoUrl() {
+  function currentScreenVideoUrl() {
     const screen = phase === "start" ? data.startScreen : phase === "end" ? data.endScreen : null;
-    if (!screen?.videoUrl) return "";
-    if (screen.background.type === "video") return screen.videoUrl;
-    return "";
+    if (!screen || screen.background.type !== "video") return "";
+    return screenVideoUrl(screen, orientation);
   }
 
   function applyScreenMedia() {
     if (screenVideo) screenVideo.muted = true;
-    const videoUrl = screenVideoUrl();
+    const videoUrl = currentScreenVideoUrl();
     if (videoUrl && (phase === "start" || phase === "end")) {
       const loop = !(phase === "start" && data.startScreen.startAfterVideo);
       if (!muted) startLoopMusic(videoUrl, muted, loop);
@@ -234,10 +234,11 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     bg.style.position = "absolute";
     bg.style.inset = "0";
     applyStyle(bg, backgroundToStyle(screen.background, orientation));
-    if (screen.videoUrl && screen.background.type === "video") {
+    const videoSrc = currentScreenVideoUrl();
+    if (videoSrc) {
       const video = document.createElement("video");
       const startAfterVideo = phase === "start" && data.startScreen.startAfterVideo;
-      video.src = screen.videoUrl;
+      video.src = videoSrc;
       video.autoplay = true;
       video.loop = !startAfterVideo;
       video.muted = true;

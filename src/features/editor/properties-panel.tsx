@@ -94,14 +94,12 @@ function BackgroundEditor({
   onChange,
   allowTransparent,
   allowVideo,
-  videoUrl = "",
 }: {
   background: Background;
   orientation: "portrait" | "landscape";
-  onChange: (next: Background, videoUrl?: string) => void;
+  onChange: (next: Background) => void;
   allowTransparent?: boolean;
   allowVideo?: boolean;
-  videoUrl?: string;
 }) {
   const types = [
     "solid",
@@ -110,8 +108,7 @@ function BackgroundEditor({
     ...(allowVideo ? (["video"] as const) : []),
     ...(allowTransparent ? (["transparent"] as const) : []),
   ] as const;
-  const active =
-    allowVideo && (videoUrl || background.type === "video") ? "video" : background.type;
+  const active = background.type;
 
   return (
     <div className="space-y-2">
@@ -121,10 +118,7 @@ function BackgroundEditor({
             key={t}
             size="sm"
             variant={active === t ? "default" : "outline"}
-            onClick={() => {
-              if (t === "video") onChange({ ...background, type: "video" });
-              else onChange({ ...background, type: t }, allowVideo ? "" : undefined);
-            }}
+            onClick={() => onChange({ ...background, type: t })}
           >
             {t}
           </Button>
@@ -155,11 +149,21 @@ function BackgroundEditor({
       )}
       {active === "video" && (
         <AssetUrlField
-          label="Video"
+          label={orientation === "portrait" ? "Portrait video" : "Landscape video"}
           kind="video"
           accept="video/*"
-          value={videoUrl}
-          onChange={(url) => onChange({ ...background, type: "video" }, url)}
+          value={
+            orientation === "portrait"
+              ? background.portraitVideoUrl || ""
+              : background.landscapeVideoUrl || ""
+          }
+          onChange={(url) =>
+            onChange(
+              orientation === "portrait"
+                ? { ...background, type: "video", portraitVideoUrl: url }
+                : { ...background, type: "video", landscapeVideoUrl: url },
+            )
+          }
         />
       )}
     </div>
@@ -1421,8 +1425,7 @@ export function PropertiesPanel() {
   if (selected) return <ContentEditor element={selected} />;
 
   const screen = stage === "start" ? data.startScreen : data.endScreen;
-  const startVideoActive =
-    stage === "start" && (screen.background.type === "video" || Boolean(screen.videoUrl));
+  const startVideoActive = stage === "start" && screen.background.type === "video";
   const liveLinked = editorMode === "playable" && Boolean(brandId);
   const bgSlotId = stage === "start" ? UNLOCK_START_BG_SLOT_ID : UNLOCK_END_BG_SLOT_ID;
   const bgLocked = isPlayableTemplateLocked(editorMode, brandId, unlockedSlotIds, bgSlotId, "asset");
@@ -1448,12 +1451,11 @@ export function PropertiesPanel() {
           orientation={orientation}
           allowVideo
           allowTransparent
-          videoUrl={screen.videoUrl}
-          onChange={(next, nextVideo) =>
+          onChange={(next) =>
             updateData((draft) => {
               const target = stage === "start" ? draft.startScreen : draft.endScreen;
               target.background = next;
-              if (typeof nextVideo === "string") target.videoUrl = nextVideo;
+              target.videoUrl = next.portraitVideoUrl || next.landscapeVideoUrl || "";
             })
           }
         />

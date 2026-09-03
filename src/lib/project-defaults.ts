@@ -163,10 +163,33 @@ function imageBackground(
     gradientAngle: 180,
     portraitImageUrl: portraitUrl,
     landscapeImageUrl: landscapeUrl,
+    portraitVideoUrl: "",
+    landscapeVideoUrl: "",
     imageFit: "cover",
     imagePosition: "center",
     overlayColor: "#000000",
     overlayOpacity,
+  };
+}
+
+function canvasBackground(
+  type: Background["type"],
+  color: string,
+  gradientFrom: string,
+  gradientTo: string,
+): Background {
+  return {
+    type,
+    color,
+    gradientFrom,
+    gradientTo,
+    gradientAngle: 180,
+    portraitVideoUrl: "",
+    landscapeVideoUrl: "",
+    imageFit: "cover",
+    imagePosition: "center",
+    overlayColor: "#000000",
+    overlayOpacity: 0,
   };
 }
 
@@ -501,129 +524,29 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
   return {
     allowBackgroundReplace: true,
     background: {
-      portrait: {
-        type: "gradient",
-        color: "#12141a",
-        gradientFrom: "#1c1f2a",
-        gradientTo: "#12141a",
-        gradientAngle: 180,
-        imageFit: "cover",
-        imagePosition: "center",
-        overlayColor: "#000000",
-        overlayOpacity: 0,
-      },
-      landscape: {
-        type: "gradient",
-        color: "#12141a",
-        gradientFrom: "#1c1f2a",
-        gradientTo: "#12141a",
-        gradientAngle: 180,
-        imageFit: "cover",
-        imagePosition: "center",
-        overlayColor: "#000000",
-        overlayOpacity: 0,
-      },
+      portrait: canvasBackground("gradient", "#12141a", "#1c1f2a", "#12141a"),
+      landscape: canvasBackground("gradient", "#12141a", "#1c1f2a", "#12141a"),
     },
     stageBackground:
       templateId === "parking-jam" || templateId === "tower-defense"
         ? {
-            portrait: {
-              type: "gradient",
-              color: "#1c2430",
-              gradientFrom: "#9aafc2",
-              gradientTo: "#1a2230",
-              gradientAngle: 180,
-              imageFit: "cover",
-              imagePosition: "center",
-              overlayColor: "#000000",
-              overlayOpacity: 0,
-            },
-            landscape: {
-              type: "gradient",
-              color: "#1c2430",
-              gradientFrom: "#9aafc2",
-              gradientTo: "#1a2230",
-              gradientAngle: 180,
-              imageFit: "cover",
-              imagePosition: "center",
-              overlayColor: "#000000",
-              overlayOpacity: 0,
-            },
+            portrait: canvasBackground("gradient", "#1c2430", "#9aafc2", "#1a2230"),
+            landscape: canvasBackground("gradient", "#1c2430", "#9aafc2", "#1a2230"),
           }
         : templateId === "triple-match"
           ? {
-              portrait: {
-                type: "solid",
-                color: "#6b3fa0",
-                gradientFrom: "#6b3fa0",
-                gradientTo: "#3d2466",
-                gradientAngle: 180,
-                imageFit: "cover",
-                imagePosition: "center",
-                overlayColor: "#000000",
-                overlayOpacity: 0,
-              },
-              landscape: {
-                type: "solid",
-                color: "#6b3fa0",
-                gradientFrom: "#6b3fa0",
-                gradientTo: "#3d2466",
-                gradientAngle: 180,
-                imageFit: "cover",
-                imagePosition: "center",
-                overlayColor: "#000000",
-                overlayOpacity: 0,
-              },
+              portrait: canvasBackground("solid", "#6b3fa0", "#6b3fa0", "#3d2466"),
+              landscape: canvasBackground("solid", "#6b3fa0", "#6b3fa0", "#3d2466"),
             }
           : templateId === "lane-runner"
             ? {
-                portrait: {
-                  type: "gradient",
-                  color: "#1c2430",
-                  gradientFrom: "#9aafc2",
-                  gradientTo: "#1a2230",
-                  gradientAngle: 180,
-                  imageFit: "cover",
-                  imagePosition: "center",
-                  overlayColor: "#000000",
-                  overlayOpacity: 0,
-                },
-                landscape: {
-                  type: "gradient",
-                  color: "#1c2430",
-                  gradientFrom: "#9aafc2",
-                  gradientTo: "#1a2230",
-                  gradientAngle: 180,
-                  imageFit: "cover",
-                  imagePosition: "center",
-                  overlayColor: "#000000",
-                  overlayOpacity: 0,
-                },
+                portrait: canvasBackground("gradient", "#1c2430", "#9aafc2", "#1a2230"),
+                landscape: canvasBackground("gradient", "#1c2430", "#9aafc2", "#1a2230"),
               }
           : {
-            portrait: {
-              type: "solid",
-              color: "#12141a",
-              gradientFrom: "#12141a",
-              gradientTo: "#0a0b10",
-              gradientAngle: 180,
-              imageFit: "cover",
-              imagePosition: "center",
-              overlayColor: "#000000",
-              overlayOpacity: 0,
+              portrait: canvasBackground("solid", "#12141a", "#12141a", "#0a0b10"),
+              landscape: canvasBackground("solid", "#12141a", "#12141a", "#0a0b10"),
             },
-            landscape: {
-              type: "solid",
-              color: "#12141a",
-              gradientFrom: "#12141a",
-              gradientTo: "#0a0b10",
-              gradientAngle: 180,
-              imageFit: "cover",
-              imagePosition: "center",
-              overlayColor: "#000000",
-              overlayOpacity: 0,
-            },
-          },
     camera:
       templateId === "tower-defense"
         ? {

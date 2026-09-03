@@ -39,6 +39,8 @@ export const BackgroundSchema = z.object({
   gradientAngle: z.number().default(180),
   portraitImageUrl: z.string().optional(),
   landscapeImageUrl: z.string().optional(),
+  portraitVideoUrl: z.string().default(""),
+  landscapeVideoUrl: z.string().default(""),
   imageFit: z.enum(["cover", "contain", "stretch"]).default("cover"),
   imagePosition: z.string().default("center"),
   overlayColor: z.string().default("#000000"),
@@ -60,10 +62,12 @@ export const DualBackgroundSchema = z.preprocess((val) => {
     portrait: {
       ...bg,
       landscapeImageUrl: bg.portraitImageUrl ?? bg.landscapeImageUrl,
+      landscapeVideoUrl: bg.portraitVideoUrl || bg.landscapeVideoUrl,
     },
     landscape: {
       ...bg,
       portraitImageUrl: bg.landscapeImageUrl ?? bg.portraitImageUrl,
+      portraitVideoUrl: bg.landscapeVideoUrl || bg.portraitVideoUrl,
     },
   };
 }, z.object({
@@ -94,6 +98,24 @@ export function backgroundImageUrl(
   return orientation === "portrait"
     ? background.portraitImageUrl || background.landscapeImageUrl
     : background.landscapeImageUrl || background.portraitImageUrl;
+}
+
+export function backgroundVideoUrl(
+  background: Background | undefined | null,
+  orientation: Orientation = "portrait",
+): string {
+  if (!background) return "";
+  return orientation === "portrait"
+    ? background.portraitVideoUrl || background.landscapeVideoUrl || ""
+    : background.landscapeVideoUrl || background.portraitVideoUrl || "";
+}
+
+export function screenVideoUrl(
+  screen: { videoUrl?: string; background: Background } | undefined | null,
+  orientation: Orientation = "portrait",
+): string {
+  if (!screen) return "";
+  return backgroundVideoUrl(screen.background, orientation) || screen.videoUrl || "";
 }
 
 export const ElementActionSchema = z.object({
@@ -162,12 +184,26 @@ export const PlayableElementSchema = z.object({
 });
 export type PlayableElement = z.infer<typeof PlayableElementSchema>;
 
-export const ScreenSchema = z.object({
+export const ScreenSchema = z.preprocess((val) => {
+  if (!val || typeof val !== "object") return val;
+  const obj = { ...(val as Record<string, unknown>) };
+  const bg =
+    obj.background && typeof obj.background === "object"
+      ? { ...(obj.background as Record<string, unknown>) }
+      : {};
+  const legacy = typeof obj.videoUrl === "string" ? obj.videoUrl : "";
+  if (legacy && !bg.portraitVideoUrl && !bg.landscapeVideoUrl) {
+    bg.portraitVideoUrl = legacy;
+    bg.landscapeVideoUrl = legacy;
+  }
+  obj.background = bg;
+  return obj;
+}, z.object({
   background: BackgroundSchema,
   videoUrl: z.string().default(""),
   startAfterVideo: z.boolean().default(false),
   elements: z.array(PlayableElementSchema),
-});
+}));
 export type ScreenData = z.infer<typeof ScreenSchema>;
 
 const Vec3Schema = z.object({
@@ -378,6 +414,8 @@ const DefaultGameplayBackground: Background = {
   gradientFrom: "#1c1f2a",
   gradientTo: "#12141a",
   gradientAngle: 180,
+  portraitVideoUrl: "",
+  landscapeVideoUrl: "",
   imageFit: "cover",
   imagePosition: "center",
   overlayColor: "#000000",
@@ -390,6 +428,8 @@ const DefaultStageBackground: Background = {
   gradientFrom: "#12141a",
   gradientTo: "#0a0b10",
   gradientAngle: 180,
+  portraitVideoUrl: "",
+  landscapeVideoUrl: "",
   imageFit: "cover",
   imagePosition: "center",
   overlayColor: "#000000",

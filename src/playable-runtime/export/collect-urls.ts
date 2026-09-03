@@ -7,9 +7,16 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
     if (u) urls.add(u);
   };
 
-  const walkBg = (bg?: { portraitImageUrl?: string; landscapeImageUrl?: string }) => {
+  const walkBg = (bg?: {
+    portraitImageUrl?: string;
+    landscapeImageUrl?: string;
+    portraitVideoUrl?: string;
+    landscapeVideoUrl?: string;
+  }) => {
     add(bg?.portraitImageUrl);
     add(bg?.landscapeImageUrl);
+    add(bg?.portraitVideoUrl);
+    add(bg?.landscapeVideoUrl);
   };
 
   walkBg(data.startScreen.background);

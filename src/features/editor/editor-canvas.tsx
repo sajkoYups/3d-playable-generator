@@ -7,7 +7,7 @@ import type { CSSProperties } from "react";
 import { backgroundToStyle, layoutToStyle, snapToCenter, clamp01 } from "@/playable-runtime/layout/layout";
 import { ElementView } from "@/features/editor/element-view";
 import { GameplayHost } from "@/features/editor/gameplay-host";
-import { isBrandSlotId } from "@/types/project";
+import { isBrandSlotId, screenVideoUrl } from "@/types/project";
 
 function MutedLoopVideo({ src }: { src: string }) {
   const ref = useRef<HTMLVideoElement>(null);
@@ -60,6 +60,8 @@ export function EditorCanvas() {
 
   const screen =
     stage === "start" ? data.startScreen : stage === "end" ? data.endScreen : null;
+  const screenVideoSrc =
+    screen && screen.background.type === "video" ? screenVideoUrl(screen, orientation) : "";
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent, id: string, mode: "move" | "resize") => {
@@ -155,9 +157,7 @@ export function EditorCanvas() {
             >
               {screen && (
                 <div className="absolute inset-0 overflow-hidden" style={backgroundToStyle(screen.background, orientation) as CSSProperties}>
-                  {screen.background.type === "video" && screen.videoUrl ? (
-                    <MutedLoopVideo src={screen.videoUrl} />
-                  ) : null}
+                  {screenVideoSrc ? <MutedLoopVideo src={screenVideoSrc} /> : null}
                 </div>
               )}
               {stage === "gameplay" && editorMode !== "brand" && (

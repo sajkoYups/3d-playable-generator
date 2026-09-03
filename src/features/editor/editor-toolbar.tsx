@@ -16,6 +16,7 @@ import { ApplyBrandButton } from "@/features/editor/apply-brand-dialog";
 import { ApplyAppBrandButton } from "@/features/editor/apply-app-brand-dialog";
 import { startLoopMusic, stopLoopMusic } from "@/playable-runtime/audio/loop";
 import { projectDataToBrandData } from "@/lib/brand-defaults";
+import { screenVideoUrl } from "@/types/project";
 
 export function EditorToolbar() {
   const projectName = useEditorStore((s) => s.projectName);
@@ -34,6 +35,7 @@ export function EditorToolbar() {
   const brandId = useEditorStore((s) => s.brandId);
   const brandName = useEditorStore((s) => s.brandName);
   const appBrandName = useEditorStore((s) => s.appBrandName);
+  const orientation = useEditorStore((s) => s.orientation);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -130,10 +132,11 @@ export function EditorToolbar() {
               variant="outline"
               onClick={() => {
                 const audio = data.gameplay.audio;
+                const startVideo = screenVideoUrl(data.startScreen, orientation);
                 const videoWins =
-                  data.startScreen.background.type === "video" && Boolean(data.startScreen.videoUrl);
-                if (videoWins && data.startScreen.videoUrl) {
-                  startLoopMusic(data.startScreen.videoUrl);
+                  data.startScreen.background.type === "video" && Boolean(startVideo);
+                if (videoWins && startVideo) {
+                  startLoopMusic(startVideo);
                 } else if (audio.playFromStart && audio.musicUrl) {
                   startLoopMusic(audio.musicUrl);
                 }

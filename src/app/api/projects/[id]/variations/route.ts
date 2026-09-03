@@ -48,7 +48,7 @@ export async function POST(
     const brand = await prisma.brand.findFirst({
       where: { id: body.brandId, members: { some: { userId: session.user.id } } },
     });
-    if (!brand) return NextResponse.json({ error: "Brand not found" }, { status: 404 });
+    if (!brand) return NextResponse.json({ error: "Template not found" }, { status: 404 });
   }
 
   const source = body.sourceVariationId

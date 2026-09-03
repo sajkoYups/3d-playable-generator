@@ -60,7 +60,7 @@ export function CreateProjectDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>New playable</DialogTitle>
-          <DialogDescription>Choose a 3D engine. Store links live on Brands, then you stamp a brand onto a variation.</DialogDescription>
+          <DialogDescription>Choose a 3D engine. Store links live on Personal templates, then you stamp a template onto a variation.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">

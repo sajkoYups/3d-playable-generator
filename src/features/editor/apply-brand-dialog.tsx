@@ -36,14 +36,14 @@ export function ApplyBrandButton() {
   useEffect(() => {
     if (!open) return;
     setListLoading(true);
-    void fetch("/api/brands")
+    void fetch("/api/templates")
       .then((r) => r.json())
       .then((payload) => {
-        const list = (payload.brands ?? []) as BrandRow[];
+        const list = (payload.templates ?? payload.brands ?? []) as BrandRow[];
         setBrands(list);
         setSelectedId(brandId || list[0]?.id || "");
       })
-      .catch(() => toast.error("Failed to load brands"))
+      .catch(() => toast.error("Failed to load templates"))
       .finally(() => setListLoading(false));
   }, [open, brandId]);
 
@@ -62,7 +62,7 @@ export function ApplyBrandButton() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        toast.error(err.error || "Failed to apply brand");
+        toast.error(err.error || "Failed to apply template");
         return;
       }
       const payload = (await res.json()) as {
@@ -73,11 +73,12 @@ export function ApplyBrandButton() {
         brandId: payload.variation.brandId,
         brandName: payload.variation.brand?.name ?? null,
         data: payload.resolved,
+        unlockedSlotIds: [],
       });
       toast.success(
         payload.variation.brand
           ? `Applied ${payload.variation.brand.name}`
-          : "Brand unlinked",
+          : "Template unlinked",
       );
       setOpen(false);
     } finally {
@@ -89,30 +90,30 @@ export function ApplyBrandButton() {
     <>
       <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
         <SwatchBook className="h-4 w-4" />
-        {brandName ? "Change brand" : "Apply brand"}
+        {brandName ? "Change template" : "Apply template"}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{brandName ? "Change brand" : "Apply brand"}</DialogTitle>
+            <DialogTitle>{brandName ? "Change template" : "Apply template"}</DialogTitle>
             <DialogDescription>
-              Live-link a brand kit to this variation. Logos, CTAs, and store URLs update here and
-              stay in sync when you edit the brand.
+              Live-link a personal template to this playable. Logos, CTAs, and store URLs update here and
+              stay in sync when you edit the template. You can customize individual layers on this playable.
             </DialogDescription>
           </DialogHeader>
           {listLoading ? (
-            <p className="text-sm text-muted">Loading brands...</p>
+            <p className="text-sm text-muted">Loading templates...</p>
           ) : brands.length === 0 ? (
             <p className="text-sm text-muted">
-              No brands yet.{" "}
-              <Link href="/brands" className="text-accent underline">
+              No templates yet.{" "}
+              <Link href="/templates" className="text-accent underline">
                 Create one
               </Link>{" "}
               then come back.
             </p>
           ) : (
             <div className="space-y-1">
-              <Label>Brand</Label>
+              <Label>Template</Label>
               <select
                 className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
                 value={selectedId}
@@ -134,7 +135,7 @@ export function ApplyBrandButton() {
                 disabled={loading}
                 onClick={() => void patchBrand(null)}
               >
-                Remove brand
+                Remove template
               </Button>
             ) : null}
             <Button variant="outline" onClick={() => setOpen(false)}>

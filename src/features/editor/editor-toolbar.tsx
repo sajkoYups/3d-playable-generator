@@ -36,20 +36,20 @@ export function EditorToolbar() {
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const backHref = editorMode === "brand" ? "/brands" : `/projects/${projectId}`;
-  const backLabel = editorMode === "brand" ? "← Brands" : `← ${galleryName || "Project"}`;
+  const backHref = editorMode === "brand" ? "/templates" : `/projects/${projectId}`;
+  const backLabel = editorMode === "brand" ? "← Templates" : `← ${galleryName || "Project"}`;
 
   async function retrySave() {
     setSaveStatus("saving");
     try {
       const url =
         editorMode === "brand"
-          ? `/api/brands/${brandId}`
+          ? `/api/templates/${brandId}`
           : `/api/projects/${projectId}/variations/${variationId}`;
       const body =
         editorMode === "brand"
           ? { name: projectName, brandData: projectDataToBrandData(data) }
-          : { name: projectName, projectData: data };
+          : { name: projectName, projectData: data, overrides: { unlockedSlotIds: useEditorStore.getState().unlockedSlotIds } };
       const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

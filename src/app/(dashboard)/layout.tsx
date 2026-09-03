@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/session";
 import { SignOutButton } from "@/features/projects/sign-out-button";
+import { DashboardNav } from "@/features/projects/dashboard-nav";
 
 export default async function DashboardLayout({
   children,
@@ -17,14 +18,7 @@ export default async function DashboardLayout({
             <Link href="/projects" className="font-[family-name:var(--font-display)] text-lg font-semibold tracking-tight">
               Forge<span className="text-accent">3D</span>
             </Link>
-            <nav className="flex items-center gap-4 text-sm">
-              <Link href="/projects" className="text-muted hover:text-foreground">
-                Workshop
-              </Link>
-              <Link href="/brands" className="text-muted hover:text-foreground">
-                Brands
-              </Link>
-            </nav>
+            <DashboardNav />
           </div>
           <div className="flex items-center gap-3 text-sm text-muted">
             <span>{session.user.name || session.user.email}</span>

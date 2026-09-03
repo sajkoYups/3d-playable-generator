@@ -45,6 +45,7 @@ export function EditorCanvas() {
   const elements = useStageElements();
   const editorMode = useEditorStore((s) => s.editorMode);
   const brandId = useEditorStore((s) => s.brandId);
+  const unlockedSlotIds = useEditorStore((s) => s.unlockedSlotIds);
   const { containerRef, logical: size, outer, scale } = useFittedIphoneFrame(orientation);
 
   const frameRef = useRef<HTMLDivElement>(null);
@@ -64,7 +65,14 @@ export function EditorCanvas() {
     (e: React.PointerEvent, id: string, mode: "move" | "resize") => {
       e.stopPropagation();
       const el = elements.find((x) => x.id === id);
-      if (!el || el.permanentlyLocked || el.layout[orientation].locked) {
+      const { editorMode: playableMode, brandId: linkedBrandId, unlockedSlotIds: unlocks } =
+        useEditorStore.getState();
+      const templateLocked =
+        playableMode === "playable" &&
+        Boolean(linkedBrandId) &&
+        isBrandSlotId(id) &&
+        !unlocks.includes(id);
+      if (!el || el.permanentlyLocked || el.layout[orientation].locked || templateLocked) {
         selectElement(id);
         return;
       }
@@ -177,7 +185,10 @@ export function EditorCanvas() {
                 const style = layoutToStyle(box, size.w, size.h) as CSSProperties;
                 const selected = selectedElementId === el.id;
                 const brandLocked =
-                  editorMode === "playable" && Boolean(brandId) && isBrandSlotId(el.id);
+                  editorMode === "playable" &&
+                  Boolean(brandId) &&
+                  isBrandSlotId(el.id) &&
+                  !unlockedSlotIds.includes(el.id);
                 const locked = el.permanentlyLocked || box.locked || brandLocked;
 
                 if (el.type === "gameplayContainer") {

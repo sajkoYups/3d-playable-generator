@@ -27,7 +27,8 @@ export default async function VariationEditorPage({
   const brandData = access.variation.brand
     ? parseBrandData(access.variation.brand.brandData)
     : null;
-  const data = resolvePlayable(stored, brandData, parseOverrides(access.variation.overrides));
+  const overrides = parseOverrides(access.variation.overrides);
+  const data = resolvePlayable(stored, brandData, overrides);
 
   return (
     <EditorShell
@@ -41,6 +42,7 @@ export default async function VariationEditorPage({
       brandId={access.variation.brandId}
       brandName={access.variation.brand?.name ?? null}
       editorMode="playable"
+      unlockedSlotIds={overrides.unlockedSlotIds}
     />
   );
 }

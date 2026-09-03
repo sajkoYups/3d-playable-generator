@@ -72,13 +72,13 @@ export async function PATCH(
     const brand = await prisma.brand.findFirst({
       where: { id: body.brandId, members: { some: { userId: session.user.id } } },
     });
-    if (!brand) return NextResponse.json({ error: "Brand not found" }, { status: 404 });
+    if (!brand) return NextResponse.json({ error: "Template not found" }, { status: 404 });
   }
 
   let overrides = body.overrides;
   if (body.brandId !== undefined && body.overrides === undefined) {
-    overrides = { elements: {} };
-  } else if (body.projectData && body.overrides === undefined) {
+    overrides = { elements: {}, unlockedSlotIds: [] };
+  } else if (body.projectData) {
     const brandId = body.brandId !== undefined ? body.brandId : access.variation.brandId;
     const brandRow =
       brandId === access.variation.brandId
@@ -87,7 +87,8 @@ export async function PATCH(
           ? await prisma.brand.findUnique({ where: { id: brandId } })
           : null;
     const brandData = brandRow ? parseBrandData(brandRow.brandData) : null;
-    overrides = extractOverrides(body.projectData, brandData, OVERRIDABLE_SLOT_IDS);
+    const previous = parseOverrides(body.overrides ?? access.variation.overrides);
+    overrides = extractOverrides(body.projectData, brandData, OVERRIDABLE_SLOT_IDS, previous);
   }
 
   const variation = await prisma.variation.update({

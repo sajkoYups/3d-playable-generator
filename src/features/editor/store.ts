@@ -47,6 +47,7 @@ type EditorState = {
   brandId: string | null;
   brandName: string | null;
   editorMode: EditorMode;
+  unlockedSlotIds: string[];
 
   hydrate: (payload: {
     projectId: string;
@@ -59,11 +60,13 @@ type EditorState = {
     brandId?: string | null;
     brandName?: string | null;
     editorMode?: EditorMode;
+    unlockedSlotIds?: string[];
   }) => void;
   applyBrand: (payload: {
     brandId: string | null;
     brandName: string | null;
     data: ProjectData;
+    unlockedSlotIds?: string[];
   }) => void;
   setStage: (stage: EditorStage) => void;
   setOrientation: (orientation: Orientation) => void;
@@ -87,6 +90,7 @@ type EditorState = {
     recordHistory?: boolean,
   ) => void;
   addEndPolicy: () => void;
+  setUnlockedSlotIds: (ids: string[]) => void;
   getStageElements: () => PlayableElement[];
   getSelectedElement: () => PlayableElement | null;
 };
@@ -125,6 +129,7 @@ export const useEditorStore = create<EditorState>()(
     brandId: null,
     brandName: null,
     editorMode: "playable",
+    unlockedSlotIds: [],
 
     hydrate: (payload) =>
       set((state) => {
@@ -162,6 +167,7 @@ export const useEditorStore = create<EditorState>()(
         state.brandId = payload.brandId ?? null;
         state.brandName = payload.brandName ?? null;
         state.editorMode = payload.editorMode ?? "playable";
+        state.unlockedSlotIds = payload.unlockedSlotIds ?? [];
       }),
 
     applyBrand: (payload) =>
@@ -174,6 +180,7 @@ export const useEditorStore = create<EditorState>()(
         state.past = [];
         state.future = [];
         state.saveStatus = "saved";
+        state.unlockedSlotIds = payload.unlockedSlotIds ?? [];
       }),
 
     setStage: (stage) =>
@@ -246,8 +253,12 @@ export const useEditorStore = create<EditorState>()(
       }),
 
     updateElement: (elementId, updater, recordHistory = true) => {
-      const { editorMode, brandId } = get();
-      const brandLocked = editorMode === "playable" && Boolean(brandId) && isBrandSlotId(elementId);
+      const { editorMode, brandId, unlockedSlotIds } = get();
+      const brandLocked =
+        editorMode === "playable" &&
+        Boolean(brandId) &&
+        isBrandSlotId(elementId) &&
+        !unlockedSlotIds.includes(elementId);
       get().updateData((draft) => {
         const elements = findElements(draft, get().stage);
         const el = elements.find((e) => e.id === elementId);
@@ -278,8 +289,15 @@ export const useEditorStore = create<EditorState>()(
     },
 
     updateElementLayout: (elementId, orientation, patch, recordHistory = true) => {
-      const { editorMode, brandId } = get();
-      if (editorMode === "playable" && brandId && isBrandSlotId(elementId)) return;
+      const { editorMode, brandId, unlockedSlotIds } = get();
+      if (
+        editorMode === "playable" &&
+        brandId &&
+        isBrandSlotId(elementId) &&
+        !unlockedSlotIds.includes(elementId)
+      ) {
+        return;
+      }
       get().updateElement(
         elementId,
         (el) => {
@@ -302,6 +320,11 @@ export const useEditorStore = create<EditorState>()(
       get().setStage("end");
       get().selectElement(END_POLICY_SLOT_ID);
     },
+
+    setUnlockedSlotIds: (ids) =>
+      set((state) => {
+        state.unlockedSlotIds = ids;
+      }),
 
     getStageElements: () => findElements(get().data, get().stage),
 
@@ -339,4 +362,16 @@ export function useSelectedElement(): PlayableElement | null {
     const list = stage === "start" ? start : stage === "end" ? end : overlays;
     return list.find((e) => e.id === id) ?? null;
   }, [id, stage, start, end, overlays]);
+}
+
+export function isPlayableTemplateLocked(
+  editorMode: EditorMode,
+  brandId: string | null,
+  unlockedSlotIds: string[],
+  slotId: string,
+  kind: "element" | "asset" = "element",
+) {
+  if (editorMode !== "playable" || !brandId) return false;
+  if (kind === "element" && !isBrandSlotId(slotId)) return false;
+  return !unlockedSlotIds.includes(slotId);
 }

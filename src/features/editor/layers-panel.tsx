@@ -15,6 +15,7 @@ export function LayersPanel() {
   const data = useEditorStore((s) => s.data);
   const editorMode = useEditorStore((s) => s.editorMode);
   const brandId = useEditorStore((s) => s.brandId);
+  const unlockedSlotIds = useEditorStore((s) => s.unlockedSlotIds);
   const addEndPolicy = useEditorStore((s) => s.addEndPolicy);
   const canAddPolicy =
     stage === "end" &&
@@ -41,7 +42,9 @@ export function LayersPanel() {
       <div className="min-h-0 flex-1 overflow-auto">
         {sorted.map((el) => {
           const box = el.layout[orientation];
-          const locked = el.permanentlyLocked || box.locked;
+          const templateOwned = editorMode === "playable" && Boolean(brandId) && isBrandSlotId(el.id);
+          const templateLocked = templateOwned && !unlockedSlotIds.includes(el.id);
+          const locked = el.permanentlyLocked || box.locked || templateLocked;
           return (
             <div
               key={el.id}
@@ -58,24 +61,26 @@ export function LayersPanel() {
                 {el.permanentlyLocked && (
                   <span className="ml-1 text-[10px] text-accent">LOCKED</span>
                 )}
-                {editorMode === "playable" && Boolean(brandId) && isBrandSlotId(el.id) && (
-                    <span className="ml-1 text-[10px] text-accent">BRAND</span>
-                  )}
+                {templateOwned && (
+                  <span className="ml-1 text-[10px] text-accent">
+                    {templateLocked ? "TEMPLATE" : "CUSTOM"}
+                  </span>
+                )}
               </button>
               <button
                 className="rounded p-1 hover:bg-[#2a2e3a]"
                 onClick={() =>
                   updateElementLayout(el.id, orientation, { visible: !box.visible })
                 }
-                disabled={el.permanentlyLocked}
+                disabled={el.permanentlyLocked || templateLocked}
               >
                 {box.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
               </button>
               <button
                 className="rounded p-1 hover:bg-[#2a2e3a]"
-                disabled={el.permanentlyLocked}
+                disabled={el.permanentlyLocked || templateLocked}
                 onClick={() => {
-                  if (el.permanentlyLocked) return;
+                  if (el.permanentlyLocked || templateLocked) return;
                   updateElementLayout(el.id, orientation, { locked: !box.locked });
                 }}
               >
@@ -83,7 +88,7 @@ export function LayersPanel() {
               </button>
               <button
                 className="rounded px-1 text-xs hover:bg-[#2a2e3a]"
-                disabled={el.permanentlyLocked}
+                disabled={el.permanentlyLocked || templateLocked}
                 onClick={() =>
                   updateElementLayout(el.id, orientation, { zIndex: box.zIndex + 1 })
                 }
@@ -92,7 +97,7 @@ export function LayersPanel() {
               </button>
               <button
                 className="rounded px-1 text-xs hover:bg-[#2a2e3a]"
-                disabled={el.permanentlyLocked}
+                disabled={el.permanentlyLocked || templateLocked}
                 onClick={() =>
                   updateElementLayout(el.id, orientation, { zIndex: box.zIndex - 1 })
                 }

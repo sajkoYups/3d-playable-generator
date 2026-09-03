@@ -1,6 +1,10 @@
 import {
   BrandDataSchema,
   ProjectDataSchema,
+  UNLOCK_COIN_SLOT_ID,
+  UNLOCK_END_BG_SLOT_ID,
+  UNLOCK_LINKS_SLOT_ID,
+  UNLOCK_START_BG_SLOT_ID,
   VariationOverridesSchema,
   type BrandData,
   type PlayableElement,
@@ -9,9 +13,14 @@ import {
 } from "@/types/project";
 import { stampCoinImage } from "@/lib/project-defaults";
 
-function upsertElements(target: PlayableElement[], incoming: PlayableElement[]) {
+function upsertElements(
+  target: PlayableElement[],
+  incoming: PlayableElement[],
+  skipIds: Set<string>,
+) {
   const byId = new Map(target.map((el, index) => [el.id, index]));
   for (const next of incoming) {
+    if (skipIds.has(next.id)) continue;
     const index = byId.get(next.id);
     const clone = structuredClone(next);
     if (index === undefined) {
@@ -23,7 +32,11 @@ function upsertElements(target: PlayableElement[], incoming: PlayableElement[]) 
   }
 }
 
-function applyOverrides(data: ProjectData, overrides: VariationOverrides | undefined) {
+function applyOverrides(
+  data: ProjectData,
+  overrides: VariationOverrides | undefined,
+  skipIds: Set<string>,
+) {
   const elements = overrides?.elements;
   if (!elements) return;
   const stages: PlayableElement[][] = [
@@ -33,6 +46,7 @@ function applyOverrides(data: ProjectData, overrides: VariationOverrides | undef
   ];
   for (const list of stages) {
     for (const el of list) {
+      if (skipIds.has(el.id)) continue;
       const patch = elements[el.id];
       if (!patch) continue;
       if (patch.text !== undefined) el.content.text = patch.text;
@@ -54,34 +68,45 @@ export function parseBrandData(raw: unknown): BrandData {
 
 export function parseOverrides(raw: unknown): VariationOverrides {
   const parsed = VariationOverridesSchema.safeParse(raw ?? {});
-  return parsed.success ? parsed.data : { elements: {} };
+  return parsed.success ? parsed.data : { elements: {}, unlockedSlotIds: [] };
 }
 
 /**
- * Live-merge a Brand kit onto a variation's playable.
+ * Live-merge a personal template onto a variation's playable.
  * Gameplay 3D config always comes from the variation.
- * Brand wins for slot layers + store links + coin; overrides win for copy and button colors.
+ * Template wins for locked slot layers + store links + coin; overrides win for copy and button colors.
+ * Unlocked slots keep the variation's version.
  */
 export function resolvePlayable(
   projectData: ProjectData,
   brand: BrandData | null | undefined,
   overrides?: VariationOverrides | null,
-): ProjectData {
+) : ProjectData {
+  const parsedOverrides = overrides ?? { elements: {}, unlockedSlotIds: [] };
+  const unlocked = new Set(parsedOverrides.unlockedSlotIds ?? []);
   const result = structuredClone(projectData);
   if (brand) {
-    result.links = { ...brand.links };
-    if (brand.coinImageUrl) stampCoinImage(result, brand.coinImageUrl);
-    result.startScreen.background = structuredClone(brand.startScreen.background);
-    result.startScreen.videoUrl = brand.startScreen.videoUrl;
-    result.startScreen.startAfterVideo = brand.startScreen.startAfterVideo;
-    upsertElements(result.startScreen.elements, brand.startScreen.elements);
-    result.endScreen.background = structuredClone(brand.endScreen.background);
-    result.endScreen.videoUrl = brand.endScreen.videoUrl;
-    result.endScreen.startAfterVideo = brand.endScreen.startAfterVideo;
-    upsertElements(result.endScreen.elements, brand.endScreen.elements);
-    upsertElements(result.gameplay.overlays, brand.overlays);
+    if (!unlocked.has(UNLOCK_LINKS_SLOT_ID)) {
+      result.links = { ...brand.links };
+    }
+    if (brand.coinImageUrl && !unlocked.has(UNLOCK_COIN_SLOT_ID)) {
+      stampCoinImage(result, brand.coinImageUrl);
+    }
+    if (!unlocked.has(UNLOCK_START_BG_SLOT_ID)) {
+      result.startScreen.background = structuredClone(brand.startScreen.background);
+      result.startScreen.videoUrl = brand.startScreen.videoUrl;
+      result.startScreen.startAfterVideo = brand.startScreen.startAfterVideo;
+    }
+    upsertElements(result.startScreen.elements, brand.startScreen.elements, unlocked);
+    if (!unlocked.has(UNLOCK_END_BG_SLOT_ID)) {
+      result.endScreen.background = structuredClone(brand.endScreen.background);
+      result.endScreen.videoUrl = brand.endScreen.videoUrl;
+      result.endScreen.startAfterVideo = brand.endScreen.startAfterVideo;
+    }
+    upsertElements(result.endScreen.elements, brand.endScreen.elements, unlocked);
+    upsertElements(result.gameplay.overlays, brand.overlays, unlocked);
   }
-  applyOverrides(result, overrides ?? undefined);
+  applyOverrides(result, parsedOverrides, unlocked);
   return result;
 }
 
@@ -89,8 +114,11 @@ export function extractOverrides(
   merged: ProjectData,
   brand: BrandData | null | undefined,
   overridableIds: readonly string[],
+  previous?: VariationOverrides | null,
 ): VariationOverrides {
-  if (!brand) return { elements: {} };
+  const unlockedSlotIds = [...(previous?.unlockedSlotIds ?? [])];
+  const unlocked = new Set(unlockedSlotIds);
+  if (!brand) return { elements: {}, unlockedSlotIds };
   const brandEls = new Map<string, PlayableElement>();
   for (const el of [
     ...brand.startScreen.elements,
@@ -106,6 +134,7 @@ export function extractOverrides(
   ];
   const elements: VariationOverrides["elements"] = {};
   for (const el of mergedEls) {
+    if (unlocked.has(el.id)) continue;
     if (!overridableIds.includes(el.id)) continue;
     const fromBrand = brandEls.get(el.id);
     if (!fromBrand) continue;
@@ -121,5 +150,5 @@ export function extractOverrides(
     }
     if (Object.keys(patch).length) elements[el.id] = patch;
   }
-  return { elements };
+  return { elements, unlockedSlotIds };
 }

@@ -27,7 +27,7 @@ export async function GET() {
     orderBy: { updatedAt: "desc" },
   });
 
-  return NextResponse.json({ brands });
+  return NextResponse.json({ brands, templates: brands });
 }
 
 export async function POST(req: NextRequest) {

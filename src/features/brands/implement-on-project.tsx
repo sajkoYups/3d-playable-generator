@@ -77,13 +77,13 @@ export function ImplementOnProjectButton() {
           <DialogHeader>
             <DialogTitle>Implement on a game</DialogTitle>
             <DialogDescription>
-              Creates a new variation of the selected project, live-linked to this brand.
+              Creates a new variation of the selected project, live-linked to this template.
             </DialogDescription>
           </DialogHeader>
           {listLoading ? (
             <p className="text-sm text-muted">Loading projects...</p>
           ) : projects.length === 0 ? (
-            <p className="text-sm text-muted">No projects yet. Create a game in Workshop first.</p>
+            <p className="text-sm text-muted">No projects yet. Create a game in Playable projects first.</p>
           ) : (
             <div className="space-y-3">
               <div className="space-y-1">
@@ -102,7 +102,7 @@ export function ImplementOnProjectButton() {
               </div>
               <div className="space-y-1">
                 <Label>Variation name (optional)</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Defaults to this brand" />
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Defaults to this template" />
               </div>
             </div>
           )}

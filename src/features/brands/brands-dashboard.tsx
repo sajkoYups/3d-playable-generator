@@ -34,22 +34,22 @@ export function BrandsDashboard({ brands }: { brands: BrandRow[] }) {
 
   async function createBrand() {
     setCreating(true);
-    const res = await fetch("/api/brands", {
+    const res = await fetch("/api/templates", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Untitled brand" }),
+      body: JSON.stringify({ name: "Untitled template" }),
     });
     setCreating(false);
     if (!res.ok) {
-      toast.error("Failed to create brand");
+      toast.error("Failed to create template");
       return;
     }
     const { brand } = await res.json();
-    router.push(`/brands/${brand.id}`);
+    router.push(`/templates/${brand.id}`);
   }
 
   async function renameBrand(id: string) {
-    const res = await fetch(`/api/brands/${id}`, {
+    const res = await fetch(`/api/templates/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: renameValue }),
@@ -64,13 +64,13 @@ export function BrandsDashboard({ brands }: { brands: BrandRow[] }) {
   }
 
   async function deleteBrand(id: string) {
-    if (!confirm("Delete this brand? Linked variations keep their last snapshot and unlink.")) return;
-    const res = await fetch(`/api/brands/${id}`, { method: "DELETE" });
+    if (!confirm("Delete this template? Linked playables keep their last snapshot and unlink.")) return;
+    const res = await fetch(`/api/templates/${id}`, { method: "DELETE" });
     if (!res.ok) {
       toast.error("Failed to delete");
       return;
     }
-    toast.success("Brand deleted");
+    toast.success("Template deleted");
     router.refresh();
   }
 
@@ -78,14 +78,17 @@ export function BrandsDashboard({ brands }: { brands: BrandRow[] }) {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight">Brands</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight">Personal templates</h1>
+            <Badge className="bg-[#2a2118] text-accent">Beta</Badge>
+          </div>
           <p className="text-sm text-muted">
-            Pre-save logos, CTAs, and store destinations. Stamp a kit onto any game.
+            Pre-save logos, CTAs, coins, and store destinations. Stamp a kit onto any game.
           </p>
         </div>
         <Button onClick={() => void createBrand()} disabled={creating}>
           <Plus className="h-4 w-4" />
-          {creating ? "Creating..." : "New brand"}
+          {creating ? "Creating..." : "New template"}
         </Button>
       </div>
 
@@ -93,7 +96,7 @@ export function BrandsDashboard({ brands }: { brands: BrandRow[] }) {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
         <Input
           className="pl-9"
-          placeholder="Search brands..."
+          placeholder="Search templates..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -102,10 +105,10 @@ export function BrandsDashboard({ brands }: { brands: BrandRow[] }) {
       {filtered.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <p className="text-muted">No brand kits yet. Save layers and store URLs once, reuse them everywhere.</p>
+            <p className="text-muted">No personal templates yet. Save layers and store URLs once, reuse them everywhere.</p>
             <Button onClick={() => void createBrand()}>
               <Plus className="h-4 w-4" />
-              Create brand
+              Create template
             </Button>
           </CardContent>
         </Card>
@@ -115,7 +118,7 @@ export function BrandsDashboard({ brands }: { brands: BrandRow[] }) {
             <Card
               key={brand.id}
               className="cursor-pointer overflow-hidden"
-              onClick={() => router.push(`/brands/${brand.id}`)}
+              onClick={() => router.push(`/templates/${brand.id}`)}
             >
               <div className="relative flex h-36 items-center justify-center bg-[#161821]">
                 {brand.logoUrl || brand.thumbnailUrl ? (
@@ -153,7 +156,7 @@ export function BrandsDashboard({ brands }: { brands: BrandRow[] }) {
                 </div>
               </CardHeader>
               <CardFooter className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
-                <Button size="sm" onClick={() => router.push(`/brands/${brand.id}`)}>
+                <Button size="sm" onClick={() => router.push(`/templates/${brand.id}`)}>
                   Edit
                 </Button>
                 <Button

@@ -25,7 +25,7 @@ export function BrandUsedOnButton() {
 
   useEffect(() => {
     if (!open || !brandId) return;
-    void fetch(`/api/brands/${brandId}`)
+    void fetch(`/api/templates/${brandId}`)
       .then((r) => r.json())
       .then((data) => setRows((data.brand?.variations ?? []) as UsedRow[]));
   }, [open, brandId]);

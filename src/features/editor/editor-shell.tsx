@@ -11,6 +11,8 @@ import type { Orientation, ProjectData, TemplateId } from "@/types/project";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { projectDataToBrandData } from "@/lib/brand-defaults";
 
+const EMPTY_UNLOCKED_SLOT_IDS: string[] = [];
+
 export function EditorShell({
   projectId,
   variationId,
@@ -22,6 +24,7 @@ export function EditorShell({
   brandId,
   brandName,
   editorMode = "playable",
+  unlockedSlotIds = EMPTY_UNLOCKED_SLOT_IDS,
 }: {
   projectId: string;
   variationId?: string;
@@ -33,6 +36,7 @@ export function EditorShell({
   brandId?: string | null;
   brandName?: string | null;
   editorMode?: EditorMode;
+  unlockedSlotIds?: string[];
 }) {
   const hydrate = useEditorStore((s) => s.hydrate);
   const stage = useEditorStore((s) => s.stage);
@@ -40,6 +44,7 @@ export function EditorShell({
   const orientation = useEditorStore((s) => s.orientation);
   const setOrientation = useEditorStore((s) => s.setOrientation);
   const data = useEditorStore((s) => s.data);
+  const unlockedSlotIdsState = useEditorStore((s) => s.unlockedSlotIds);
   const projectNameState = useEditorStore((s) => s.projectName);
   const setSaveStatus = useEditorStore((s) => s.setSaveStatus);
   const hydrated = useEditorStore((s) => s.hydrated);
@@ -59,6 +64,7 @@ export function EditorShell({
       brandId,
       brandName,
       editorMode,
+      unlockedSlotIds,
     });
   }, [
     hydrate,
@@ -72,6 +78,7 @@ export function EditorShell({
     brandId,
     brandName,
     editorMode,
+    unlockedSlotIds,
   ]);
 
   useEffect(() => {
@@ -86,12 +93,12 @@ export function EditorShell({
       try {
         const url =
           editorMode === "brand"
-            ? `/api/brands/${brandId}`
+            ? `/api/templates/${brandId}`
             : `/api/projects/${projectId}/variations/${variationId}`;
         const body =
           editorMode === "brand"
             ? { name: projectNameState, brandData: projectDataToBrandData(data) }
-            : { name: projectNameState, projectData: data };
+            : { name: projectNameState, projectData: data, overrides: { unlockedSlotIds: unlockedSlotIdsState } };
         const res = await fetch(url, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -105,7 +112,7 @@ export function EditorShell({
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [data, projectNameState, projectId, variationId, brandId, editorMode, hydrated, setSaveStatus]);
+  }, [data, projectNameState, projectId, variationId, brandId, editorMode, hydrated, setSaveStatus, unlockedSlotIdsState]);
 
   if (!hydrated) {
     return (

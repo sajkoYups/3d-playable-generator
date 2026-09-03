@@ -8,8 +8,10 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
 import { ColorField } from "@/features/editor/color-field";
-import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, END_POLICY_SLOT_ID, isBrandSlotId, isOverridableSlotId, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type TowerDefenseConfig, type TowerDefenseRound, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
+import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, END_POLICY_SLOT_ID, UNLOCK_COIN_SLOT_ID, UNLOCK_END_BG_SLOT_ID, UNLOCK_LINKS_SLOT_ID, UNLOCK_START_BG_SLOT_ID, isBrandSlotId, isOverridableSlotId, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type TowerDefenseConfig, type TowerDefenseRound, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
 import { stampCoinImage } from "@/lib/project-defaults";
+import { TemplateSlotUnlockControls } from "@/features/editor/template-slot-unlock-controls";
+import { isPlayableTemplateLocked } from "@/features/editor/store";
 import { MATCH_ITEMS, OBSTACLES, VEHICLES } from "@/lib/model-library";
 import { ensureParkingRounds, repairParkingCars, setParkingRoundCount, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 import { ensureMatchRounds, propagateMatchFoods, setMatchRoundCount, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
@@ -167,8 +169,14 @@ function BackgroundEditor({
 function CoinIconField({ locked }: { locked?: boolean }) {
   const data = useEditorStore((s) => s.data);
   const updateData = useEditorStore((s) => s.updateData);
+  const editorMode = useEditorStore((s) => s.editorMode);
   const brandId = useEditorStore((s) => s.brandId);
   const brandName = useEditorStore((s) => s.brandName);
+  const unlockedSlotIds = useEditorStore((s) => s.unlockedSlotIds);
+  const templateLinked = editorMode === "playable" && Boolean(brandId);
+  const coinLocked =
+    locked ??
+    isPlayableTemplateLocked(editorMode, brandId, unlockedSlotIds, UNLOCK_COIN_SLOT_ID, "asset");
   const value =
     data.coinImageUrl ||
     data.gameplay.parkingJam.coinImageUrl ||
@@ -177,40 +185,43 @@ function CoinIconField({ locked }: { locked?: boolean }) {
     data.gameplay.towerDefense.coinImageUrl ||
     "";
 
-  if (locked) {
-    return (
-      <div className="space-y-1">
-        <Label>Coin icon</Label>
-        <div className="flex items-center gap-2 text-xs text-muted">
-          {value ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={value} alt="" className="h-8 w-8 rounded border border-border object-contain" />
-          ) : null}
-          <span>
-            From {brandName || "the brand kit"}.{" "}
-            {brandId ? (
-              <a href={`/brands/${brandId}`} className="text-accent underline">
-                Edit brand
-              </a>
-            ) : null}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <>
-      <AssetUrlField
-        label="Coin icon"
-        accept="image/*"
-        value={value}
-        onChange={(url) => updateData((d) => stampCoinImage(d, url))}
-      />
-      <p className="text-[11px] text-muted">
-        Empty uses the default coin. Shown in the HUD and payout animation. Brands can set a per-geo coin.
-      </p>
-    </>
+    <div className="space-y-2">
+      {templateLinked ? (
+        <TemplateSlotUnlockControls slotId={UNLOCK_COIN_SLOT_ID} unlocked={unlockedSlotIds.includes(UNLOCK_COIN_SLOT_ID)} />
+      ) : null}
+      {coinLocked ? (
+        <div className="space-y-1">
+          <Label>Coin icon</Label>
+          <div className="flex items-center gap-2 text-xs text-muted">
+            {value ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={value} alt="" className="h-8 w-8 rounded border border-border object-contain" />
+            ) : null}
+            <span>
+              From {brandName || "the template"}.{" "}
+              {brandId ? (
+                <a href={`/templates/${brandId}`} className="text-accent underline">
+                  Edit template
+                </a>
+              ) : null}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <AssetUrlField
+            label="Coin icon"
+            accept="image/*"
+            value={value}
+            onChange={(url) => updateData((d) => stampCoinImage(d, url))}
+          />
+          <p className="text-[11px] text-muted">
+            Empty uses the default coin. Shown in the HUD and payout animation. Templates can set a per-geo coin.
+          </p>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -221,10 +232,7 @@ function GameplaySettings() {
   const updateData = useEditorStore((s) => s.updateData);
   const parkingRoundIndex = useEditorStore((s) => s.parkingRoundIndex);
   const setParkingRoundIndex = useEditorStore((s) => s.setParkingRoundIndex);
-  const editorMode = useEditorStore((s) => s.editorMode);
-  const brandId = useEditorStore((s) => s.brandId);
   const cam = data.gameplay.camera[orientation];
-  const coinLocked = editorMode === "playable" && Boolean(brandId);
 
   return (
     <div className="space-y-4 p-4">
@@ -345,7 +353,7 @@ function GameplaySettings() {
       {templateId !== "stack-tower" && (
         <>
           <Separator />
-          <CoinIconField locked={coinLocked} />
+          <CoinIconField />
         </>
       )}
 
@@ -1258,21 +1266,33 @@ function ContentEditor({ element }: { element: PlayableElement }) {
   const editorMode = useEditorStore((s) => s.editorMode);
   const brandId = useEditorStore((s) => s.brandId);
   const brandName = useEditorStore((s) => s.brandName);
+  const unlockedSlotIds = useEditorStore((s) => s.unlockedSlotIds);
   const policyUrl = useEditorStore((s) => s.data.links.policyUrl);
-  const fromBrand = editorMode === "playable" && Boolean(brandId) && isBrandSlotId(element.id);
+  const templateOwned = editorMode === "playable" && Boolean(brandId) && isBrandSlotId(element.id);
+  const fromBrand = templateOwned && !unlockedSlotIds.includes(element.id);
   const textOnly = fromBrand && isOverridableSlotId(element.id);
   const styleLocked = fromBrand && !textOnly;
+  const linksLocked = isPlayableTemplateLocked(
+    editorMode,
+    brandId,
+    unlockedSlotIds,
+    UNLOCK_LINKS_SLOT_ID,
+    "asset",
+  );
 
   return (
     <div className="space-y-3 p-4">
       <h3 className="font-semibold">{element.name}</h3>
+      {templateOwned && (
+        <TemplateSlotUnlockControls slotId={element.id} unlocked={unlockedSlotIds.includes(element.id)} />
+      )}
       {fromBrand && (
         <div className="rounded-md border border-accent/40 bg-[#2a2118] p-2 text-xs text-accent">
-          From {brandName || "brand"}.{" "}
-          {textOnly ? "You can override the copy and button colors here." : "Edit layout, art, and button colors in the Brand studio."}{" "}
+          From {brandName || "template"}.{" "}
+          {textOnly ? "You can override the copy and button colors here." : "Layout and art stay live-linked until you customize this layer."}{" "}
           {brandId ? (
-            <a href={`/brands/${brandId}`} className="underline">
-              Edit brand
+            <a href={`/templates/${brandId}`} className="underline">
+              Edit template
             </a>
           ) : null}
         </div>
@@ -1292,7 +1312,7 @@ function ContentEditor({ element }: { element: PlayableElement }) {
           <Label>Policy URL</Label>
           <Input
             value={policyUrl}
-            disabled={fromBrand}
+            disabled={linksLocked}
             placeholder="https://example.com/privacy"
             onChange={(e) =>
               updateData((draft) => {
@@ -1301,8 +1321,8 @@ function ContentEditor({ element }: { element: PlayableElement }) {
             }
           />
           <p className="mt-1 text-[11px] text-muted">
-            {fromBrand
-              ? "URL is owned by the brand kit."
+            {linksLocked
+              ? "URL is owned by the template. Customize Links to change it on this playable."
               : "Opens when the player taps this link. Leave empty to do nothing."}
           </p>
         </div>
@@ -1320,7 +1340,7 @@ function ContentEditor({ element }: { element: PlayableElement }) {
         <AssetUrlField label="Image" accept="image/*" value={element.content.imageUrl || ""} onChange={(url) => updateElement(element.id, (el) => { el.content.imageUrl = url; })} />
       )}
       {element.type === "image" && fromBrand && (
-        <div className="text-xs text-muted">Logo image is owned by the brand kit.</div>
+        <div className="text-xs text-muted">Logo image is owned by the template.</div>
       )}
       {(element.type === "button" || element.type === "storeButton") && (
         <>
@@ -1380,6 +1400,7 @@ export function PropertiesPanel() {
   const editorMode = useEditorStore((s) => s.editorMode);
   const brandId = useEditorStore((s) => s.brandId);
   const brandName = useEditorStore((s) => s.brandName);
+  const unlockedSlotIds = useEditorStore((s) => s.unlockedSlotIds);
   const addEndPolicy = useEditorStore((s) => s.addEndPolicy);
   const hasPolicy = data.endScreen.elements.some((el) => el.id === END_POLICY_SLOT_ID);
 
@@ -1389,7 +1410,7 @@ export function PropertiesPanel() {
         <div className="space-y-3 p-4">
           <h3 className="font-semibold">HUD</h3>
           <p className="text-sm text-muted">
-            Select the logo. Coin art is used in every game this brand is applied to.
+            Select the logo. Coin art is used in every game this template is applied to.
           </p>
           <CoinIconField />
         </div>
@@ -1403,20 +1424,25 @@ export function PropertiesPanel() {
   const startVideoActive =
     stage === "start" && (screen.background.type === "video" || Boolean(screen.videoUrl));
   const liveLinked = editorMode === "playable" && Boolean(brandId);
+  const bgSlotId = stage === "start" ? UNLOCK_START_BG_SLOT_ID : UNLOCK_END_BG_SLOT_ID;
+  const bgLocked = isPlayableTemplateLocked(editorMode, brandId, unlockedSlotIds, bgSlotId, "asset");
   return (
     <div className="space-y-4 p-4">
       <h3 className="font-semibold">Background</h3>
       {liveLinked && (
+        <TemplateSlotUnlockControls slotId={bgSlotId} unlocked={!bgLocked} />
+      )}
+      {bgLocked && (
         <p className="text-xs text-accent">
-          Start/end backgrounds come from {brandName || "the brand"}.{" "}
+          Start/end backgrounds come from {brandName || "the template"}.{" "}
           {brandId ? (
-            <a href={`/brands/${brandId}`} className="underline">
-              Edit brand
+            <a href={`/templates/${brandId}`} className="underline">
+              Edit template
             </a>
           ) : null}
         </p>
       )}
-      {!liveLinked && (
+      {!bgLocked && (
         <BackgroundEditor
           background={screen.background}
           orientation={orientation}
@@ -1432,7 +1458,7 @@ export function PropertiesPanel() {
           }
         />
       )}
-      {startVideoActive && !liveLinked && (
+      {startVideoActive && !bgLocked && (
         <div className="flex items-start justify-between gap-3">
           <div>
             <Label htmlFor="start-after-video">Start after video ends</Label>
@@ -1458,10 +1484,10 @@ export function PropertiesPanel() {
       )}
       {stage === "end" && !hasPolicy && editorMode === "playable" && Boolean(brandId) && (
         <p className="text-xs text-muted">
-          Add a privacy policy link in the brand kit.{" "}
+          Add a privacy policy link in the template.{" "}
           {brandId ? (
-            <a href={`/brands/${brandId}`} className="text-accent underline">
-              Edit brand
+            <a href={`/templates/${brandId}`} className="text-accent underline">
+              Edit template
             </a>
           ) : null}
         </p>

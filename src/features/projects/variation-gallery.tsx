@@ -92,43 +92,55 @@ export function VariationGallery({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3">
+    <div className="space-y-8">
+      <div className="space-y-4">
         <Link href="/projects" className="text-sm text-muted hover:text-foreground">
-          ← Workshop
+          ← Playable projects
         </Link>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight">{project.name}</h1>
+        <div className="flex flex-col gap-4 rounded-lg border border-accent/30 bg-card px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="min-w-0 space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">
+              Playable project
+            </p>
+            <h1 className="truncate font-[family-name:var(--font-display)] text-3xl tracking-tight">
+              {project.name}
+            </h1>
             <p className="text-sm text-muted">
-              {TEMPLATE_NAMES[project.templateId]} · {variations.length}{" "}
+              This project · {TEMPLATE_NAMES[project.templateId]} · {variations.length}{" "}
               {variations.length === 1 ? "variation" : "variations"}
             </p>
           </div>
-          <Button onClick={() => setAddOpen(true)}>
+          <Button onClick={() => setAddOpen(true)} className="shrink-0">
             <Plus className="h-4 w-4" />
-            Add from brand
+            Add from template
           </Button>
         </div>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-        <Input
-          className="pl-9"
-          placeholder="Search variations or brands..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Variations</h2>
+            <p className="text-xs text-muted">Each card is a variation of this one project.</p>
+          </div>
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input
+              className="pl-9"
+              placeholder="Search this project’s variations..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+        </div>
 
       {filtered.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <p className="text-muted">No variations match. Stamp a brand kit onto this game.</p>
+            <p className="text-muted">No variations match. Stamp a personal template onto this game.</p>
             <Button onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4" />
-              Add from brand
+              Add from template
             </Button>
           </CardContent>
         </Card>
@@ -167,6 +179,7 @@ export function VariationGallery({
                   <CardTitle className="truncate">{variation.name}</CardTitle>
                 )}
                 <div className="flex flex-wrap items-center gap-2">
+                  <Badge className="bg-[#1c1f2a] text-muted">Variation</Badge>
                   {variation.brandName ? (
                     <Badge>{variation.brandName}</Badge>
                   ) : (
@@ -205,6 +218,7 @@ export function VariationGallery({
           ))}
         </div>
       )}
+      </div>
 
       <AddFromBrandDialog projectId={project.id} open={addOpen} onOpenChange={setAddOpen} />
     </div>

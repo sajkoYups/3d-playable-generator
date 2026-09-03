@@ -37,7 +37,7 @@ export default function SignInForm() {
         <CardHeader>
           <p className="text-xs uppercase tracking-[0.25em] text-accent">Forge</p>
           <CardTitle>Sign in</CardTitle>
-          <CardDescription>Open your 3D playable workshop</CardDescription>
+          <CardDescription>Open your playable projects</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">

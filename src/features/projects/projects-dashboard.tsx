@@ -83,8 +83,11 @@ export function ProjectsDashboard({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight">Workshop</h1>
-          <p className="text-sm text-muted">Each project is one game. Open it to see every branded variation.</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">All games</p>
+          <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight">Playable projects</h1>
+          <p className="text-sm text-muted">
+            All of your games. Open one to see that project’s variations.
+          </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" />
@@ -96,7 +99,7 @@ export function ProjectsDashboard({
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
         <Input
           className="pl-9"
-          placeholder="Search projects..."
+          placeholder="Search playable projects..."
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -110,7 +113,7 @@ export function ProjectsDashboard({
       {filtered.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <p className="text-muted">No projects yet. Pick a template and start dressing a scene.</p>
+            <p className="text-muted">No playable projects yet. Pick a game engine and start dressing a scene.</p>
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4" />
               Create project
@@ -143,6 +146,7 @@ export function ProjectsDashboard({
                   <CardTitle className="truncate">{project.name}</CardTitle>
                 )}
                 <div className="flex items-center gap-2">
+                  <Badge className="bg-[#1c1f2a] text-muted">Project</Badge>
                   <Badge>{TEMPLATE_NAMES[project.templateId as TemplateId] || project.templateId}</Badge>
                   <span className="text-[11px] text-muted">
                     {project.variationCount} {project.variationCount === 1 ? "variation" : "variations"}

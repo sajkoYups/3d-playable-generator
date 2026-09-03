@@ -10,6 +10,9 @@ import { AssetUrlField } from "@/features/editor/asset-url-field";
 import { isValidHttpUrl } from "@/lib/utils";
 import { stampCoinImage } from "@/lib/project-defaults";
 import { toast } from "sonner";
+import { UNLOCK_COIN_SLOT_ID, UNLOCK_LINKS_SLOT_ID } from "@/types/project";
+import { TemplateSlotUnlockControls } from "@/features/editor/template-slot-unlock-controls";
+import { isPlayableTemplateLocked } from "@/features/editor/store";
 
 export function ProjectSettingsDialog({
   open,
@@ -23,7 +26,22 @@ export function ProjectSettingsDialog({
   const editorMode = useEditorStore((s) => s.editorMode);
   const brandId = useEditorStore((s) => s.brandId);
   const brandName = useEditorStore((s) => s.brandName);
+  const unlockedSlotIds = useEditorStore((s) => s.unlockedSlotIds);
   const liveLinked = editorMode === "playable" && Boolean(brandId);
+  const linksLocked = isPlayableTemplateLocked(
+    editorMode,
+    brandId,
+    unlockedSlotIds,
+    UNLOCK_LINKS_SLOT_ID,
+    "asset",
+  );
+  const coinLocked = isPlayableTemplateLocked(
+    editorMode,
+    brandId,
+    unlockedSlotIds,
+    UNLOCK_COIN_SLOT_ID,
+    "asset",
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -34,18 +52,24 @@ export function ProjectSettingsDialog({
         {liveLinked && (
           <p className="text-sm text-muted">
             Destinations come from{" "}
-            <Link href={`/brands/${brandId}`} className="text-accent underline">
-              {brandName || "the linked brand"}
+            <Link href={`/templates/${brandId}`} className="text-accent underline">
+              {brandName || "the linked template"}
             </Link>
-            . Edit them there so every variation updates.
+            . Edit them there so every variation updates, or customize on this playable.
           </p>
         )}
         <div className="space-y-3">
+          {liveLinked && (
+            <TemplateSlotUnlockControls
+              slotId={UNLOCK_LINKS_SLOT_ID}
+              unlocked={!linksLocked}
+            />
+          )}
           <div className="space-y-1">
             <Label>App Store URL</Label>
             <Input
               value={data.links.appStoreUrl}
-              disabled={liveLinked}
+              disabled={linksLocked}
               onChange={(e) =>
                 updateData((draft) => {
                   draft.links.appStoreUrl = e.target.value;
@@ -57,7 +81,7 @@ export function ProjectSettingsDialog({
             <Label>Google Play URL</Label>
             <Input
               value={data.links.googlePlayUrl}
-              disabled={liveLinked}
+              disabled={linksLocked}
               onChange={(e) =>
                 updateData((draft) => {
                   draft.links.googlePlayUrl = e.target.value;
@@ -69,7 +93,7 @@ export function ProjectSettingsDialog({
             <Label>Privacy policy URL</Label>
             <Input
               value={data.links.policyUrl}
-              disabled={liveLinked}
+              disabled={linksLocked}
               placeholder="https://example.com/privacy"
               onChange={(e) =>
                 updateData((draft) => {
@@ -79,9 +103,15 @@ export function ProjectSettingsDialog({
             />
             <p className="text-[11px] text-muted">Used by the optional Privacy Policy link on the end card.</p>
           </div>
-          {liveLinked ? (
+          {liveLinked && (
+            <TemplateSlotUnlockControls
+              slotId={UNLOCK_COIN_SLOT_ID}
+              unlocked={!coinLocked}
+            />
+          )}
+          {coinLocked ? (
             <p className="text-xs text-muted">
-              Coin art also comes from the brand kit.
+              Coin art also comes from the template.
             </p>
           ) : (
             <AssetUrlField

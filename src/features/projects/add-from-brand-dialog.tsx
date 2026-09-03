@@ -36,20 +36,20 @@ export function AddFromBrandDialog({
   useEffect(() => {
     if (!open) return;
     setListLoading(true);
-    void fetch("/api/brands")
+    void fetch("/api/templates")
       .then((r) => r.json())
       .then((data) => {
-        const list = (data.brands ?? []) as BrandRow[];
+        const list = (data.templates ?? data.brands ?? []) as BrandRow[];
         setBrands(list);
         setBrandId((current) => current || list[0]?.id || "");
       })
-      .catch(() => toast.error("Failed to load brands"))
+      .catch(() => toast.error("Failed to load templates"))
       .finally(() => setListLoading(false));
   }, [open]);
 
   async function create() {
     if (!brandId) {
-      toast.error("Create a brand first");
+      toast.error("Create a template first");
       return;
     }
     setLoading(true);
@@ -73,21 +73,21 @@ export function AddFromBrandDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add from brand</DialogTitle>
+          <DialogTitle>Add from template</DialogTitle>
           <DialogDescription>
-            Clone this game’s latest gameplay and live-link a brand kit for logos, CTAs, and store URLs.
+            Clone this game’s latest gameplay and live-link a personal template for logos, CTAs, and store URLs.
           </DialogDescription>
         </DialogHeader>
         {listLoading ? (
-          <p className="text-sm text-muted">Loading brands...</p>
+          <p className="text-sm text-muted">Loading templates...</p>
         ) : brands.length === 0 ? (
           <p className="text-sm text-muted">
-            No brands yet. Open Brands, save a kit, then come back.
+            No templates yet. Open Templates, save a kit, then come back.
           </p>
         ) : (
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label>Brand</Label>
+              <Label>Template</Label>
               <select
                 className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
                 value={brandId}
@@ -105,7 +105,7 @@ export function AddFromBrandDialog({
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Defaults to the brand name"
+                placeholder="Defaults to the template name"
               />
             </div>
           </div>

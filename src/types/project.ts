@@ -459,6 +459,12 @@ export const BRAND_SLOT_IDS = {
 export const END_POLICY_SLOT_ID = "end-policy";
 export const OPTIONAL_BRAND_END_SLOT_IDS: readonly string[] = [END_POLICY_SLOT_ID];
 
+/** Reserved override ids so a playable can customize non-layer template assets. */
+export const UNLOCK_LINKS_SLOT_ID = "links";
+export const UNLOCK_COIN_SLOT_ID = "coin";
+export const UNLOCK_START_BG_SLOT_ID = "start-background";
+export const UNLOCK_END_BG_SLOT_ID = "end-background";
+
 export const ALL_BRAND_SLOT_IDS: readonly string[] = [
   ...BRAND_SLOT_IDS.start,
   ...BRAND_SLOT_IDS.end,
@@ -514,6 +520,7 @@ export type ElementContentOverride = z.infer<typeof ElementContentOverrideSchema
 export const VariationOverridesSchema = z
   .object({
     elements: z.record(z.string(), ElementContentOverrideSchema).default({}),
+    unlockedSlotIds: z.array(z.string()).default([]),
   })
   .prefault({});
 export type VariationOverrides = z.infer<typeof VariationOverridesSchema>;

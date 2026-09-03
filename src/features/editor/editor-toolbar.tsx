@@ -10,7 +10,11 @@ import { useEditorStore } from "@/features/editor/store";
 import { PlayablePreviewModal } from "@/features/editor/playable-preview-modal";
 import { ExportDialog } from "@/features/export/export-dialog";
 import { ProjectSettingsDialog } from "@/features/editor/project-settings-dialog";
+import { ImplementOnProjectButton } from "@/features/brands/implement-on-project";
+import { BrandUsedOnButton } from "@/features/brands/brand-used-on";
+import { ApplyBrandButton } from "@/features/editor/apply-brand-dialog";
 import { startLoopMusic, stopLoopMusic } from "@/playable-runtime/audio/loop";
+import { projectDataToBrandData } from "@/lib/brand-defaults";
 
 export function EditorToolbar() {
   const projectName = useEditorStore((s) => s.projectName);
@@ -18,22 +22,38 @@ export function EditorToolbar() {
   const saveStatus = useEditorStore((s) => s.saveStatus);
   const setSaveStatus = useEditorStore((s) => s.setSaveStatus);
   const projectId = useEditorStore((s) => s.projectId);
+  const variationId = useEditorStore((s) => s.variationId);
+  const galleryName = useEditorStore((s) => s.galleryName);
   const data = useEditorStore((s) => s.data);
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);
   const past = useEditorStore((s) => s.past);
   const future = useEditorStore((s) => s.future);
+  const editorMode = useEditorStore((s) => s.editorMode);
+  const brandId = useEditorStore((s) => s.brandId);
+  const brandName = useEditorStore((s) => s.brandName);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  const backHref = editorMode === "brand" ? "/brands" : `/projects/${projectId}`;
+  const backLabel = editorMode === "brand" ? "← Brands" : `← ${galleryName || "Project"}`;
+
   async function retrySave() {
     setSaveStatus("saving");
     try {
-      const res = await fetch(`/api/projects/${projectId}`, {
+      const url =
+        editorMode === "brand"
+          ? `/api/brands/${brandId}`
+          : `/api/projects/${projectId}/variations/${variationId}`;
+      const body =
+        editorMode === "brand"
+          ? { name: projectName, brandData: projectDataToBrandData(data) }
+          : { name: projectName, projectData: data };
+      const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: projectName, projectData: data }),
+        body: JSON.stringify(body),
       });
       setSaveStatus(res.ok ? "saved" : "error");
     } catch {
@@ -43,14 +63,17 @@ export function EditorToolbar() {
 
   return (
     <header className="flex h-14 items-center gap-3 border-b border-border bg-card px-3">
-      <Link href="/projects" className="text-sm font-semibold text-muted hover:text-foreground">
-        ← Workshop
+      <Link href={backHref} className="max-w-[180px] truncate text-sm font-semibold text-muted hover:text-foreground">
+        {backLabel}
       </Link>
       <Input
         className="h-8 max-w-[220px]"
         value={projectName}
         onChange={(e) => setProjectName(e.target.value)}
       />
+      {editorMode === "playable" && brandName && (
+        <Badge className="bg-[#2a2118] text-accent">From {brandName}</Badge>
+      )}
       <Badge
         className={
           saveStatus === "error"
@@ -79,32 +102,43 @@ export function EditorToolbar() {
         <Redo2 className="h-4 w-4" />
       </Button>
       <div className="ml-auto flex items-center gap-2">
+        {editorMode === "brand" && (
+          <>
+            <BrandUsedOnButton />
+            <ImplementOnProjectButton />
+          </>
+        )}
+        {editorMode === "playable" && <ApplyBrandButton />}
         <Button size="sm" variant="outline" onClick={() => setSettingsOpen(true)}>
           <Settings className="h-4 w-4" />
           Links
         </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            const audio = data.gameplay.audio;
-            const videoWins =
-              data.startScreen.background.type === "video" && Boolean(data.startScreen.videoUrl);
-            if (videoWins && data.startScreen.videoUrl) {
-              startLoopMusic(data.startScreen.videoUrl);
-            } else if (audio.playFromStart && audio.musicUrl) {
-              startLoopMusic(audio.musicUrl);
-            }
-            setPreviewOpen(true);
-          }}
-        >
-          <Play className="h-4 w-4" />
-          Preview
-        </Button>
-        <Button size="sm" onClick={() => setExportOpen(true)}>
-          <Download className="h-4 w-4" />
-          Export
-        </Button>
+        {editorMode === "playable" && (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const audio = data.gameplay.audio;
+                const videoWins =
+                  data.startScreen.background.type === "video" && Boolean(data.startScreen.videoUrl);
+                if (videoWins && data.startScreen.videoUrl) {
+                  startLoopMusic(data.startScreen.videoUrl);
+                } else if (audio.playFromStart && audio.musicUrl) {
+                  startLoopMusic(audio.musicUrl);
+                }
+                setPreviewOpen(true);
+              }}
+            >
+              <Play className="h-4 w-4" />
+              Preview
+            </Button>
+            <Button size="sm" onClick={() => setExportOpen(true)}>
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          </>
+        )}
       </div>
       <PlayablePreviewModal
         open={previewOpen}

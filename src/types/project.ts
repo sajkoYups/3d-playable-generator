@@ -101,6 +101,7 @@ export const ElementActionSchema = z.object({
     "START_PLAYABLE",
     "OPEN_APP_STORE",
     "OPEN_GOOGLE_PLAY",
+    "OPEN_POLICY",
     "REPLAY",
     "MUTE",
     "NONE",
@@ -434,16 +435,88 @@ export type GameplayData = z.infer<typeof GameplaySchema>;
 export const ProjectLinksSchema = z.object({
   appStoreUrl: z.string().default(""),
   googlePlayUrl: z.string().default(""),
+  policyUrl: z.string().default(""),
 });
 export type ProjectLinks = z.infer<typeof ProjectLinksSchema>;
 
 export const ProjectDataSchema = z.object({
   links: ProjectLinksSchema,
+  coinImageUrl: z.string().default(""),
   startScreen: ScreenSchema,
   gameplay: GameplaySchema,
   endScreen: ScreenSchema,
 });
 export type ProjectData = z.infer<typeof ProjectDataSchema>;
+
+/** Overlay ids the Brand kit owns and live-merges onto variations. */
+export const BRAND_SLOT_IDS = {
+  start: ["app-logo", "app-store-button", "google-play-button"],
+  end: ["end-app-logo", "end-cta", "end-app-store", "end-google-play"],
+  gameplay: ["gameplay-logo"],
+} as const;
+
+/** Optional brand layers; saved only after they are added in Brand studio. */
+export const END_POLICY_SLOT_ID = "end-policy";
+export const OPTIONAL_BRAND_END_SLOT_IDS: readonly string[] = [END_POLICY_SLOT_ID];
+
+export const ALL_BRAND_SLOT_IDS: readonly string[] = [
+  ...BRAND_SLOT_IDS.start,
+  ...BRAND_SLOT_IDS.end,
+  ...BRAND_SLOT_IDS.gameplay,
+  ...OPTIONAL_BRAND_END_SLOT_IDS,
+];
+
+export const BRAND_LOGO_SLOT_IDS: readonly string[] = ["app-logo", "end-app-logo", "gameplay-logo"];
+
+/** Copy the variation can change without unlinking the Brand. */
+export const OVERRIDABLE_SLOT_IDS: readonly string[] = [
+  "headline",
+  "subtitle",
+  "end-headline",
+  "end-subtitle",
+  "gameplay-label",
+  "end-cta",
+  "app-store-button",
+  "google-play-button",
+  "end-app-store",
+  "end-google-play",
+  END_POLICY_SLOT_ID,
+];
+
+export function isBrandSlotId(id: string): boolean {
+  return ALL_BRAND_SLOT_IDS.includes(id);
+}
+
+export function isOverridableSlotId(id: string): boolean {
+  return OVERRIDABLE_SLOT_IDS.includes(id);
+}
+
+export const BrandDataSchema = z.object({
+  links: ProjectLinksSchema,
+  coinImageUrl: z.string().default(""),
+  startScreen: ScreenSchema,
+  endScreen: ScreenSchema,
+  overlays: z.array(PlayableElementSchema).default([]),
+});
+export type BrandData = z.infer<typeof BrandDataSchema>;
+
+export const ElementContentOverrideSchema = z
+  .object({
+    text: z.string().optional(),
+    imageUrl: z.string().optional(),
+    color: z.string().optional(),
+    backgroundColor: z.string().optional(),
+    textColor: z.string().optional(),
+  })
+  .prefault({});
+export type ElementContentOverride = z.infer<typeof ElementContentOverrideSchema>;
+
+export const VariationOverridesSchema = z
+  .object({
+    elements: z.record(z.string(), ElementContentOverrideSchema).default({}),
+  })
+  .prefault({});
+export type VariationOverrides = z.infer<typeof VariationOverridesSchema>;
 
 export function layout(
   partial: Partial<LayoutBox> & Pick<LayoutBox, "x" | "y" | "width" | "height">,

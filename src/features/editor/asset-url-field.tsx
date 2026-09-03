@@ -6,7 +6,7 @@ import { Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEditorStore } from "@/features/editor/store";
-import { uploadProjectAsset } from "@/features/assets/upload-project-asset";
+import { uploadOwnedAsset } from "@/features/assets/upload-project-asset";
 
 export function AssetUrlField({
   label,
@@ -22,16 +22,24 @@ export function AssetUrlField({
   kind?: "image" | "model" | "audio" | "video";
 }) {
   const projectId = useEditorStore((s) => s.projectId);
+  const brandId = useEditorStore((s) => s.brandId);
+  const editorMode = useEditorStore((s) => s.editorMode);
   const [uploading, setUploading] = useState(false);
 
   async function handleFile(file: File) {
-    if (!projectId) {
+    const owner =
+      editorMode === "brand" && brandId
+        ? { brandId }
+        : projectId
+          ? { projectId }
+          : null;
+    if (!owner) {
       toast.error("Upload failed");
       return;
     }
     setUploading(true);
     try {
-      const data = await uploadProjectAsset(projectId, file);
+      const data = await uploadOwnedAsset(owner, file);
       onChange(data.asset.optimizedUrl);
       if (data.warning) toast.warning(data.warning);
       else if (data.warnLarge) toast.warning("Asset is large and may increase export size");

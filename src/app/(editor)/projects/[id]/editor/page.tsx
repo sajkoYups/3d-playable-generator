@@ -1,11 +1,8 @@
 import { requireSession } from "@/lib/session";
 import { getAccessibleProject } from "@/lib/api-auth";
-import { notFound } from "next/navigation";
-import { EditorShell } from "@/features/editor/editor-shell";
-import { ProjectDataSchema, type Orientation, type TemplateId } from "@/types/project";
-import { createDefaultProjectData } from "@/lib/project-defaults";
+import { notFound, redirect } from "next/navigation";
 
-export default async function EditorPage({
+export default async function LegacyEditorRedirect({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -14,18 +11,7 @@ export default async function EditorPage({
   const { id } = await params;
   const project = await getAccessibleProject(id, session.user.id);
   if (!project) notFound();
-
-  const templateId = project.templateId as TemplateId;
-  const parsed = ProjectDataSchema.safeParse(project.projectData);
-  const data = parsed.success ? parsed.data : createDefaultProjectData(templateId);
-
-  return (
-    <EditorShell
-      projectId={project.id}
-      projectName={project.name}
-      templateId={templateId}
-      defaultOrientation={project.defaultOrientation as Orientation}
-      initialData={data}
-    />
-  );
+  const first = project.variations[0];
+  if (!first) notFound();
+  redirect(`/projects/${id}/variations/${first.id}/editor`);
 }

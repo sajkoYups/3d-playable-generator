@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useEditorStore } from "@/features/editor/store";
+import { useEditorStore, useStageElements } from "@/features/editor/store";
 import { useFittedIphoneFrame } from "@/features/editor/iphone-frame";
 import type { CSSProperties } from "react";
 import { backgroundToStyle, layoutToStyle, snapToCenter, clamp01 } from "@/playable-runtime/layout/layout";
 import { ElementView } from "@/features/editor/element-view";
 import { GameplayHost } from "@/features/editor/gameplay-host";
+import { isBrandSlotId } from "@/types/project";
 
 function MutedLoopVideo({ src }: { src: string }) {
   const ref = useRef<HTMLVideoElement>(null);
@@ -41,7 +42,9 @@ export function EditorCanvas() {
   const selectElement = useEditorStore((s) => s.selectElement);
   const updateElementLayout = useEditorStore((s) => s.updateElementLayout);
   const pushHistory = useEditorStore((s) => s.pushHistory);
-  const elements = useEditorStore((s) => s.getStageElements());
+  const elements = useStageElements();
+  const editorMode = useEditorStore((s) => s.editorMode);
+  const brandId = useEditorStore((s) => s.brandId);
   const { containerRef, logical: size, outer, scale } = useFittedIphoneFrame(orientation);
 
   const frameRef = useRef<HTMLDivElement>(null);
@@ -149,7 +152,7 @@ export function EditorCanvas() {
                   ) : null}
                 </div>
               )}
-              {stage === "gameplay" && (
+              {stage === "gameplay" && editorMode !== "brand" && (
                 <div
                   className="absolute inset-0"
                   style={backgroundToStyle(data.gameplay.stageBackground[orientation], orientation) as CSSProperties}
@@ -173,9 +176,12 @@ export function EditorCanvas() {
                 if (!box.visible && el.type !== "gameplayContainer") return null;
                 const style = layoutToStyle(box, size.w, size.h) as CSSProperties;
                 const selected = selectedElementId === el.id;
-                const locked = el.permanentlyLocked || box.locked;
+                const brandLocked =
+                  editorMode === "playable" && Boolean(brandId) && isBrandSlotId(el.id);
+                const locked = el.permanentlyLocked || box.locked || brandLocked;
 
                 if (el.type === "gameplayContainer") {
+                  if (editorMode === "brand") return null;
                   return (
                     <div
                       key={el.id}

@@ -42,6 +42,7 @@ export function ExportDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const projectId = useEditorStore((s) => s.projectId);
+  const variationId = useEditorStore((s) => s.variationId);
   const projectName = useEditorStore((s) => s.projectName);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ExportPayload | null>(null);
@@ -53,7 +54,7 @@ export function ExportDialog({
     setResult(null);
     setPreviewHtml(null);
     try {
-      const res = await fetch(`/api/projects/${projectId}/export`, {
+      const res = await fetch(`/api/projects/${projectId}/variations/${variationId}/export`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

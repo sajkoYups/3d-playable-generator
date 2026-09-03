@@ -186,6 +186,28 @@ function muteButton(
   };
 }
 
+export function createEndPolicyElement(): PlayableElement {
+  const el = textEl(
+    "end-policy",
+    "Privacy Policy",
+    "Privacy Policy",
+    layout({ x: 0.15, y: 0.91, width: 0.7, height: 0.04, zIndex: 6 }),
+    layout({ x: 0.35, y: 0.93, width: 0.5, height: 0.05, zIndex: 6 }),
+    { fontSize: 12, fontWeight: 500, color: "#c4bfb4" },
+  );
+  el.action = { type: "OPEN_POLICY" };
+  return el;
+}
+
+/** Keep project-level coin and every template slot in sync. */
+export function stampCoinImage(data: ProjectData, url: string) {
+  data.coinImageUrl = url;
+  data.gameplay.tripleMatch.coinImageUrl = url;
+  data.gameplay.laneRunner.coinImageUrl = url;
+  data.gameplay.parkingJam.coinImageUrl = url;
+  data.gameplay.towerDefense.coinImageUrl = url;
+}
+
 export function createGameplayTimerOverlay(): PlayableElement {
   return {
     id: "gameplay-timer",
@@ -219,6 +241,7 @@ function createStartScreen(templateId: TemplateId): ProjectData["startScreen"] {
   return {
     background: imageBackground(DEMO_URLS.bgStartPortrait, DEMO_URLS.bgStartLandscape, 0.28),
     videoUrl: "",
+    startAfterVideo: false,
     elements: [
       imageEl(
         "app-logo",
@@ -284,6 +307,7 @@ function createEndScreen(): ProjectData["endScreen"] {
   return {
     background: imageBackground(DEMO_URLS.bgEndPortrait, DEMO_URLS.bgEndLandscape, 0.4),
     videoUrl: "",
+    startAfterVideo: false,
     elements: [
       imageEl(
         "end-app-logo",
@@ -588,15 +612,6 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
         layout({ x: 0.02, y: 0.05, width: 0.15, height: 0.15, zIndex: 20 }),
         DEMO_URLS.appLogo,
       ),
-      buttonEl(
-        "gameplay-cta",
-        "CTA Button",
-        "Download",
-        "OPEN_APP_STORE",
-        layout({ x: 0.7, y: 0.02, width: 0.26, height: 0.06, zIndex: 21 }),
-        layout({ x: 0.8, y: 0.05, width: 0.18, height: 0.1, zIndex: 21 }),
-        { backgroundColor: "#e85d4c", borderRadius: 12 },
-      ),
       textEl(
         "gameplay-label",
         "Label",
@@ -646,7 +661,9 @@ export function createDefaultProjectData(templateId: TemplateId): ProjectData {
     links: {
       appStoreUrl: "",
       googlePlayUrl: "",
+      policyUrl: "",
     },
+    coinImageUrl: "",
     startScreen: createStartScreen(templateId),
     gameplay: createGameplayOverlays(templateId),
     endScreen: createEndScreen(),

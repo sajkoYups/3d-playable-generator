@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAccessibleProject, requireApiSession } from "@/lib/api-auth";
+import { getAccessibleVariation, requireApiSession } from "@/lib/api-auth";
 import { exportPlayableHtml } from "@/lib/export-playable";
-import type { NetworkId, ProjectData, TemplateId } from "@/types/project";
+import { resolveVariationPlayable } from "@/lib/resolve-variation";
+import type { NetworkId, TemplateId } from "@/types/project";
 import { prisma } from "@/lib/db";
 import JSZip from "jszip";
 
+/** Bookmark compat: export the project's most recently updated variation. */
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> },
@@ -12,8 +14,14 @@ export async function POST(
   const session = await requireApiSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await context.params;
-  const project = await getAccessibleProject(id, session.user.id);
-  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const latest = await prisma.variation.findFirst({
+    where: { project: { id, members: { some: { userId: session.user.id } } } },
+    orderBy: { updatedAt: "desc" },
+  });
+  if (!latest) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const access = await getAccessibleVariation(id, latest.id, session.user.id);
+  if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = (await req.json().catch(() => ({}))) as {
     networkId?: NetworkId;
@@ -24,19 +32,26 @@ export async function POST(
     ? body.networks
     : [body.networkId || "generic"];
 
+  const projectData = await resolveVariationPlayable({
+    projectData: access.variation.projectData,
+    templateId: access.project.templateId,
+    brandId: access.variation.brandId,
+    overrides: access.variation.overrides,
+  });
+
   const results = [];
   for (const networkId of networks) {
     const result = await exportPlayableHtml({
-      projectData: project.projectData as ProjectData,
-      templateId: project.templateId as TemplateId,
-      projectName: project.name,
+      projectData,
+      templateId: access.project.templateId as TemplateId,
+      projectName: access.variation.name || access.project.name,
       networkId,
     });
     results.push(result);
   }
 
-  await prisma.project.update({
-    where: { id },
+  await prisma.variation.update({
+    where: { id: latest.id },
     data: { status: "exported" },
   });
 
@@ -45,7 +60,7 @@ export async function POST(
   }
 
   const zip = new JSZip();
-  const slug = project.name.replace(/[^a-z0-9-_]+/gi, "-").toLowerCase() || "playable";
+  const slug = (access.variation.name || access.project.name).replace(/[^a-z0-9-_]+/gi, "-").toLowerCase() || "playable";
   for (const r of results) {
     zip.file(`${slug}-${r.networkId}.html`, r.html);
   }

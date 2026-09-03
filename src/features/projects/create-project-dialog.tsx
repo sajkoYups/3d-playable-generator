@@ -31,8 +31,6 @@ export function CreateProjectDialog({
   const [name, setName] = useState("Untitled Playable");
   const [templateId, setTemplateId] = useState<TemplateId>("stack-tower");
   const [orientation, setOrientation] = useState<Orientation>("portrait");
-  const [appStoreUrl, setAppStoreUrl] = useState("");
-  const [googlePlayUrl, setGooglePlayUrl] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function create() {
@@ -44,8 +42,6 @@ export function CreateProjectDialog({
         name,
         templateId,
         defaultOrientation: orientation,
-        appStoreUrl,
-        googlePlayUrl,
       }),
     });
     setLoading(false);
@@ -56,7 +52,7 @@ export function CreateProjectDialog({
     }
     const { project } = await res.json();
     onOpenChange(false);
-    router.push(`/projects/${project.id}/editor`);
+    router.push(`/projects/${project.id}`);
   }
 
   return (
@@ -64,7 +60,7 @@ export function CreateProjectDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>New playable</DialogTitle>
-          <DialogDescription>Choose a 3D engine, then dress start / game / end screens.</DialogDescription>
+          <DialogDescription>Choose a 3D engine. Store links live on Brands, then you stamp a brand onto a variation.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -108,21 +104,13 @@ export function CreateProjectDialog({
               ))}
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>App Store URL (optional)</Label>
-            <Input value={appStoreUrl} onChange={(e) => setAppStoreUrl(e.target.value)} placeholder="https://apps.apple.com/..." />
-          </div>
-          <div className="space-y-2">
-            <Label>Google Play URL (optional)</Label>
-            <Input value={googlePlayUrl} onChange={(e) => setGooglePlayUrl(e.target.value)} placeholder="https://play.google.com/..." />
-          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button onClick={create} disabled={loading || !name.trim()}>
-            {loading ? "Creating..." : "Create & open editor"}
+            {loading ? "Creating..." : "Create project"}
           </Button>
         </DialogFooter>
       </DialogContent>

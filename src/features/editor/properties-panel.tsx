@@ -1,13 +1,15 @@
 "use client";
 
-import { useEditorStore } from "@/features/editor/store";
+import { useEditorStore, useSelectedElement } from "@/features/editor/store";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
-import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type TowerDefenseConfig, type TowerDefenseRound, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
+import { ColorField } from "@/features/editor/color-field";
+import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, END_POLICY_SLOT_ID, isBrandSlotId, isOverridableSlotId, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type TowerDefenseConfig, type TowerDefenseRound, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
+import { stampCoinImage } from "@/lib/project-defaults";
 import { MATCH_ITEMS, OBSTACLES, VEHICLES } from "@/lib/model-library";
 import { ensureParkingRounds, repairParkingCars, setParkingRoundCount, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 import { ensureMatchRounds, propagateMatchFoods, setMatchRoundCount, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
@@ -162,6 +164,56 @@ function BackgroundEditor({
   );
 }
 
+function CoinIconField({ locked }: { locked?: boolean }) {
+  const data = useEditorStore((s) => s.data);
+  const updateData = useEditorStore((s) => s.updateData);
+  const brandId = useEditorStore((s) => s.brandId);
+  const brandName = useEditorStore((s) => s.brandName);
+  const value =
+    data.coinImageUrl ||
+    data.gameplay.parkingJam.coinImageUrl ||
+    data.gameplay.tripleMatch.coinImageUrl ||
+    data.gameplay.laneRunner.coinImageUrl ||
+    data.gameplay.towerDefense.coinImageUrl ||
+    "";
+
+  if (locked) {
+    return (
+      <div className="space-y-1">
+        <Label>Coin icon</Label>
+        <div className="flex items-center gap-2 text-xs text-muted">
+          {value ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={value} alt="" className="h-8 w-8 rounded border border-border object-contain" />
+          ) : null}
+          <span>
+            From {brandName || "the brand kit"}.{" "}
+            {brandId ? (
+              <a href={`/brands/${brandId}`} className="text-accent underline">
+                Edit brand
+              </a>
+            ) : null}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <AssetUrlField
+        label="Coin icon"
+        accept="image/*"
+        value={value}
+        onChange={(url) => updateData((d) => stampCoinImage(d, url))}
+      />
+      <p className="text-[11px] text-muted">
+        Empty uses the default coin. Shown in the HUD and payout animation. Brands can set a per-geo coin.
+      </p>
+    </>
+  );
+}
+
 function GameplaySettings() {
   const data = useEditorStore((s) => s.data);
   const templateId = useEditorStore((s) => s.templateId);
@@ -169,7 +221,10 @@ function GameplaySettings() {
   const updateData = useEditorStore((s) => s.updateData);
   const parkingRoundIndex = useEditorStore((s) => s.parkingRoundIndex);
   const setParkingRoundIndex = useEditorStore((s) => s.setParkingRoundIndex);
+  const editorMode = useEditorStore((s) => s.editorMode);
+  const brandId = useEditorStore((s) => s.brandId);
   const cam = data.gameplay.camera[orientation];
+  const coinLocked = editorMode === "playable" && Boolean(brandId);
 
   return (
     <div className="space-y-4 p-4">
@@ -286,6 +341,13 @@ function GameplaySettings() {
           </p>
         )}
       </div>
+
+      {templateId !== "stack-tower" && (
+        <>
+          <Separator />
+          <CoinIconField locked={coinLocked} />
+        </>
+      )}
 
       {templateId === "stack-tower" && (
         <>
@@ -482,13 +544,6 @@ function GameplaySettings() {
                     />
                   </div>
                 ))}
-                <AssetUrlField
-                  label="Coin icon"
-                  accept="image/*"
-                  value={match.coinImageUrl}
-                  onChange={(url) => updateData((d) => { d.gameplay.tripleMatch.coinImageUrl = url; })}
-                />
-                <p className="text-[11px] text-muted">Empty uses the default coin. Shown in the HUD and payout animation.</p>
               </>
             );
           })()}
@@ -737,13 +792,6 @@ function GameplaySettings() {
                   onChange={(url) => updateData((d) => { d.gameplay.laneRunner.grassTextureUrl = url; })}
                 />
                 <p className="text-[11px] text-muted">Leave empty to keep the Kenney defaults. Uploads replace that layer only.</p>
-                <AssetUrlField
-                  label="Coin icon"
-                  accept="image/*"
-                  value={runner.coinImageUrl}
-                  onChange={(url) => updateData((d) => { d.gameplay.laneRunner.coinImageUrl = url; })}
-                />
-                <p className="text-[11px] text-muted">Empty uses the default coin. Shown in the HUD and payout animation.</p>
               </>
             );
           })()}
@@ -927,13 +975,6 @@ function GameplaySettings() {
             onChange={(url) => updateData((d) => { d.gameplay.parkingJam.grassTextureUrl = url; })}
           />
           <p className="text-[11px] text-muted">Leave empty to keep the Kenney defaults. Uploads replace that layer only.</p>
-          <AssetUrlField
-            label="Coin icon"
-            accept="image/*"
-            value={data.gameplay.parkingJam.coinImageUrl}
-            onChange={(url) => updateData((d) => { d.gameplay.parkingJam.coinImageUrl = url; })}
-          />
-          <p className="text-[11px] text-muted">Empty uses the default coin. Shown in the HUD and payout animation.</p>
           <p className="text-[11px] text-muted">Car colors</p>
           {(data.gameplay.parkingJam.rounds[Math.max(0, Math.min(parkingRoundIndex, data.gameplay.parkingJam.rounds.length - 1))]?.cars
             ?? data.gameplay.parkingJam.cars).map((car) => (
@@ -1172,13 +1213,6 @@ function GameplaySettings() {
                     </div>
                   ))}
                 </div>
-                <AssetUrlField
-                  label="Coin icon"
-                  accept="image/*"
-                  value={td.coinImageUrl}
-                  onChange={(url) => updateData((d) => { d.gameplay.towerDefense.coinImageUrl = url; })}
-                />
-                <p className="text-[11px] text-muted">Empty uses the default coin. Shown in the HUD and payout animation.</p>
                 <p className="text-[11px] text-muted">Sounds</p>
                 <p className="text-[11px] leading-snug text-muted">
                   Upload short clips (mp3/wav/ogg). Empty slots still play a tiny built-in cue so you can test. Turret fire is throttled so a fast tower does not stack 5 samples a second. First tap on the canvas unlocks audio.
@@ -1220,28 +1254,90 @@ function GameplaySettings() {
 
 function ContentEditor({ element }: { element: PlayableElement }) {
   const updateElement = useEditorStore((s) => s.updateElement);
+  const updateData = useEditorStore((s) => s.updateData);
+  const editorMode = useEditorStore((s) => s.editorMode);
+  const brandId = useEditorStore((s) => s.brandId);
+  const brandName = useEditorStore((s) => s.brandName);
+  const policyUrl = useEditorStore((s) => s.data.links.policyUrl);
+  const fromBrand = editorMode === "playable" && Boolean(brandId) && isBrandSlotId(element.id);
+  const textOnly = fromBrand && isOverridableSlotId(element.id);
+  const styleLocked = fromBrand && !textOnly;
+
   return (
     <div className="space-y-3 p-4">
       <h3 className="font-semibold">{element.name}</h3>
+      {fromBrand && (
+        <div className="rounded-md border border-accent/40 bg-[#2a2118] p-2 text-xs text-accent">
+          From {brandName || "brand"}.{" "}
+          {textOnly ? "You can override the copy and button colors here." : "Edit layout, art, and button colors in the Brand studio."}{" "}
+          {brandId ? (
+            <a href={`/brands/${brandId}`} className="underline">
+              Edit brand
+            </a>
+          ) : null}
+        </div>
+      )}
       {(element.type === "text" || element.type === "button" || element.type === "storeButton" || element.type === "starRating") && (
         <div>
           <Label>Text</Label>
-          <Input value={element.content.text || ""} onChange={(e) => updateElement(element.id, (el) => { el.content.text = e.target.value; })} />
+          <Input
+            value={element.content.text || ""}
+            disabled={fromBrand && !textOnly}
+            onChange={(e) => updateElement(element.id, (el) => { el.content.text = e.target.value; })}
+          />
+        </div>
+      )}
+      {element.id === END_POLICY_SLOT_ID && (
+        <div>
+          <Label>Policy URL</Label>
+          <Input
+            value={policyUrl}
+            disabled={fromBrand}
+            placeholder="https://example.com/privacy"
+            onChange={(e) =>
+              updateData((draft) => {
+                draft.links.policyUrl = e.target.value;
+              }, false)
+            }
+          />
+          <p className="mt-1 text-[11px] text-muted">
+            {fromBrand
+              ? "URL is owned by the brand kit."
+              : "Opens when the player taps this link. Leave empty to do nothing."}
+          </p>
         </div>
       )}
       {(element.type === "text" || element.type === "starRating") && (
-        <div>
-          <Label>Color</Label>
-          <Input type="color" value={element.content.color || "#ffffff"} onChange={(e) => updateElement(element.id, (el) => { el.content.color = e.target.value; })} />
-        </div>
+        <ColorField
+          label="Color"
+          value={element.content.color}
+          fallback="#ffffff"
+          disabled={fromBrand && !textOnly}
+          onChange={(hex) => updateElement(element.id, (el) => { el.content.color = hex; })}
+        />
       )}
-      {element.type === "image" && (
+      {element.type === "image" && !fromBrand && (
         <AssetUrlField label="Image" accept="image/*" value={element.content.imageUrl || ""} onChange={(url) => updateElement(element.id, (el) => { el.content.imageUrl = url; })} />
+      )}
+      {element.type === "image" && fromBrand && (
+        <div className="text-xs text-muted">Logo image is owned by the brand kit.</div>
       )}
       {(element.type === "button" || element.type === "storeButton") && (
         <>
-          <Label>Button color</Label>
-          <Input type="color" value={element.style.backgroundColor || "#e07a3d"} onChange={(e) => updateElement(element.id, (el) => { el.style.backgroundColor = e.target.value; })} />
+          <ColorField
+            label="Fill"
+            value={element.style.backgroundColor}
+            fallback="#e07a3d"
+            disabled={styleLocked}
+            onChange={(hex) => updateElement(element.id, (el) => { el.style.backgroundColor = hex; })}
+          />
+          <ColorField
+            label="Text color"
+            value={element.style.textColor}
+            fallback="#ffffff"
+            disabled={styleLocked}
+            onChange={(hex) => updateElement(element.id, (el) => { el.style.textColor = hex; })}
+          />
         </>
       )}
       {element.type === "timer" && (
@@ -1260,6 +1356,7 @@ function ContentEditor({ element }: { element: PlayableElement }) {
               <Input
                 type="number"
                 step="0.01"
+                disabled={fromBrand}
                 value={Number(box[key].toFixed(3))}
                 onChange={(e) => {
                   const n = clamp01(Number(e.target.value));
@@ -1276,35 +1373,66 @@ function ContentEditor({ element }: { element: PlayableElement }) {
 
 export function PropertiesPanel() {
   const stage = useEditorStore((s) => s.stage);
-  const selected = useEditorStore((s) => s.getSelectedElement());
+  const selected = useSelectedElement();
   const data = useEditorStore((s) => s.data);
   const orientation = useEditorStore((s) => s.orientation);
   const updateData = useEditorStore((s) => s.updateData);
+  const editorMode = useEditorStore((s) => s.editorMode);
+  const brandId = useEditorStore((s) => s.brandId);
+  const brandName = useEditorStore((s) => s.brandName);
+  const addEndPolicy = useEditorStore((s) => s.addEndPolicy);
+  const hasPolicy = data.endScreen.elements.some((el) => el.id === END_POLICY_SLOT_ID);
 
-  if (stage === "gameplay" && !selected) return <GameplaySettings />;
+  if (stage === "gameplay" && !selected) {
+    if (editorMode === "brand") {
+      return (
+        <div className="space-y-3 p-4">
+          <h3 className="font-semibold">HUD</h3>
+          <p className="text-sm text-muted">
+            Select the logo. Coin art is used in every game this brand is applied to.
+          </p>
+          <CoinIconField />
+        </div>
+      );
+    }
+    return <GameplaySettings />;
+  }
   if (selected) return <ContentEditor element={selected} />;
 
   const screen = stage === "start" ? data.startScreen : data.endScreen;
   const startVideoActive =
     stage === "start" && (screen.background.type === "video" || Boolean(screen.videoUrl));
+  const liveLinked = editorMode === "playable" && Boolean(brandId);
   return (
     <div className="space-y-4 p-4">
       <h3 className="font-semibold">Background</h3>
-      <BackgroundEditor
-        background={screen.background}
-        orientation={orientation}
-        allowVideo
-        allowTransparent
-        videoUrl={screen.videoUrl}
-        onChange={(next, nextVideo) =>
-          updateData((draft) => {
-            const target = stage === "start" ? draft.startScreen : draft.endScreen;
-            target.background = next;
-            if (typeof nextVideo === "string") target.videoUrl = nextVideo;
-          })
-        }
-      />
-      {startVideoActive && (
+      {liveLinked && (
+        <p className="text-xs text-accent">
+          Start/end backgrounds come from {brandName || "the brand"}.{" "}
+          {brandId ? (
+            <a href={`/brands/${brandId}`} className="underline">
+              Edit brand
+            </a>
+          ) : null}
+        </p>
+      )}
+      {!liveLinked && (
+        <BackgroundEditor
+          background={screen.background}
+          orientation={orientation}
+          allowVideo
+          allowTransparent
+          videoUrl={screen.videoUrl}
+          onChange={(next, nextVideo) =>
+            updateData((draft) => {
+              const target = stage === "start" ? draft.startScreen : draft.endScreen;
+              target.background = next;
+              if (typeof nextVideo === "string") target.videoUrl = nextVideo;
+            })
+          }
+        />
+      )}
+      {startVideoActive && !liveLinked && (
         <div className="flex items-start justify-between gap-3">
           <div>
             <Label htmlFor="start-after-video">Start after video ends</Label>
@@ -1322,6 +1450,21 @@ export function PropertiesPanel() {
             }
           />
         </div>
+      )}
+      {stage === "end" && !hasPolicy && (editorMode === "brand" || !brandId) && (
+        <Button size="sm" variant="outline" onClick={() => addEndPolicy()}>
+          Add Privacy Policy
+        </Button>
+      )}
+      {stage === "end" && !hasPolicy && editorMode === "playable" && Boolean(brandId) && (
+        <p className="text-xs text-muted">
+          Add a privacy policy link in the brand kit.{" "}
+          {brandId ? (
+            <a href={`/brands/${brandId}`} className="text-accent underline">
+              Edit brand
+            </a>
+          ) : null}
+        </p>
       )}
     </div>
   );

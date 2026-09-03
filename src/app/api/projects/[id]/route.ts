@@ -2,14 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getAccessibleProject, requireApiSession } from "@/lib/api-auth";
-import { ProjectDataSchema } from "@/types/project";
-import { isValidHttpUrl } from "@/lib/utils";
 
 const PatchSchema = z.object({
   name: z.string().min(1).max(120).optional(),
-  projectData: ProjectDataSchema.optional(),
-  status: z.enum(["draft", "ready", "exported"]).optional(),
-  thumbnailUrl: z.string().nullable().optional(),
   defaultOrientation: z.enum(["portrait", "landscape"]).optional(),
 });
 
@@ -41,20 +36,10 @@ export async function PATCH(
   }
   const body = parsed.data;
 
-  if (body.projectData) {
-    const { appStoreUrl, googlePlayUrl } = body.projectData.links;
-    if (!isValidHttpUrl(appStoreUrl) || !isValidHttpUrl(googlePlayUrl)) {
-      return NextResponse.json({ error: "Invalid store URL" }, { status: 400 });
-    }
-  }
-
   const project = await prisma.project.update({
     where: { id },
     data: {
       ...(body.name !== undefined ? { name: body.name } : {}),
-      ...(body.projectData !== undefined ? { projectData: body.projectData } : {}),
-      ...(body.status !== undefined ? { status: body.status } : {}),
-      ...(body.thumbnailUrl !== undefined ? { thumbnailUrl: body.thumbnailUrl } : {}),
       ...(body.defaultOrientation !== undefined
         ? { defaultOrientation: body.defaultOrientation }
         : {}),

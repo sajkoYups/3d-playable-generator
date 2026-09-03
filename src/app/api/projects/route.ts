@@ -5,14 +5,11 @@ import { requireApiSession } from "@/lib/api-auth";
 import { createDefaultProjectData } from "@/lib/project-defaults";
 import { ensureDemoProjects } from "@/lib/ensure-demo-projects";
 import { TemplateIdSchema, OrientationSchema, ProjectDataSchema } from "@/types/project";
-import { isValidHttpUrl } from "@/lib/utils";
 
 const CreateSchema = z.object({
   name: z.string().min(1).max(120),
   templateId: TemplateIdSchema,
   defaultOrientation: OrientationSchema.default("portrait"),
-  appStoreUrl: z.string().optional().default(""),
-  googlePlayUrl: z.string().optional().default(""),
 });
 
 export async function GET(req: NextRequest) {
@@ -28,6 +25,15 @@ export async function GET(req: NextRequest) {
       members: { some: { userId: session.user.id } },
       ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
     },
+    select: {
+      id: true,
+      name: true,
+      templateId: true,
+      defaultOrientation: true,
+      createdAt: true,
+      updatedAt: true,
+      _count: { select: { variations: true } },
+    },
     orderBy: { updatedAt: "desc" },
   });
 
@@ -39,14 +45,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = CreateSchema.parse(await req.json());
-
-  if (!isValidHttpUrl(body.appStoreUrl) || !isValidHttpUrl(body.googlePlayUrl)) {
-    return NextResponse.json({ error: "Invalid store URL" }, { status: 400 });
-  }
-
   const projectData = createDefaultProjectData(body.templateId);
-  projectData.links.appStoreUrl = body.appStoreUrl || "";
-  projectData.links.googlePlayUrl = body.googlePlayUrl || "";
   ProjectDataSchema.parse(projectData);
 
   const project = await prisma.project.create({
@@ -54,15 +53,22 @@ export async function POST(req: NextRequest) {
       name: body.name,
       templateId: body.templateId,
       defaultOrientation: body.defaultOrientation,
-      projectData,
-      status: "draft",
       members: {
         create: {
           userId: session.user.id,
           role: "owner",
         },
       },
+      variations: {
+        create: {
+          name: "Default",
+          projectData,
+          status: "draft",
+          overrides: {},
+        },
+      },
     },
+    include: { variations: true },
   });
 
   return NextResponse.json({ project }, { status: 201 });

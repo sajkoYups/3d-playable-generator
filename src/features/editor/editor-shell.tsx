@@ -6,21 +6,33 @@ import { EditorToolbar } from "@/features/editor/editor-toolbar";
 import { LayersPanel } from "@/features/editor/layers-panel";
 import { EditorCanvas } from "@/features/editor/editor-canvas";
 import { PropertiesPanel } from "@/features/editor/properties-panel";
+import type { EditorMode } from "@/features/editor/store";
 import type { Orientation, ProjectData, TemplateId } from "@/types/project";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { projectDataToBrandData } from "@/lib/brand-defaults";
 
 export function EditorShell({
   projectId,
+  variationId,
   projectName,
+  galleryName,
   templateId,
   defaultOrientation,
   initialData,
+  brandId,
+  brandName,
+  editorMode = "playable",
 }: {
   projectId: string;
+  variationId?: string;
   projectName: string;
+  galleryName?: string;
   templateId: TemplateId;
   defaultOrientation: Orientation;
   initialData: ProjectData;
+  brandId?: string | null;
+  brandName?: string | null;
+  editorMode?: EditorMode;
 }) {
   const hydrate = useEditorStore((s) => s.hydrate);
   const stage = useEditorStore((s) => s.stage);
@@ -35,14 +47,32 @@ export function EditorShell({
   const skipFirst = useRef(true);
 
   useEffect(() => {
+    skipFirst.current = true;
     hydrate({
       projectId,
+      variationId,
       projectName,
+      galleryName,
       templateId,
       data: initialData,
       defaultOrientation,
+      brandId,
+      brandName,
+      editorMode,
     });
-  }, [hydrate, projectId, projectName, templateId, initialData, defaultOrientation]);
+  }, [
+    hydrate,
+    projectId,
+    variationId,
+    projectName,
+    galleryName,
+    templateId,
+    initialData,
+    defaultOrientation,
+    brandId,
+    brandName,
+    editorMode,
+  ]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -54,13 +84,18 @@ export function EditorShell({
     setSaveStatus("saving");
     timer.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/projects/${projectId}`, {
+        const url =
+          editorMode === "brand"
+            ? `/api/brands/${brandId}`
+            : `/api/projects/${projectId}/variations/${variationId}`;
+        const body =
+          editorMode === "brand"
+            ? { name: projectNameState, brandData: projectDataToBrandData(data) }
+            : { name: projectNameState, projectData: data };
+        const res = await fetch(url, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: projectNameState,
-            projectData: data,
-          }),
+          body: JSON.stringify(body),
         });
         setSaveStatus(res.ok ? "saved" : "error");
       } catch {
@@ -70,7 +105,7 @@ export function EditorShell({
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [data, projectNameState, projectId, hydrated, setSaveStatus]);
+  }, [data, projectNameState, projectId, variationId, brandId, editorMode, hydrated, setSaveStatus]);
 
   if (!hydrated) {
     return (
@@ -88,7 +123,7 @@ export function EditorShell({
           <Tabs value={stage} onValueChange={(v) => setStage(v as typeof stage)}>
             <TabsList>
               <TabsTrigger value="start">Start</TabsTrigger>
-              <TabsTrigger value="gameplay">Gameplay</TabsTrigger>
+              <TabsTrigger value="gameplay">{editorMode === "brand" ? "HUD" : "Gameplay"}</TabsTrigger>
               <TabsTrigger value="end">End</TabsTrigger>
             </TabsList>
           </Tabs>

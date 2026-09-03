@@ -13,9 +13,19 @@ export default async function DashboardLayout({
     <div className="min-h-screen">
       <header className="border-b border-border bg-card/80 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <Link href="/projects" className="font-[family-name:var(--font-display)] text-lg font-semibold tracking-tight">
-            Forge<span className="text-accent">3D</span>
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link href="/projects" className="font-[family-name:var(--font-display)] text-lg font-semibold tracking-tight">
+              Forge<span className="text-accent">3D</span>
+            </Link>
+            <nav className="flex items-center gap-4 text-sm">
+              <Link href="/projects" className="text-muted hover:text-foreground">
+                Workshop
+              </Link>
+              <Link href="/brands" className="text-muted hover:text-foreground">
+                Brands
+              </Link>
+            </nav>
+          </div>
           <div className="flex items-center gap-3 text-sm text-muted">
             <span>{session.user.name || session.user.email}</span>
             <SignOutButton />

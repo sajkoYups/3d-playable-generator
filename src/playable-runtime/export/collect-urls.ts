@@ -20,6 +20,7 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
   walkBg(data.gameplay.stageBackground.landscape);
   add(data.startScreen.videoUrl);
   add(data.endScreen.videoUrl);
+  add(data.coinImageUrl);
   add(data.gameplay.audio.musicUrl);
   add(data.gameplay.audio.tapUrl);
   add(data.gameplay.audio.winUrl);
@@ -28,7 +29,7 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
   add(data.gameplay.parkingJam.lotTextureUrl);
   add(data.gameplay.parkingJam.pavementTextureUrl);
   add(data.gameplay.parkingJam.grassTextureUrl || "/kenney_road-textures/PNG/Retina/roadTexture_25.png");
-  add(data.gameplay.parkingJam.coinImageUrl || "/coin.svg");
+  add(data.gameplay.parkingJam.coinImageUrl || data.coinImageUrl || "/coin.svg");
   const carRef = resolveModelRef(data.gameplay.parkingJam.carModelUrl || "sedan");
   add(carRef.url);
   if (carRef.libraryId && carRef.libraryId !== "van" && carRef.libraryId !== "truck") {
@@ -46,7 +47,7 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
   }
 
   add("/models/kenney/food/colormap.png");
-  add(data.gameplay.tripleMatch.coinImageUrl || "/coin.svg");
+  add(data.gameplay.tripleMatch.coinImageUrl || data.coinImageUrl || "/coin.svg");
   const matchSlots = [
     ...data.gameplay.tripleMatch.itemSlots,
     ...data.gameplay.tripleMatch.rounds.flatMap((r) => r.itemSlots),
@@ -57,7 +58,7 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
   }
   add(data.gameplay.laneRunner.grassTextureUrl || "/kenney_road-textures/PNG/Retina/roadTexture_25.png");
   add(data.gameplay.laneRunner.roadTextureUrl);
-  add(data.gameplay.laneRunner.coinImageUrl || "/coin.svg");
+  add(data.gameplay.laneRunner.coinImageUrl || data.coinImageUrl || "/coin.svg");
   add(resolveModelRef(data.gameplay.laneRunner.characterModelUrl || "sedan").url);
   for (const ob of data.gameplay.laneRunner.obstacleSet) {
     add(resolveModelRef(ob).url);
@@ -65,7 +66,7 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
 
   if (templateId === "tower-defense") {
     for (const url of TD_MODEL_URLS) add(url);
-    add(data.gameplay.towerDefense.coinImageUrl || "/coin.svg");
+    add(data.gameplay.towerDefense.coinImageUrl || data.coinImageUrl || "/coin.svg");
     const tdSounds = data.gameplay.towerDefense.sounds;
     add(tdSounds?.arrowFireUrl);
     add(tdSounds?.cannonFireUrl);

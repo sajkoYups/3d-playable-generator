@@ -8,16 +8,17 @@ datasource db {
 }
 
 model User {
-  id            String          @id @default(cuid())
-  name          String
-  email         String          @unique
-  emailVerified Boolean         @default(false)
-  image         String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  sessions      Session[]
-  accounts      Account[]
-  memberships   ProjectMember[]
+  id               String          @id @default(cuid())
+  name             String
+  email            String          @unique
+  emailVerified    Boolean         @default(false)
+  image            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  sessions         Session[]
+  accounts         Account[]
+  memberships      ProjectMember[]
+  brandMemberships BrandMember[]
 
   @@map("user")
 }
@@ -95,13 +96,15 @@ model Project {
   name               String
   templateId         String
   defaultOrientation String          @default("portrait")
-  projectData        Json
+  /// Unused after Variation backfill; kept so db push does not drop copied rows.
+  projectData        Json?
   thumbnailUrl       String?
-  status             ProjectStatus   @default(draft)
+  status             ProjectStatus?  @default(draft)
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   members            ProjectMember[]
   assets             Asset[]
+  variations         Variation[]
 
   @@index([updatedAt])
   @@map("project")
@@ -121,9 +124,59 @@ model ProjectMember {
   @@map("project_member")
 }
 
+model Variation {
+  id           String        @id @default(cuid())
+  projectId    String
+  name         String
+  projectData  Json
+  brandId      String?
+  overrides    Json          @default("{}")
+  thumbnailUrl String?
+  status       ProjectStatus @default(draft)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  brand        Brand?        @relation(fields: [brandId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([brandId])
+  @@index([updatedAt])
+  @@map("variation")
+}
+
+model Brand {
+  id           String        @id @default(cuid())
+  name         String
+  brandData    Json
+  thumbnailUrl String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  members      BrandMember[]
+  assets       Asset[]
+  variations   Variation[]
+
+  @@index([updatedAt])
+  @@map("brand")
+}
+
+model BrandMember {
+  id        String      @id @default(cuid())
+  brandId   String
+  userId    String
+  role      ProjectRole @default(owner)
+  createdAt DateTime    @default(now())
+  brand     Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, userId])
+  @@index([userId])
+  @@map("brand_member")
+}
+
 model Asset {
   id             String    @id @default(cuid())
-  projectId      String
+  projectId      String?
+  brandId        String?
   fileName       String
   fileType       String
   kind           AssetKind @default(image)
@@ -139,8 +192,10 @@ model Asset {
   durationMs     Int?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
-  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project        Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  brand          Brand?    @relation(fields: [brandId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
+  @@index([brandId])
   @@map("asset")
 }

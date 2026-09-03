@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { createDefaultProjectData, TEMPLATE_NAMES } from "@/lib/project-defaults";
 import type { TemplateId } from "@/types/project";
+import type { Prisma } from "@/generated/prisma/client";
 
 const DEMO_TEMPLATES: TemplateId[] = ["stack-tower", "triple-match", "lane-runner", "parking-jam", "tower-defense"];
 
@@ -21,9 +22,15 @@ export async function ensureDemoProjects(userId: string) {
         name: `${TEMPLATE_NAMES[templateId]} Demo`,
         templateId,
         defaultOrientation: "portrait",
-        projectData,
-        status: "ready",
         members: { create: { userId, role: "owner" } },
+        variations: {
+          create: {
+            name: "Default",
+            projectData: projectData as Prisma.InputJsonValue,
+            status: "ready",
+            overrides: {},
+          },
+        },
       },
     });
   }

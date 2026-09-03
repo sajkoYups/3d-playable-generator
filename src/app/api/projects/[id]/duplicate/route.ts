@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAccessibleProject, requireApiSession } from "@/lib/api-auth";
-import { createDefaultProjectData } from "@/lib/project-defaults";
-import type { ProjectData, TemplateId } from "@/types/project";
+import type { Prisma } from "@/generated/prisma/client";
 
 export async function POST(
   _req: NextRequest,
@@ -14,24 +13,34 @@ export async function POST(
   const existing = await getAccessibleProject(id, session.user.id);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const templateId = existing.templateId as TemplateId;
-  const data = (existing.projectData as ProjectData) || createDefaultProjectData(templateId);
+  const sources = await prisma.variation.findMany({
+    where: { projectId: id },
+    orderBy: { updatedAt: "desc" },
+  });
 
   const project = await prisma.project.create({
     data: {
       name: `${existing.name} (Copy)`,
       templateId: existing.templateId,
       defaultOrientation: existing.defaultOrientation,
-      projectData: data,
-      thumbnailUrl: existing.thumbnailUrl,
-      status: "draft",
       members: {
         create: {
           userId: session.user.id,
           role: "owner",
         },
       },
+      variations: {
+        create: sources.map((v) => ({
+          name: v.name,
+          projectData: v.projectData as Prisma.InputJsonValue,
+          brandId: v.brandId,
+          overrides: v.overrides as Prisma.InputJsonValue,
+          thumbnailUrl: v.thumbnailUrl,
+          status: "draft" as const,
+        })),
+      },
     },
+    include: { variations: true },
   });
 
   return NextResponse.json({ project }, { status: 201 });

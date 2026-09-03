@@ -1,17 +1,25 @@
 "use client";
 
-import { useEditorStore } from "@/features/editor/store";
+import { useEditorStore, useStageElements } from "@/features/editor/store";
 import { Eye, EyeOff, Lock, Unlock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { END_POLICY_SLOT_ID, isBrandSlotId } from "@/types/project";
 
 export function LayersPanel() {
-  const elements = useEditorStore((s) => s.getStageElements());
+  const elements = useStageElements();
   const selectedElementId = useEditorStore((s) => s.selectedElementId);
   const selectElement = useEditorStore((s) => s.selectElement);
   const orientation = useEditorStore((s) => s.orientation);
   const updateElementLayout = useEditorStore((s) => s.updateElementLayout);
   const stage = useEditorStore((s) => s.stage);
   const data = useEditorStore((s) => s.data);
+  const editorMode = useEditorStore((s) => s.editorMode);
+  const brandId = useEditorStore((s) => s.brandId);
+  const addEndPolicy = useEditorStore((s) => s.addEndPolicy);
+  const canAddPolicy =
+    stage === "end" &&
+    !elements.some((el) => el.id === END_POLICY_SLOT_ID) &&
+    (editorMode === "brand" || !brandId);
 
   const sorted = [...elements].sort(
     (a, b) => b.layout[orientation].zIndex - a.layout[orientation].zIndex,
@@ -50,6 +58,9 @@ export function LayersPanel() {
                 {el.permanentlyLocked && (
                   <span className="ml-1 text-[10px] text-accent">LOCKED</span>
                 )}
+                {editorMode === "playable" && Boolean(brandId) && isBrandSlotId(el.id) && (
+                    <span className="ml-1 text-[10px] text-accent">BRAND</span>
+                  )}
               </button>
               <button
                 className="rounded p-1 hover:bg-[#2a2e3a]"
@@ -92,6 +103,14 @@ export function LayersPanel() {
           );
         })}
       </div>
+      {canAddPolicy && (
+        <button
+          className="border-t border-border px-3 py-2 text-left text-sm text-accent hover:bg-[#161821]"
+          onClick={() => addEndPolicy()}
+        >
+          + Privacy Policy
+        </button>
+      )}
       {stage !== "gameplay" && (
         <div className="border-t border-border px-3 py-2 text-[11px] text-muted">
           BG: {data[stage === "start" ? "startScreen" : "endScreen"].background.type}

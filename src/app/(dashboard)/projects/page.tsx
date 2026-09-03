@@ -18,8 +18,24 @@ export default async function ProjectsPage({
       members: { some: { userId: session.user.id } },
       ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
     },
+    include: {
+      _count: { select: { variations: true } },
+    },
     orderBy: { updatedAt: "desc" },
   });
 
-  return <ProjectsDashboard projects={projects} initialQuery={q || ""} />;
+  return (
+    <ProjectsDashboard
+      projects={projects.map((p) => ({
+        id: p.id,
+        name: p.name,
+        templateId: p.templateId,
+        thumbnailUrl: null,
+        status: "draft",
+        updatedAt: p.updatedAt,
+        variationCount: p._count.variations,
+      }))}
+      initialQuery={q || ""}
+    />
+  );
 }

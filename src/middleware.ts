@@ -7,7 +7,9 @@ export async function middleware(request: NextRequest) {
 
   const isProtected =
     pathname.startsWith("/projects") ||
+    pathname.startsWith("/brands") ||
     pathname.startsWith("/api/projects") ||
+    pathname.startsWith("/api/brands") ||
     pathname.startsWith("/api/assets") ||
     pathname.startsWith("/api/export");
 
@@ -26,9 +28,15 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/projects",
     "/projects/:path*",
+    "/brands",
+    "/brands/:path*",
+    "/api/projects",
     "/api/projects/:path*",
-    "/api/assets/:path*",
+    "/api/brands",
+    "/api/brands/:path*",
+    "/api/assets",
     "/api/export/:path*",
   ],
 };

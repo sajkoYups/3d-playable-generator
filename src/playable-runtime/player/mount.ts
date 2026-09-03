@@ -1,4 +1,4 @@
-import type { Orientation, ProjectData, TemplateId } from "@/types/project";
+import type { Orientation, PlayableElement, ProjectData, TemplateId } from "@/types/project";
 import type { Playable3DEngine } from "@/playable-runtime/engines/types";
 import type { NetworkAdapter } from "@/playable-runtime/networks";
 import { applyStyle, backgroundToStyle, layoutToStyle } from "@/playable-runtime/layout/layout";
@@ -6,6 +6,7 @@ import { renderElement } from "@/playable-runtime/overlay/dom";
 import { AudioBus } from "@/playable-runtime/audio/bus";
 import { startLoopMusic } from "@/playable-runtime/audio/loop";
 import { DEFAULT_TIMER_DURATION } from "@/playable-runtime/screens/format-time";
+import { isGameplayDownloadCta, resolveStoreUrl } from "@/playable-runtime/store/url";
 
 export type MountOptions = {
   data: ProjectData;
@@ -109,7 +110,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     setPhase("game");
   }
 
-  function handleAction(type: string) {
+  function handleAction(type: string, element?: PlayableElement) {
     if (type === "START_PLAYABLE") {
       audio.play("tap");
       beginGameplay();
@@ -124,8 +125,13 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
       if (phase === "game") paintGameOverlays();
       else syncMuteButtons();
     }
-    if (type === "OPEN_APP_STORE") options.network.openStore(data.links.appStoreUrl);
-    if (type === "OPEN_GOOGLE_PLAY") options.network.openStore(data.links.googlePlayUrl);
+    if (type === "OPEN_APP_STORE" || type === "OPEN_GOOGLE_PLAY") {
+      options.network.openStore(resolveStoreUrl(data.links, element));
+    }
+    if (type === "OPEN_POLICY") {
+      const url = data.links.policyUrl;
+      if (url) options.network.openStore(url);
+    }
   }
 
   function stopTimer() {
@@ -198,6 +204,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     overlayRoot.innerHTML = "";
     data.gameplay.overlays
       .filter((e) => e.type !== "gameplayContainer" && e.layout[orientation].visible)
+      .filter((e) => !isGameplayDownloadCta(e))
       .sort((a, b) => a.layout[orientation].zIndex - b.layout[orientation].zIndex)
       .forEach((el) => {
         const wrap = document.createElement("div");

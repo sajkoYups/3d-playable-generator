@@ -21,6 +21,7 @@ type ProjectRow = {
   thumbnailUrl: string | null;
   status: string;
   updatedAt: string | Date;
+  variationCount: number;
 };
 
 export function ProjectsDashboard({
@@ -53,7 +54,7 @@ export function ProjectsDashboard({
   }
 
   async function deleteProject(id: string) {
-    if (!confirm("Delete this project? This cannot be undone.")) return;
+    if (!confirm("Delete this project and all of its variations? This cannot be undone.")) return;
     const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
     if (!res.ok) {
       toast.error("Failed to delete");
@@ -83,7 +84,7 @@ export function ProjectsDashboard({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight">Workshop</h1>
-          <p className="text-sm text-muted">Four locked 3D engines. You dress the stage and ship the HTML.</p>
+          <p className="text-sm text-muted">Each project is one game. Open it to see every branded variation.</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" />
@@ -119,13 +120,18 @@ export function ProjectsDashboard({
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((project) => (
-            <Card key={project.id} className="overflow-hidden">
+            <Card
+              key={project.id}
+              className="cursor-pointer overflow-hidden"
+              onClick={() => router.push(`/projects/${project.id}`)}
+            >
               <div className="relative h-36 bg-[#161821]">
                 <TemplateGlyph templateId={project.templateId as TemplateId} />
               </div>
               <CardHeader>
                 {renamingId === project.id ? (
                   <form
+                    onClick={(e) => e.stopPropagation()}
                     onSubmit={(e) => {
                       e.preventDefault();
                       void renameProject(project.id);
@@ -139,12 +145,15 @@ export function ProjectsDashboard({
                 <div className="flex items-center gap-2">
                   <Badge>{TEMPLATE_NAMES[project.templateId as TemplateId] || project.templateId}</Badge>
                   <span className="text-[11px] text-muted">
+                    {project.variationCount} {project.variationCount === 1 ? "variation" : "variations"}
+                  </span>
+                  <span className="text-[11px] text-muted">
                     {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
                   </span>
                 </div>
               </CardHeader>
-              <CardFooter className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => router.push(`/projects/${project.id}/editor`)}>
+              <CardFooter className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                <Button size="sm" onClick={() => router.push(`/projects/${project.id}`)}>
                   <FolderOpen className="h-3.5 w-3.5" />
                   Open
                 </Button>

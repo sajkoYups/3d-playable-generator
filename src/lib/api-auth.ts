@@ -19,6 +19,45 @@ export async function getAccessibleProject(projectId: string, userId: string) {
     include: {
       members: true,
       assets: { orderBy: { createdAt: "desc" } },
+      variations: {
+        orderBy: { updatedAt: "desc" },
+        include: { brand: true },
+      },
+    },
+  });
+}
+
+export async function getAccessibleVariation(projectId: string, variationId: string, userId: string) {
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      members: { some: { userId } },
+    },
+  });
+  if (!project) return null;
+  const variation = await prisma.variation.findFirst({
+    where: { id: variationId, projectId },
+    include: { brand: true },
+  });
+  if (!variation) return null;
+  return { project, variation };
+}
+
+export async function getAccessibleBrand(brandId: string, userId: string) {
+  return prisma.brand.findFirst({
+    where: {
+      id: brandId,
+      members: { some: { userId } },
+    },
+    include: {
+      members: true,
+      assets: { orderBy: { createdAt: "desc" } },
+      variations: {
+        include: {
+          project: { select: { id: true, name: true, templateId: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+      },
     },
   });
 }

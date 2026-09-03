@@ -64,6 +64,7 @@ export function ElementView({
           textAlign: content.textAlign || "center",
           lineHeight: content.lineHeight || 1.2,
           letterSpacing: content.letterSpacing || 0,
+          textDecoration: element.action.type === "OPEN_POLICY" ? "underline" : undefined,
           display: "flex",
           alignItems: "center",
           justifyContent:

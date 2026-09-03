@@ -10,6 +10,7 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:backfill-variations": "npx tsx scripts/backfill-variations.ts",
     "models:generate": "npx tsx scripts/generate-models.ts",
     "models:embed-kenney": "npx tsx scripts/embed-kenney-cars.ts",
     "models:embed-kenney-food": "npx tsx scripts/embed-kenney-food.ts",

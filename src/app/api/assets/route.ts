@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAccessibleProject, requireApiSession } from "@/lib/api-auth";
+import { getAccessibleBrand, getAccessibleProject, requireApiSession } from "@/lib/api-auth";
 import { optimizeImage } from "@/lib/sharp";
 import { optimizeGlb } from "@/lib/optimize-model";
 import { optimizeAudio, optimizeVideo } from "@/lib/optimize-media";
@@ -28,7 +28,13 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const projectId = req.nextUrl.searchParams.get("projectId");
-  if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 });
+  const brandId = req.nextUrl.searchParams.get("brandId");
+  if (brandId) {
+    const brand = await getAccessibleBrand(brandId, session.user.id);
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ assets: brand.assets });
+  }
+  if (!projectId) return NextResponse.json({ error: "projectId or brandId required" }, { status: 400 });
 
   const project = await getAccessibleProject(projectId, session.user.id);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -42,14 +48,22 @@ export async function POST(req: NextRequest) {
 
   const form = await req.formData();
   const projectId = String(form.get("projectId") || "");
+  const brandId = String(form.get("brandId") || "");
   const file = form.get("file");
 
-  if (!projectId || !(file instanceof File)) {
-    return NextResponse.json({ error: "projectId and file required" }, { status: 400 });
+  if ((!(projectId || brandId)) || !(file instanceof File)) {
+    return NextResponse.json({ error: "projectId or brandId, and file, required" }, { status: 400 });
   }
 
-  const project = await getAccessibleProject(projectId, session.user.id);
-  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (brandId) {
+    const brand = await getAccessibleBrand(brandId, session.user.id);
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  } else {
+    const project = await getAccessibleProject(projectId, session.user.id);
+    if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const folderRoot = brandId ? `brands/${brandId}` : `projects/${projectId}`;
 
   const kind = kindOf(file);
   if (!kind) {
@@ -60,7 +74,7 @@ export async function POST(req: NextRequest) {
   const original = await uploadBuffer(buffer, {
     fileName: file.name,
     contentType: file.type || "application/octet-stream",
-    folder: `projects/${projectId}/original`,
+    folder: `${folderRoot}/original`,
   });
 
   let optimizedUrl = original.url;
@@ -79,7 +93,7 @@ export async function POST(req: NextRequest) {
       const stored = await uploadBuffer(optimized.buffer, {
         fileName: `optimized${optimized.extension}`,
         contentType: optimized.contentType,
-        folder: `projects/${projectId}/optimized`,
+        folder: `${folderRoot}/optimized`,
       });
       optimizedUrl = stored.url;
       fileType = optimized.contentType;
@@ -91,7 +105,7 @@ export async function POST(req: NextRequest) {
         const thumb = await uploadBuffer(optimized.thumbnail, {
           fileName: "thumb.webp",
           contentType: "image/webp",
-          folder: `projects/${projectId}/thumbs`,
+          folder: `${folderRoot}/thumbs`,
         });
         thumbnailUrl = thumb.url;
       }
@@ -100,7 +114,7 @@ export async function POST(req: NextRequest) {
       const stored = await uploadBuffer(optimized.buffer, {
         fileName: `optimized${optimized.extension}`,
         contentType: optimized.contentType,
-        folder: `projects/${projectId}/optimized`,
+        folder: `${folderRoot}/optimized`,
       });
       optimizedUrl = stored.url;
       fileType = optimized.contentType;
@@ -112,7 +126,7 @@ export async function POST(req: NextRequest) {
       const stored = await uploadBuffer(optimized.buffer, {
         fileName: `optimized${optimized.extension}`,
         contentType: optimized.contentType,
-        folder: `projects/${projectId}/optimized`,
+        folder: `${folderRoot}/optimized`,
       });
       optimizedUrl = stored.url;
       fileType = optimized.contentType;
@@ -124,7 +138,7 @@ export async function POST(req: NextRequest) {
       const stored = await uploadBuffer(optimized.buffer, {
         fileName: `optimized${optimized.extension}`,
         contentType: optimized.contentType,
-        folder: `projects/${projectId}/optimized`,
+        folder: `${folderRoot}/optimized`,
       });
       optimizedUrl = stored.url;
       fileType = optimized.contentType;
@@ -142,7 +156,8 @@ export async function POST(req: NextRequest) {
 
   const asset = await prisma.asset.create({
     data: {
-      projectId,
+      projectId: projectId || null,
+      brandId: brandId || null,
       fileName: file.name,
       fileType,
       kind,

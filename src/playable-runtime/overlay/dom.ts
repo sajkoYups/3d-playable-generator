@@ -12,7 +12,7 @@ export function renderElement(
     interactive: boolean;
     remainingSeconds?: number;
     muted?: boolean;
-    onAction?: (type: PlayableElement["action"]["type"]) => void;
+    onAction?: (type: PlayableElement["action"]["type"], element: PlayableElement) => void;
   },
 ): HTMLElement {
   const content = element.content;
@@ -28,7 +28,7 @@ export function renderElement(
   const fire = (e: Event) => {
     if (!options.interactive) return;
     e.stopPropagation();
-    options.onAction?.(element.action.type);
+    options.onAction?.(element.action.type, element);
   };
 
   if (element.type === "timer") {
@@ -64,6 +64,14 @@ export function renderElement(
           ? "flex-end"
           : "center";
     wrap.textContent = content.text || (element.type === "starRating" ? "★★★★★" : "");
+    if (element.action.type === "OPEN_POLICY") {
+      wrap.style.textDecoration = "underline";
+      wrap.style.cursor = options.interactive ? "pointer" : "default";
+    }
+    if (options.interactive && element.action.type !== "NONE") {
+      wrap.style.cursor = "pointer";
+      wrap.addEventListener("click", fire);
+    }
     return wrap;
   }
 

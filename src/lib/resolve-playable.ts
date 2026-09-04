@@ -1,5 +1,5 @@
 import {
-  APP_BRAND_DISCLAIMER_ID,
+  APP_BRAND_DISCLAIMER_IDS,
   APP_BRAND_HORIZONTAL_LOGO_ID,
   APP_BRAND_ICON_ID,
   APP_BRAND_VERTICAL_LOGO_ID,
@@ -132,12 +132,12 @@ function applyAppBrandKit(data: ProjectData, kit: AppBrandData) {
     }
   }
 
-  for (const el of data.endScreen.elements) {
-    if (el.id !== APP_BRAND_DISCLAIMER_ID) continue;
+  const showDisclaimer = Boolean(kit.disclaimerText.trim());
+  for (const el of allElements(data)) {
+    if (!APP_BRAND_DISCLAIMER_IDS.includes(el.id)) continue;
     el.content.text = kit.disclaimerText;
-    const show = Boolean(kit.disclaimerText.trim());
-    el.layout.portrait.visible = show;
-    el.layout.landscape.visible = show;
+    el.layout.portrait.visible = showDisclaimer;
+    el.layout.landscape.visible = showDisclaimer;
   }
 
   const primary = kit.primaryColor || "#e07a3d";

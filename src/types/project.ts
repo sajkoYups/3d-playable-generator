@@ -551,6 +551,13 @@ export const APP_BRAND_VERTICAL_LOGO_ID = "app-logo-vertical";
 export const APP_BRAND_HORIZONTAL_LOGO_ID = "app-logo-horizontal";
 export const APP_BRAND_ICON_ID = "app-icon";
 export const APP_BRAND_DISCLAIMER_ID = "end-disclaimer";
+export const START_DISCLAIMER_ID = "start-disclaimer";
+export const GAMEPLAY_DISCLAIMER_ID = "gameplay-disclaimer";
+export const APP_BRAND_DISCLAIMER_IDS: readonly string[] = [
+  START_DISCLAIMER_ID,
+  APP_BRAND_DISCLAIMER_ID,
+  GAMEPLAY_DISCLAIMER_ID,
+];
 
 export const APP_BRAND_LOGO_SLOT_IDS: readonly string[] = [
   APP_BRAND_VERTICAL_LOGO_ID,

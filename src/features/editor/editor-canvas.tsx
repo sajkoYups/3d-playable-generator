@@ -216,7 +216,11 @@ export function EditorCanvas() {
                 return (
                   <div
                     key={el.id}
-                    style={style}
+                    style={{
+                      ...style,
+                      // Keep the tutorial hand from eating board clicks unless it is selected for placement.
+                      pointerEvents: el.id === "gameplay-hand" && !selected ? "none" : style.pointerEvents,
+                    }}
                     className={`group ${selected ? "ring-2 ring-accent" : ""} ${
                       locked ? "cursor-default" : "cursor-move"
                     }`}

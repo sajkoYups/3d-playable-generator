@@ -128,7 +128,7 @@ export function ProjectsDashboard({
               className="cursor-pointer overflow-hidden"
               onClick={() => router.push(`/projects/${project.id}`)}
             >
-              <div className="relative h-36 bg-[#161821]">
+              <div className="relative h-36 bg-elevated">
                 <TemplateGlyph templateId={project.templateId as TemplateId} />
               </div>
               <CardHeader>
@@ -146,7 +146,7 @@ export function ProjectsDashboard({
                   <CardTitle className="truncate">{project.name}</CardTitle>
                 )}
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-[#1c1f2a] text-muted">Project</Badge>
+                  <Badge className="bg-card text-muted">Project</Badge>
                   <Badge>{TEMPLATE_NAMES[project.templateId as TemplateId] || project.templateId}</Badge>
                   <span className="text-[11px] text-muted">
                     {project.variationCount} {project.variationCount === 1 ? "variation" : "variations"}

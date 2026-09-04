@@ -40,10 +40,12 @@ Never rename or remove a field without a migration path; `projectData` is stored
 ## Adding a new engine
 
 1. Implement `Playable3DEngine` in `src/playable-runtime/engines/<id>/index.ts`.
-2. Register it in `src/playable-runtime/engines/index.ts` and in the export factory map in `src/playable-runtime/export/export-html.ts`.
+2. Register it in `src/playable-runtime/engines/index.ts` and in the export factory map in `src/lib/export-playable.ts`.
 3. Add the template id to `TemplateIdSchema`.
 4. Add a config schema on `GameplaySchema` and a defaults factory.
 5. Add a card to the create-project dialog.
+
+Canvas 2D engines (Water Sort, Match-3) use the same lifecycle and overlay shell. They draw into `gameplayContainer` with a `<canvas>` and must not import Three.js. `destroy()` still has to drop listeners, cancel rAF, and drop image references. They do not use `ResourceTracker`. Mark them in `is2DTemplate()` so the editor hides camera/lighting and export skips GLBs.
 
 ## Asset references
 

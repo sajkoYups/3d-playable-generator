@@ -1,6 +1,10 @@
 import type { ProjectData, TemplateId } from "@/types/project";
 import { getLibraryModel, resolveModelRef, TD_MODEL_URLS } from "@/lib/model-library";
 
+function is2D(templateId?: TemplateId) {
+  return templateId === "water-sort" || templateId === "match-3";
+}
+
 export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): string[] {
   const urls = new Set<string>();
   const add = (u?: string) => {
@@ -32,16 +36,6 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
   add(data.gameplay.audio.tapUrl);
   add(data.gameplay.audio.winUrl);
   add(data.gameplay.audio.loseUrl);
-  add(data.gameplay.stackTower.faceTextureUrl);
-  add(data.gameplay.parkingJam.lotTextureUrl);
-  add(data.gameplay.parkingJam.pavementTextureUrl);
-  add(data.gameplay.parkingJam.grassTextureUrl || "/kenney_road-textures/PNG/Retina/roadTexture_25.png");
-  add(data.gameplay.parkingJam.coinImageUrl || data.coinImageUrl || "/coin.svg");
-  const carRef = resolveModelRef(data.gameplay.parkingJam.carModelUrl || "sedan");
-  add(carRef.url);
-  if (carRef.libraryId && carRef.libraryId !== "van" && carRef.libraryId !== "truck") {
-    add(getLibraryModel("van")?.url);
-  }
 
   const allEls = [
     ...data.startScreen.elements,
@@ -51,6 +45,27 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
   for (const el of allEls) {
     add(el.content.imageUrl);
     add(el.content.videoUrl);
+  }
+
+  if (is2D(templateId)) {
+    add(data.gameplay.match3.coinImageUrl || data.coinImageUrl || "/demo-assets/coin.svg");
+    for (const url of data.gameplay.pieceImages) add(url);
+    return [...urls];
+  }
+
+  if (templateId && templateId !== "stack-tower" && templateId !== "triple-match" && templateId !== "lane-runner" && templateId !== "parking-jam" && templateId !== "tower-defense") {
+    return [...urls];
+  }
+
+  add(data.gameplay.stackTower.faceTextureUrl);
+  add(data.gameplay.parkingJam.lotTextureUrl);
+  add(data.gameplay.parkingJam.pavementTextureUrl);
+  add(data.gameplay.parkingJam.grassTextureUrl || "/kenney_road-textures/PNG/Retina/roadTexture_25.png");
+  add(data.gameplay.parkingJam.coinImageUrl || data.coinImageUrl || "/coin.svg");
+  const carRef = resolveModelRef(data.gameplay.parkingJam.carModelUrl || "sedan");
+  add(carRef.url);
+  if (carRef.libraryId && carRef.libraryId !== "van" && carRef.libraryId !== "truck") {
+    add(getLibraryModel("van")?.url);
   }
 
   add("/models/kenney/food/colormap.png");

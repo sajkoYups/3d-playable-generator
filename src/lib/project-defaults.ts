@@ -3,6 +3,7 @@ import {
   APP_BRAND_HORIZONTAL_LOGO_ID,
   APP_BRAND_ICON_ID,
   APP_BRAND_VERTICAL_LOGO_ID,
+  DEFAULT_MATCH3_CONFIG,
   GAMEPLAY_DISCLAIMER_ID,
   START_DISCLAIMER_ID,
   layout,
@@ -22,6 +23,8 @@ export const TEMPLATE_NAMES: Record<TemplateId, string> = {
   "lane-runner": "Lane Runner",
   "parking-jam": "Parking Jam",
   "tower-defense": "Tower Defense",
+  "water-sort": "Water Sort",
+  "match-3": "Match-3",
 };
 
 export const TEMPLATE_BLURBS: Record<TemplateId, string> = {
@@ -30,7 +33,21 @@ export const TEMPLATE_BLURBS: Record<TemplateId, string> = {
   "lane-runner": "Swipe lanes, dodge traffic, collect coins across rounds.",
   "parking-jam": "Slide cars out of a jammed lot. Grid puzzle with tinted vehicles.",
   "tower-defense": "Place towers, stop the dungeon monsters. Short wave defense.",
+  "water-sort": "Pour matching colors into tubes. Classic 2D puzzle.",
+  "match-3": "Swap gems, match three, chase a score across rounds.",
 };
+
+export const MATCH3_PIECE_META = [
+  { label: "Red", color: "#f43f5e", url: "/demo-assets/pieces/piece-red.svg" },
+  { label: "Blue", color: "#38bdf8", url: "/demo-assets/pieces/piece-blue.svg" },
+  { label: "Green", color: "#a3e635", url: "/demo-assets/pieces/piece-green.svg" },
+  { label: "Yellow", color: "#fbbf24", url: "/demo-assets/pieces/piece-yellow.svg" },
+  { label: "Purple", color: "#c084fc", url: "/demo-assets/pieces/piece-purple.svg" },
+] as const;
+
+export function defaultPieceImages(): string[] {
+  return MATCH3_PIECE_META.map((p) => p.url);
+}
 
 export const DEMO_URLS = {
   appLogo: "/demo-assets/app-logo.svg",
@@ -40,6 +57,7 @@ export const DEMO_URLS = {
   bgStartLandscape: "/demo-assets/bg-start-landscape.svg",
   bgEndPortrait: "/demo-assets/bg-end-portrait.svg",
   bgEndLandscape: "/demo-assets/bg-end-landscape.svg",
+  hand: "/demo-assets/hand.svg",
 } as const;
 
 function textEl(
@@ -353,6 +371,7 @@ export function stampCoinImage(data: ProjectData, url: string) {
   data.gameplay.laneRunner.coinImageUrl = url;
   data.gameplay.parkingJam.coinImageUrl = url;
   data.gameplay.towerDefense.coinImageUrl = url;
+  data.gameplay.match3.coinImageUrl = url;
 }
 
 export function createGameplayTimerOverlay(): PlayableElement {
@@ -413,6 +432,10 @@ function createStartScreen(templateId: TemplateId): ProjectData["startScreen"] {
         "Subtitle",
         templateId === "tower-defense"
           ? "Pick a tower, tap a glowing pad. Stop the monsters."
+          : templateId === "water-sort"
+            ? "Pour matching colors. Fill every tube."
+            : templateId === "match-3"
+              ? "Swap gems. Match three. Beat the rounds."
           : "Tap to start. One round. Install at the end.",
         layout({ x: 0.1, y: 0.44, width: 0.8, height: 0.06, zIndex: 4 }),
         layout({ x: 0.4, y: 0.34, width: 0.52, height: 0.1, zIndex: 4 }),
@@ -659,6 +682,12 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
         waveUrl: "",
       },
     },
+    pieceImages: templateId === "match-3" ? defaultPieceImages() : ["", "", "", "", ""],
+    match3: { ...DEFAULT_MATCH3_CONFIG },
+    waterSort: {
+      maxMoves: 40,
+      colors: ["#ef4444", "#3b82f6", "#22c55e", "#eab308", "#a855f7"],
+    },
     overlays: [
       imageEl(
         "gameplay-logo",
@@ -683,6 +712,17 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       ),
       createGameplayDisclaimerElement(),
       createGameplayTimerOverlay(),
+      ...(templateId === "match-3"
+        ? [
+            imageEl(
+              "gameplay-hand",
+              "Tutorial Hand",
+              layout({ x: 0.38, y: 0.55, width: 0.18, height: 0.14, zIndex: 25 }),
+              layout({ x: 0.42, y: 0.48, width: 0.12, height: 0.18, zIndex: 25 }),
+              DEMO_URLS.hand,
+            ),
+          ]
+        : []),
       {
         id: "gameplay-container",
         type: "gameplayContainer" as const,

@@ -182,6 +182,14 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         towerDefense: data.gameplay.towerDefense,
         playAllRounds: true,
         audioBus: audio,
+        background: data.gameplay.background[orientation],
+        pieceImages: data.gameplay.pieceImages,
+        match3: data.gameplay.match3,
+        waterSort: data.gameplay.waterSort,
+        hintHandUrl: data.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.content.imageUrl || "",
+        hintHandVisible: Boolean(
+          data.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.layout[orientation].visible,
+        ),
       } as object),
     } as never);
     engine.onWin(() => {
@@ -203,7 +211,12 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     if (!overlayRoot) return;
     overlayRoot.innerHTML = "";
     data.gameplay.overlays
-      .filter((e) => e.type !== "gameplayContainer" && e.layout[orientation].visible)
+      .filter(
+        (e) =>
+          e.type !== "gameplayContainer" &&
+          e.id !== "gameplay-hand" &&
+          e.layout[orientation].visible,
+      )
       .filter((e) => !isGameplayDownloadCta(e))
       .sort((a, b) => a.layout[orientation].zIndex - b.layout[orientation].zIndex)
       .forEach((el) => {
@@ -357,6 +370,14 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         laneRunner: next.gameplay.laneRunner,
         parkingJam: next.gameplay.parkingJam,
         towerDefense: next.gameplay.towerDefense,
+        background: next.gameplay.background[orientation],
+        pieceImages: next.gameplay.pieceImages,
+        match3: next.gameplay.match3,
+        waterSort: next.gameplay.waterSort,
+        hintHandUrl: next.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.content.imageUrl || "",
+        hintHandVisible: Boolean(
+          next.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.layout[orientation].visible,
+        ),
       });
       if (phase === "game") paintGameOverlays();
       else paintScreen();

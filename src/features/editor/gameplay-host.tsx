@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Orientation, ProjectData, TemplateId } from "@/types/project";
+import { is2DTemplate, type Orientation, type ProjectData, type TemplateId } from "@/types/project";
 import { createEngine } from "@/playable-runtime/engines";
 import type { Playable3DEngine } from "@/playable-runtime/engines/types";
 import { AudioBus } from "@/playable-runtime/audio/bus";
@@ -54,6 +54,14 @@ export function GameplayHost({
         playAllRounds: true,
         parkingRoundIndex: parkingRoundIndexRef.current,
         audioBus: audio,
+        background: current.gameplay.background[orientationRef.current],
+        pieceImages: current.gameplay.pieceImages,
+        match3: current.gameplay.match3
+          ? { ...current.gameplay.match3, hintHandEnabled: false }
+          : undefined,
+        waterSort: current.gameplay.waterSort,
+        hintHandUrl: "",
+        hintHandVisible: false,
       } as object),
     } as never);
     const el = ref.current;
@@ -63,9 +71,11 @@ export function GameplayHost({
     ro.observe(el);
     let resetTimer: ReturnType<typeof setTimeout> | undefined;
     engine.onWin(() => {
+      if (is2DTemplate(templateId)) return;
       resetTimer = setTimeout(() => engine.reset(), 900);
     });
     engine.onLose(() => {
+      if (is2DTemplate(templateId)) return;
       resetTimer = setTimeout(() => engine.reset(), 900);
     });
     if (autoStart) engine.start();
@@ -90,6 +100,14 @@ export function GameplayHost({
       towerDefense: data.gameplay.towerDefense,
       playAllRounds: true,
       parkingRoundIndex,
+      background: data.gameplay.background[orientation],
+      pieceImages: data.gameplay.pieceImages,
+      match3: data.gameplay.match3
+        ? { ...data.gameplay.match3, hintHandEnabled: false }
+        : undefined,
+      waterSort: data.gameplay.waterSort,
+      hintHandUrl: "",
+      hintHandVisible: false,
     });
   }, [
     orientation,
@@ -101,6 +119,10 @@ export function GameplayHost({
     data.gameplay.laneRunner,
     data.gameplay.parkingJam,
     data.gameplay.towerDefense,
+    data.gameplay.background,
+    data.gameplay.pieceImages,
+    data.gameplay.match3,
+    data.gameplay.waterSort,
   ]);
 
   return (

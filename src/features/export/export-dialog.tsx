@@ -139,7 +139,7 @@ export function ExportDialog({
           <div className="py-2 text-sm text-muted">esbuild bundles the runtime. Assets inline as data URIs.</div>
         ) : (
           <div className="space-y-3 text-sm">
-            <div className="rounded-lg bg-[#161821] p-3">
+            <div className="rounded-lg bg-elevated p-3">
               <div className="flex justify-between font-medium">
                 <span>Total size</span>
                 <span>{formatBytes(result.size)}</span>

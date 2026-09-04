@@ -18,7 +18,37 @@ import type { Orientation, TemplateId } from "@/types/project";
 import { TEMPLATE_BLURBS, TEMPLATE_NAMES } from "@/lib/project-defaults";
 import { TemplateGlyph } from "@/features/projects/template-glyph";
 
-const TEMPLATES: TemplateId[] = ["stack-tower", "triple-match", "lane-runner", "parking-jam", "tower-defense"];
+const TEMPLATES_3D: TemplateId[] = ["stack-tower", "triple-match", "lane-runner", "parking-jam", "tower-defense"];
+const TEMPLATES_2D: TemplateId[] = ["water-sort", "match-3"];
+
+function TemplateCard({
+  id,
+  selected,
+  onSelect,
+}: {
+  id: TemplateId;
+  selected: boolean;
+  onSelect: (id: TemplateId) => void;
+}) {
+  return (
+    <button
+      key={id}
+      type="button"
+      onClick={() => onSelect(id)}
+      className={`overflow-hidden rounded-lg border text-left transition ${
+        selected ? "border-accent" : "border-border hover:border-muted"
+      }`}
+    >
+      <div className="h-20 bg-elevated">
+        <TemplateGlyph templateId={id} />
+      </div>
+      <div className="p-3">
+        <div className="text-sm font-medium">{TEMPLATE_NAMES[id]}</div>
+        <div className="mt-1 text-xs text-muted">{TEMPLATE_BLURBS[id]}</div>
+      </div>
+    </button>
+  );
+}
 
 export function CreateProjectDialog({
   open,
@@ -57,35 +87,33 @@ export function CreateProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New playable</DialogTitle>
-          <DialogDescription>Choose a 3D engine. Store links live on Personal templates, then you stamp a template onto a variation.</DialogDescription>
+          <DialogDescription>
+            Choose a 3D or 2D engine. Store links live on Personal templates, then you stamp a template onto a variation.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Project name</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {TEMPLATES.map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setTemplateId(id)}
-                className={`overflow-hidden rounded-lg border text-left transition ${
-                  templateId === id ? "border-accent" : "border-border hover:border-[#4a5164]"
-                }`}
-              >
-                <div className="h-20 bg-[#161821]">
-                  <TemplateGlyph templateId={id} />
-                </div>
-                <div className="p-3">
-                  <div className="text-sm font-medium">{TEMPLATE_NAMES[id]}</div>
-                  <div className="mt-1 text-xs text-muted">{TEMPLATE_BLURBS[id]}</div>
-                </div>
-              </button>
-            ))}
+          <div className="space-y-2">
+            <Label>3D engines</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {TEMPLATES_3D.map((id) => (
+                <TemplateCard key={id} id={id} selected={templateId === id} onSelect={setTemplateId} />
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>2D games</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {TEMPLATES_2D.map((id) => (
+                <TemplateCard key={id} id={id} selected={templateId === id} onSelect={setTemplateId} />
+              ))}
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Default orientation</Label>

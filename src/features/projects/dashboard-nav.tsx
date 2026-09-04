@@ -28,7 +28,7 @@ export function DashboardNav() {
         )}
       >
         Templates
-        <span className="rounded bg-[#2a2118] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+        <span className="rounded bg-accent-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
           Beta
         </span>
       </Link>

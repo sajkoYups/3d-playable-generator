@@ -13,7 +13,7 @@ import { APP_BRAND_GEOS, APP_BRAND_LANGUAGES } from "@/lib/app-brand-locales";
 import type { AppBrandData } from "@/types/project";
 
 const selectClass =
-  "h-10 w-full rounded-md border border-border bg-[#161821] px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent";
+  "h-10 w-full rounded-md border border-border bg-input px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 export function AppBrandForm({
   brandId,

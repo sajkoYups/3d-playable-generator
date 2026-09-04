@@ -9,8 +9,17 @@ export const TemplateIdSchema = z.enum([
   "lane-runner",
   "parking-jam",
   "tower-defense",
+  "water-sort",
+  "match-3",
 ]);
 export type TemplateId = z.infer<typeof TemplateIdSchema>;
+
+export const TEMPLATE_2D_IDS = ["water-sort", "match-3"] as const;
+export type Template2DId = (typeof TEMPLATE_2D_IDS)[number];
+
+export function is2DTemplate(id: TemplateId | string): boolean {
+  return id === "water-sort" || id === "match-3";
+}
 
 export const LayoutBoxSchema = z.object({
   x: z.number().min(0).max(1),
@@ -408,6 +417,53 @@ export const TowerDefenseConfigSchema = z.object({
 });
 export type TowerDefenseConfig = z.infer<typeof TowerDefenseConfigSchema>;
 
+export const MATCH3_PIECE_COUNT = 5;
+
+export const Match3ConfigSchema = z.object({
+  movesPerRound: z.number().int().min(1).max(99).default(15),
+  scoreTarget: z.number().int().min(1).max(9999).default(80),
+  roundsToWin: z.number().int().min(1).max(20).default(3),
+  rewardPerRound: z.number().min(0).max(9999).default(5),
+  rewardPrefix: z.string().default("$"),
+  failEnabled: z.boolean().default(true),
+  hintHandEnabled: z.boolean().default(true),
+  hintDelayMs: z.number().int().min(500).max(15000).default(2500),
+  scoreLabel: z.string().default("Score"),
+  scoreChipBg: z.string().default("#1e293b"),
+  scoreChipText: z.string().default("#f8fafc"),
+  rewardTextColor: z.string().default("#fbbf24"),
+  coinImageUrl: z.string().default("/demo-assets/coin.svg"),
+  hudDisplay: z.enum(["both", "score", "coins"]).default("both"),
+  hudTransparent: z.boolean().default(false),
+});
+export type Match3Config = z.infer<typeof Match3ConfigSchema>;
+
+export const DEFAULT_MATCH3_CONFIG: Match3Config = {
+  movesPerRound: 15,
+  scoreTarget: 80,
+  roundsToWin: 3,
+  rewardPerRound: 5,
+  rewardPrefix: "$",
+  failEnabled: true,
+  hintHandEnabled: true,
+  hintDelayMs: 2500,
+  scoreLabel: "Score",
+  scoreChipBg: "#1e293b",
+  scoreChipText: "#f8fafc",
+  rewardTextColor: "#fbbf24",
+  coinImageUrl: "/demo-assets/coin.svg",
+  hudDisplay: "both",
+  hudTransparent: false,
+};
+
+export const WaterSortConfigSchema = z.object({
+  maxMoves: z.number().int().min(8).max(99).default(40),
+  colors: z
+    .array(z.string())
+    .default(["#ef4444", "#3b82f6", "#22c55e", "#eab308", "#a855f7"]),
+});
+export type WaterSortConfig = z.infer<typeof WaterSortConfigSchema>;
+
 const DefaultGameplayBackground: Background = {
   type: "gradient",
   color: "#12141a",
@@ -469,6 +525,16 @@ export const GameplaySchema = z.object({
   laneRunner: LaneRunnerConfigSchema.prefault({}),
   parkingJam: ParkingJamConfigSchema.prefault({}),
   towerDefense: TowerDefenseConfigSchema.prefault({}),
+  pieceImages: z
+    .array(z.string())
+    .nullish()
+    .transform((arr) => {
+      const next = [...(arr ?? [])];
+      while (next.length < MATCH3_PIECE_COUNT) next.push("");
+      return next.slice(0, MATCH3_PIECE_COUNT);
+    }),
+  match3: Match3ConfigSchema.prefault({}),
+  waterSort: WaterSortConfigSchema.prefault({}),
 });
 export type GameplayData = z.infer<typeof GameplaySchema>;
 

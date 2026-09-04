@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Undo2, Redo2, Play, Download, RotateCcw, Settings } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useEditorStore } from "@/features/editor/store";
@@ -76,18 +77,18 @@ export function EditorToolbar() {
         onChange={(e) => setProjectName(e.target.value)}
       />
       {editorMode === "playable" && brandName && (
-        <Badge className="bg-[#2a2118] text-accent">From {brandName}</Badge>
+        <Badge className="bg-accent-muted text-accent">From {brandName}</Badge>
       )}
       {editorMode === "playable" && appBrandName && (
-        <Badge className="bg-[#1c2430] text-[#9ec9c0]">Brand {appBrandName}</Badge>
+        <Badge className="bg-elevated text-accent-2">Brand {appBrandName}</Badge>
       )}
       <Badge
         className={
           saveStatus === "error"
-            ? "bg-red-900/40 text-red-200"
+            ? "bg-destructive/15 text-destructive"
             : saveStatus === "saving"
-              ? "bg-amber-900/40 text-amber-200"
-              : "bg-teal-900/40 text-teal-200"
+              ? "bg-accent-muted text-accent"
+              : "bg-accent-2/15 text-accent-2"
         }
       >
         {saveStatus === "idle" && "Ready"}
@@ -109,6 +110,7 @@ export function EditorToolbar() {
         <Redo2 className="h-4 w-4" />
       </Button>
       <div className="ml-auto flex items-center gap-2">
+        <ThemeToggle />
         {editorMode === "brand" && (
           <>
             <BrandUsedOnButton />

@@ -30,6 +30,8 @@ const ENGINE_FACTORY: Record<TemplateId, string> = {
   "lane-runner": "createLaneRunnerEngine",
   "parking-jam": "createParkingJamEngine",
   "tower-defense": "createTowerDefenseEngine",
+  "water-sort": "createWaterSortEngine",
+  "match-3": "createMatch3Engine",
 };
 
 const ENGINE_FILE: Record<TemplateId, string> = {
@@ -38,6 +40,8 @@ const ENGINE_FILE: Record<TemplateId, string> = {
   "lane-runner": "src/playable-runtime/engines/lane-runner/index.ts",
   "parking-jam": "src/playable-runtime/engines/parking-jam/index.ts",
   "tower-defense": "src/playable-runtime/engines/tower-defense/index.ts",
+  "water-sort": "src/playable-runtime/engines/water-sort/index.ts",
+  "match-3": "src/playable-runtime/engines/match-3/index.ts",
 };
 
 function mimeFromUrl(url: string): string {

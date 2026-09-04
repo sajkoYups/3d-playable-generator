@@ -157,7 +157,7 @@ export function VariationGallery({
               className="cursor-pointer overflow-hidden"
               onClick={() => router.push(`/projects/${project.id}/variations/${variation.id}/editor`)}
             >
-              <div className="relative flex h-36 items-center justify-center bg-[#161821]">
+              <div className="relative flex h-36 items-center justify-center bg-elevated">
                 {variation.brandLogo || variation.appBrandIcon || variation.thumbnailUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -184,16 +184,16 @@ export function VariationGallery({
                   <CardTitle className="truncate">{variation.name}</CardTitle>
                 )}
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge className="bg-[#1c1f2a] text-muted">Variation</Badge>
+                  <Badge className="bg-card text-muted">Variation</Badge>
                   {variation.brandName ? (
                     <Badge>{variation.brandName}</Badge>
                   ) : (
-                    <Badge className="bg-[#1c1f2a] text-muted">No template</Badge>
+                    <Badge className="bg-card text-muted">No template</Badge>
                   )}
                   {variation.appBrandName ? (
-                    <Badge className="bg-[#1c2430] text-[#9ec9c0]">{variation.appBrandName}</Badge>
+                    <Badge className="bg-elevated text-accent-2">{variation.appBrandName}</Badge>
                   ) : (
-                    <Badge className="bg-[#1c1f2a] text-muted">No brand</Badge>
+                    <Badge className="bg-card text-muted">No brand</Badge>
                   )}
                   <span className="text-[11px] text-muted">
                     {formatDistanceToNow(new Date(variation.updatedAt), { addSuffix: true })}

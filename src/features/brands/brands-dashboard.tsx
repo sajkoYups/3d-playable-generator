@@ -80,7 +80,7 @@ export function BrandsDashboard({ brands }: { brands: BrandRow[] }) {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight">Personal templates</h1>
-            <Badge className="bg-[#2a2118] text-accent">Beta</Badge>
+            <Badge className="bg-accent-muted text-accent">Beta</Badge>
           </div>
           <p className="text-sm text-muted">
             Pre-save logos, CTAs, coins, and store destinations. Stamp a kit onto any game.
@@ -120,7 +120,7 @@ export function BrandsDashboard({ brands }: { brands: BrandRow[] }) {
               className="cursor-pointer overflow-hidden"
               onClick={() => router.push(`/templates/${brand.id}`)}
             >
-              <div className="relative flex h-36 items-center justify-center bg-[#161821]">
+              <div className="relative flex h-36 items-center justify-center bg-elevated">
                 {brand.logoUrl || brand.thumbnailUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

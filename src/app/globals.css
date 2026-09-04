@@ -1,14 +1,47 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --muted: #64748b;
+  --accent: #e07a3d;
+  --accent-2: #059669;
+  --accent-hover: #c96a32;
+  --accent-muted: #fef3eb;
+  --border: #e2e8f0;
+  --paper: #0f172a;
+  --elevated: #f1f5f9;
+  --input: #ffffff;
+  --hover: #f1f5f9;
+  --secondary: #e2e8f0;
+  --secondary-hover: #cbd5e1;
+  --destructive: #e85d4c;
+  --on-accent: #12141a;
+  color-scheme: light;
+}
+
+.dark {
   --background: #12141a;
   --foreground: #f3ede0;
   --card: #1c1f2a;
   --muted: #8a8494;
   --accent: #e07a3d;
   --accent-2: #2bb5a0;
+  --accent-hover: #c96a32;
+  --accent-muted: #2a2118;
   --border: #2c3140;
   --paper: #f3ede0;
+  --elevated: #161821;
+  --input: #161821;
+  --hover: #1c1f2a;
+  --secondary: #2a2e3a;
+  --secondary-hover: #343848;
+  --destructive: #e85d4c;
+  --on-accent: #12141a;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -17,7 +50,18 @@
   --color-card: var(--card);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-muted: var(--accent-muted);
   --color-border: var(--border);
+  --color-paper: var(--paper);
+  --color-elevated: var(--elevated);
+  --color-input: var(--input);
+  --color-hover: var(--hover);
+  --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-destructive: var(--destructive);
+  --color-on-accent: var(--on-accent);
   --font-display: var(--font-display);
   --font-sans: var(--font-sans);
 }
@@ -34,6 +78,6 @@ body {
 }
 
 ::selection {
-  background: #e07a3d;
-  color: #12141a;
+  background: var(--accent);
+  color: var(--on-accent);
 }

@@ -8,8 +8,8 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
 import { ColorField } from "@/features/editor/color-field";
-import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, END_POLICY_SLOT_ID, UNLOCK_COIN_SLOT_ID, UNLOCK_END_BG_SLOT_ID, UNLOCK_LINKS_SLOT_ID, UNLOCK_START_BG_SLOT_ID, isBrandSlotId, isOverridableSlotId, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type TowerDefenseConfig, type TowerDefenseRound, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
-import { stampCoinImage } from "@/lib/project-defaults";
+import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, END_POLICY_SLOT_ID, UNLOCK_COIN_SLOT_ID, UNLOCK_END_BG_SLOT_ID, UNLOCK_LINKS_SLOT_ID, UNLOCK_START_BG_SLOT_ID, is2DTemplate, isBrandSlotId, isOverridableSlotId, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type TowerDefenseConfig, type TowerDefenseRound, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
+import { MATCH3_PIECE_META, defaultPieceImages, stampCoinImage } from "@/lib/project-defaults";
 import { TemplateSlotUnlockControls } from "@/features/editor/template-slot-unlock-controls";
 import { isPlayableTemplateLocked } from "@/features/editor/store";
 import { MATCH_ITEMS, OBSTACLES, VEHICLES } from "@/lib/model-library";
@@ -257,9 +257,30 @@ function GameplaySettings() {
           }
         />
       </div>
-      <Separator />
-      <div className="space-y-2">
-        <h4 className="text-sm font-medium">Camera</h4>
+      {is2DTemplate(templateId) && (
+        <>
+          <Separator />
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">Board background ({orientation})</h4>
+            <p className="text-[11px] text-muted">Drawn inside the gameplay area.</p>
+            <BackgroundEditor
+              background={data.gameplay.background[orientation]}
+              orientation={orientation}
+              allowTransparent
+              onChange={(next) =>
+                updateData((draft) => {
+                  draft.gameplay.background[orientation] = next;
+                })
+              }
+            />
+          </div>
+        </>
+      )}
+      {!is2DTemplate(templateId) && (
+        <>
+          <Separator />
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">Camera</h4>
         <Label>FOV</Label>
         <Input
           type="number"
@@ -325,6 +346,8 @@ function GameplaySettings() {
           ))}
         </div>
       </div>
+        </>
+      )}
       <Separator />
       <div className="space-y-2">
         <h4 className="text-sm font-medium">Audio</h4>
@@ -354,10 +377,331 @@ function GameplaySettings() {
         )}
       </div>
 
-      {templateId !== "stack-tower" && (
+      {templateId !== "stack-tower" && templateId !== "water-sort" && (
         <>
           <Separator />
           <CoinIconField />
+        </>
+      )}
+
+      {templateId === "water-sort" && (
+        <>
+          <Separator />
+          <h4 className="text-sm font-medium">Water Sort</h4>
+          <Label>Max moves</Label>
+          <Input
+            type="number"
+            min={8}
+            max={99}
+            value={data.gameplay.waterSort.maxMoves}
+            onChange={(e) =>
+              updateData((d) => {
+                d.gameplay.waterSort.maxMoves = Number(e.target.value) || 40;
+              })
+            }
+          />
+          <Label>Tube colors</Label>
+          <div className="flex flex-wrap gap-1">
+            {data.gameplay.waterSort.colors.map((c, i) => (
+              <input
+                key={i}
+                type="color"
+                value={c}
+                className="h-8 w-8 cursor-pointer rounded border border-border bg-input"
+                onChange={(e) =>
+                  updateData((d) => {
+                    d.gameplay.waterSort.colors[i] = e.target.value;
+                  })
+                }
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {templateId === "match-3" && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <div>
+              <h4 className="text-sm font-medium">Match-3 rules</h4>
+              <p className="text-[11px] text-muted">
+                A round ends when you hit the score target, not after N matches. Three gems is 6
+                points (2 per gem cleared); longer matches and cascades add more. After the last
+                round, the end screen shows. Coins on the HUD are the payout, not the win
+                condition.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label>Moves / round</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={data.gameplay.match3.movesPerRound}
+                  onChange={(e) =>
+                    updateData((d) => {
+                      d.gameplay.match3.movesPerRound = Number(e.target.value) || 1;
+                    })
+                  }
+                />
+                <p className="text-[11px] text-muted">
+                  Successful matches you can make this round. Not how many you need to advance.
+                  Invalid swaps do not count.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label>Score target</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={9999}
+                  value={data.gameplay.match3.scoreTarget}
+                  onChange={(e) =>
+                    updateData((d) => {
+                      d.gameplay.match3.scoreTarget = Number(e.target.value) || 1;
+                    })
+                  }
+                />
+                <p className="text-[11px] text-muted">
+                  Points to finish the round. A 3-match is 6, a 4-match is 8, a 5-match is 10.
+                  Cascades count too. Always applies, even if the HUD is coins only. 80 is about
+                  fourteen 3-matches.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label>Rounds to win</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={data.gameplay.match3.roundsToWin}
+                  onChange={(e) =>
+                    updateData((d) => {
+                      d.gameplay.match3.roundsToWin = Number(e.target.value) || 1;
+                    })
+                  }
+                />
+                <p className="text-[11px] text-muted">
+                  How many rounds before the end screen (R1/2, then R2/2, then end).
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label>Reward / round</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={9999}
+                  value={data.gameplay.match3.rewardPerRound}
+                  onChange={(e) =>
+                    updateData((d) => {
+                      d.gameplay.match3.rewardPerRound = Number(e.target.value) || 0;
+                    })
+                  }
+                />
+                <p className="text-[11px] text-muted">
+                  Money added to the HUD when a round ends (for example $5).
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label>Reward prefix</Label>
+                <Input
+                  value={data.gameplay.match3.rewardPrefix}
+                  onChange={(e) =>
+                    updateData((d) => {
+                      d.gameplay.match3.rewardPrefix = e.target.value;
+                    })
+                  }
+                />
+                <p className="text-[11px] text-muted">Shown before the reward amount, for example $.</p>
+              </div>
+              <div className="space-y-1">
+                <Label>Hint delay (ms)</Label>
+                <Input
+                  type="number"
+                  min={500}
+                  max={15000}
+                  step={100}
+                  value={data.gameplay.match3.hintDelayMs}
+                  onChange={(e) =>
+                    updateData((d) => {
+                      d.gameplay.match3.hintDelayMs = Number(e.target.value) || 2500;
+                    })
+                  }
+                />
+                <p className="text-[11px] text-muted">
+                  Idle time before the animated hand shows a valid swap in preview and export.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label>Fail enabled</Label>
+                <p className="text-[11px] text-muted">
+                  On = running out of moves ends the round even if you are under the score target.
+                  Off = moves refill and you stay on the same round until you hit the score.
+                </p>
+              </div>
+              <Switch
+                checked={data.gameplay.match3.failEnabled}
+                onCheckedChange={(v) =>
+                  updateData((d) => {
+                    d.gameplay.match3.failEnabled = v;
+                  })
+                }
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label>Tutorial hand</Label>
+                <p className="text-[11px] text-muted">Animated hint in preview and export.</p>
+              </div>
+              <Switch
+                checked={data.gameplay.match3.hintHandEnabled}
+                onCheckedChange={(v) =>
+                  updateData((d) => {
+                    d.gameplay.match3.hintHandEnabled = v;
+                  })
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Show in HUD</Label>
+              <p className="text-[11px] text-muted">
+                {data.gameplay.match3.hudDisplay === "coins"
+                  ? "Coins hides score and remaining moves on the board. You still need the score target to finish the round. Use both while testing."
+                  : "Score shows points. Coins shows the payout. Both is easiest while testing."}
+              </p>
+              <div className="grid grid-cols-3 gap-1">
+                {(["score", "coins", "both"] as const).map((id) => (
+                  <Button
+                    key={id}
+                    size="sm"
+                    variant={data.gameplay.match3.hudDisplay === id ? "default" : "outline"}
+                    className="h-8 capitalize"
+                    onClick={() =>
+                      updateData((d) => {
+                        d.gameplay.match3.hudDisplay = id;
+                      })
+                    }
+                  >
+                    {id}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label>Transparent HUD bar</Label>
+                <p className="text-[11px] text-muted">Hide the dark strip behind chips.</p>
+              </div>
+              <Switch
+                checked={data.gameplay.match3.hudTransparent}
+                onCheckedChange={(v) =>
+                  updateData((d) => {
+                    d.gameplay.match3.hudTransparent = v;
+                  })
+                }
+              />
+            </div>
+            {data.gameplay.match3.hudDisplay !== "coins" && (
+              <>
+                <div className="space-y-1">
+                  <Label>Score label</Label>
+                  <Input
+                    value={data.gameplay.match3.scoreLabel}
+                    onChange={(e) =>
+                      updateData((d) => {
+                        d.gameplay.match3.scoreLabel = e.target.value;
+                      })
+                    }
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label>Score chip bg</Label>
+                    <Input
+                      type="color"
+                      value={data.gameplay.match3.scoreChipBg || "#1e293b"}
+                      onChange={(e) =>
+                        updateData((d) => {
+                          d.gameplay.match3.scoreChipBg = e.target.value;
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Score text</Label>
+                    <Input
+                      type="color"
+                      value={data.gameplay.match3.scoreChipText || "#f8fafc"}
+                      onChange={(e) =>
+                        updateData((d) => {
+                          d.gameplay.match3.scoreChipText = e.target.value;
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+            {data.gameplay.match3.hudDisplay !== "score" && (
+              <div className="space-y-1">
+                <Label>Reward text</Label>
+                <Input
+                  type="color"
+                  value={data.gameplay.match3.rewardTextColor || "#fbbf24"}
+                  onChange={(e) =>
+                    updateData((d) => {
+                      d.gameplay.match3.rewardTextColor = e.target.value;
+                    })
+                  }
+                />
+              </div>
+            )}
+          </div>
+          <Separator />
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium">Piece images</h4>
+            <p className="text-[11px] text-muted">Empty slots fall back to a colored gem.</p>
+            {MATCH3_PIECE_META.map((meta, index) => (
+              <div key={meta.label} className="space-y-1 rounded-md border border-border p-2">
+                <div className="flex items-center gap-2">
+                  <span className="h-4 w-4 rounded-full border border-border" style={{ backgroundColor: meta.color }} />
+                  <Label className="text-xs">{meta.label}</Label>
+                </div>
+                <AssetUrlField
+                  label=""
+                  accept="image/*"
+                  value={data.gameplay.pieceImages[index] || ""}
+                  onChange={(url) =>
+                    updateData((d) => {
+                      const next = [...(d.gameplay.pieceImages || defaultPieceImages())];
+                      while (next.length < 5) next.push("");
+                      next[index] = url;
+                      d.gameplay.pieceImages = next.slice(0, 5);
+                    })
+                  }
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={() =>
+                    updateData((d) => {
+                      const next = [...(d.gameplay.pieceImages || defaultPieceImages())];
+                      while (next.length < 5) next.push("");
+                      next[index] = meta.url;
+                      d.gameplay.pieceImages = next.slice(0, 5);
+                    })
+                  }
+                >
+                  Reset default
+                </Button>
+              </div>
+            ))}
+          </div>
         </>
       )}
 
@@ -525,7 +869,7 @@ function GameplaySettings() {
                 {match.itemSlots.map((slot, i) => (
                   <div key={i} className="space-y-1">
                     <select
-                      className="h-8 w-full rounded-md border border-border bg-[#161821] text-xs"
+                      className="h-8 w-full rounded-md border border-border bg-input text-xs"
                       value={MATCH_ITEMS.some((m) => m.id === slot) ? slot : ""}
                       onChange={(e) =>
                         updateData((d) => {
@@ -1291,7 +1635,7 @@ function ContentEditor({ element }: { element: PlayableElement }) {
         <TemplateSlotUnlockControls slotId={element.id} unlocked={unlockedSlotIds.includes(element.id)} />
       )}
       {fromBrand && (
-        <div className="rounded-md border border-accent/40 bg-[#2a2118] p-2 text-xs text-accent">
+        <div className="rounded-md border border-accent/40 bg-accent-muted p-2 text-xs text-accent">
           From {brandName || "template"}.{" "}
           {textOnly ? "You can override the copy and button colors here." : "Layout and art stay live-linked until you customize this layer."}{" "}
           {brandId ? (

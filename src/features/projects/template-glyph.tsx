@@ -49,6 +49,31 @@ export function TemplateGlyph({ templateId }: { templateId: TemplateId }) {
           <circle cx="196" cy="70" r="10" fill="#5cbf5a" />
         </>
       )}
+      {templateId === "water-sort" && (
+        <>
+          <rect x="52" y="28" width="22" height="70" rx="4" fill="none" stroke="#94a3b8" strokeWidth="3" />
+          <rect x="56" y="62" width="14" height="14" fill="#ef4444" />
+          <rect x="56" y="78" width="14" height="14" fill="#3b82f6" />
+          <rect x="92" y="28" width="22" height="70" rx="4" fill="none" stroke="#34d399" strokeWidth="3" />
+          <rect x="96" y="46" width="14" height="14" fill="#22c55e" />
+          <rect x="96" y="62" width="14" height="14" fill="#22c55e" />
+          <rect x="96" y="78" width="14" height="14" fill="#22c55e" />
+          <rect x="132" y="28" width="22" height="70" rx="4" fill="none" stroke="#94a3b8" strokeWidth="3" />
+          <rect x="136" y="78" width="14" height="14" fill="#eab308" />
+          <rect x="172" y="28" width="22" height="70" rx="4" fill="none" stroke="#94a3b8" strokeWidth="3" />
+        </>
+      )}
+      {templateId === "match-3" && (
+        <>
+          <rect x="48" y="22" width="144" height="80" rx="8" fill="#1e293b" />
+          <circle cx="80" cy="50" r="12" fill="#f43f5e" />
+          <circle cx="112" cy="50" r="12" fill="#38bdf8" />
+          <circle cx="144" cy="50" r="12" fill="#a3e635" />
+          <circle cx="80" cy="82" r="12" fill="#fbbf24" />
+          <circle cx="112" cy="82" r="12" fill="#c084fc" />
+          <circle cx="144" cy="82" r="12" fill="#f43f5e" />
+        </>
+      )}
     </svg>
   );
 }

@@ -39,7 +39,7 @@ export function AppBrandAssetField({
     <div className="space-y-1.5">
       <Label>{label}</Label>
       <div className="flex items-center gap-2">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-[#161821] text-[9px] text-muted">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-elevated text-[9px] text-muted">
           {value ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={value} alt="" className="h-full w-full object-contain" />
@@ -53,7 +53,7 @@ export function AppBrandAssetField({
           onChange={(e) => onChange(e.target.value)}
           placeholder="https://… or upload"
         />
-        <label className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-border px-3 text-xs hover:bg-[#1c1f2a]">
+        <label className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-border px-3 text-xs hover:bg-hover">
           <input
             type="file"
             accept="image/*"

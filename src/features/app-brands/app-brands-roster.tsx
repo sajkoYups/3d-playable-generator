@@ -117,7 +117,7 @@ export function AppBrandsRoster({ brands }: { brands: AppBrandRow[] }) {
         </div>
       ) : (
         <div className="overflow-hidden border border-border">
-          <div className="hidden grid-cols-[auto_minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto] gap-4 border-b border-border bg-[#161821] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted md:grid">
+          <div className="hidden grid-cols-[auto_minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto] gap-4 border-b border-border bg-elevated px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted md:grid">
             <span className="w-2" />
             <span>Brand</span>
             <span>Market</span>
@@ -128,7 +128,7 @@ export function AppBrandsRoster({ brands }: { brands: AppBrandRow[] }) {
             {filtered.map((brand) => (
               <li
                 key={brand.id}
-                className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-4 px-4 py-3 hover:bg-[#161821] md:grid-cols-[auto_minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto]"
+                className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-4 px-4 py-3 hover:bg-elevated md:grid-cols-[auto_minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto]"
                 onClick={() => router.push(`/brands/${brand.id}`)}
               >
                 <span
@@ -136,7 +136,7 @@ export function AppBrandsRoster({ brands }: { brands: AppBrandRow[] }) {
                   style={{ background: brand.primaryColor || "#e07a3d" }}
                 />
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-[#12141a]">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-background">
                     {brand.appIconUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={brand.appIconUrl} alt="" className="h-full w-full object-contain" />

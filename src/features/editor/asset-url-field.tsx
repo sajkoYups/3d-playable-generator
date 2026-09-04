@@ -55,7 +55,7 @@ export function AssetUrlField({
     <div className="space-y-1">
       {label ? <Label className="text-xs">{label}</Label> : null}
       <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-[#161821] text-[9px] text-muted">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-elevated text-[9px] text-muted">
           {kind === "image" && value ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={value} alt="" className="h-full w-full object-contain" />
@@ -68,7 +68,7 @@ export function AssetUrlField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
-        <label className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-border px-2 text-xs hover:bg-[#1c1f2a]">
+        <label className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-border px-2 text-xs hover:bg-hover">
           <input
             type="file"
             accept={accept}

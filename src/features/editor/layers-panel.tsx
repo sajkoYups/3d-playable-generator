@@ -33,7 +33,7 @@ export function LayersPanel() {
       </div>
       {stage !== "gameplay" && (
         <button
-          className="px-3 py-2 text-left text-sm hover:bg-[#161821]"
+          className="px-3 py-2 text-left text-sm hover:bg-elevated"
           onClick={() => selectElement(null)}
         >
           Background
@@ -50,7 +50,7 @@ export function LayersPanel() {
               key={el.id}
               className={cn(
                 "flex items-center gap-1 px-2 py-1.5 text-sm",
-                selectedElementId === el.id ? "bg-[#2a2118]" : "hover:bg-[#161821]",
+                selectedElementId === el.id ? "bg-accent-muted" : "hover:bg-elevated",
               )}
             >
               <button
@@ -68,7 +68,7 @@ export function LayersPanel() {
                 )}
               </button>
               <button
-                className="rounded p-1 hover:bg-[#2a2e3a]"
+                className="rounded p-1 hover:bg-secondary"
                 onClick={() =>
                   updateElementLayout(el.id, orientation, { visible: !box.visible })
                 }
@@ -77,7 +77,7 @@ export function LayersPanel() {
                 {box.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
               </button>
               <button
-                className="rounded p-1 hover:bg-[#2a2e3a]"
+                className="rounded p-1 hover:bg-secondary"
                 disabled={el.permanentlyLocked || templateLocked}
                 onClick={() => {
                   if (el.permanentlyLocked || templateLocked) return;
@@ -87,7 +87,7 @@ export function LayersPanel() {
                 {locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
               </button>
               <button
-                className="rounded px-1 text-xs hover:bg-[#2a2e3a]"
+                className="rounded px-1 text-xs hover:bg-secondary"
                 disabled={el.permanentlyLocked || templateLocked}
                 onClick={() =>
                   updateElementLayout(el.id, orientation, { zIndex: box.zIndex + 1 })
@@ -96,7 +96,7 @@ export function LayersPanel() {
                 ↑
               </button>
               <button
-                className="rounded px-1 text-xs hover:bg-[#2a2e3a]"
+                className="rounded px-1 text-xs hover:bg-secondary"
                 disabled={el.permanentlyLocked || templateLocked}
                 onClick={() =>
                   updateElementLayout(el.id, orientation, { zIndex: box.zIndex - 1 })
@@ -110,7 +110,7 @@ export function LayersPanel() {
       </div>
       {canAddPolicy && (
         <button
-          className="border-t border-border px-3 py-2 text-left text-sm text-accent hover:bg-[#161821]"
+          className="border-t border-border px-3 py-2 text-left text-sm text-accent hover:bg-elevated"
           onClick={() => addEndPolicy()}
         >
           + Privacy Policy

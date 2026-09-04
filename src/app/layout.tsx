@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Figtree } from "next/font/google";
-import { Toaster } from "sonner";
+import { ThemeProvider } from "@/components/theme-provider";
+import { AppToaster } from "@/components/app-toaster";
 import "./globals.css";
 
 const display = Bricolage_Grotesque({
@@ -14,8 +15,8 @@ const sans = Figtree({
 });
 
 export const metadata: Metadata = {
-  title: "Forge — 3D Playable Ads",
-  description: "Build, customize, and export Three.js playable ads",
+  title: "Forge — Playable Ads",
+  description: "Build, customize, and export HTML5 playable ads",
 };
 
 export default function RootLayout({
@@ -24,10 +25,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable} h-full antialiased`}>
+    <html lang="en" className={`${display.variable} ${sans.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        {children}
-        <Toaster richColors theme="dark" position="bottom-right" />
+        <ThemeProvider>
+          {children}
+          <AppToaster />
+        </ThemeProvider>
       </body>
     </html>
   );

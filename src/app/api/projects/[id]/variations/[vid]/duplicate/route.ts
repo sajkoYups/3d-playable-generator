@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAccessibleVariation, requireApiSession } from "@/lib/api-auth";
+import { getAccessibleVariation, requireOrgApi } from "@/lib/api-auth";
 import { parseOverrides, parseProjectData } from "@/lib/resolve-playable";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -8,10 +8,10 @@ export async function POST(
   _req: NextRequest,
   context: { params: Promise<{ id: string; vid: string }> },
 ) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
   const { id, vid } = await context.params;
-  const access = await getAccessibleVariation(id, vid, session.user.id);
+  const access = await getAccessibleVariation(id, vid, authz.organizationId);
   if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const source = access.variation;

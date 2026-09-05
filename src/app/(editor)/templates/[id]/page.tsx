@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/session";
+import { requireOrganization } from "@/lib/session";
 import { getAccessibleBrand } from "@/lib/api-auth";
 import { notFound } from "next/navigation";
 import { EditorShell } from "@/features/editor/editor-shell";
@@ -10,9 +10,9 @@ export default async function TemplateStudioPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await requireSession();
+  const { organizationId } = await requireOrganization();
   const { id } = await params;
-  const brand = await getAccessibleBrand(id, session.user.id);
+  const brand = await getAccessibleBrand(id, organizationId);
   if (!brand) notFound();
 
   const parsed = (() => {

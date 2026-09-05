@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireSession } from "@/lib/session";
+import { requireOrganization } from "@/lib/session";
 import { getAccessibleAppBrand } from "@/lib/api-auth";
 import { AppBrandForm } from "@/features/app-brands/app-brand-form";
 import { parseAppBrandData } from "@/lib/resolve-playable";
@@ -10,9 +10,9 @@ export default async function BrandEditPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await requireSession();
+  const { organizationId } = await requireOrganization();
   const { id } = await params;
-  const brand = await getAccessibleAppBrand(id, session.user.id);
+  const brand = await getAccessibleAppBrand(id, organizationId);
   if (!brand) {
     redirect(`/templates/${id}`);
   }

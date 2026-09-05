@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireApiSession } from "@/lib/api-auth";
+import { requireOrgApi } from "@/lib/api-auth";
 import { createDefaultAppBrandData } from "@/lib/app-brand-defaults";
 import { AppBrandDataSchema } from "@/types/project";
 import type { Prisma } from "@/generated/prisma/client";
@@ -12,11 +12,11 @@ const CreateSchema = z.object({
 });
 
 export async function GET() {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
 
   const brands = await prisma.appBrand.findMany({
-    where: { members: { some: { userId: session.user.id } } },
+    where: { organizationId: authz.organizationId },
     select: {
       id: true,
       name: true,
@@ -33,8 +33,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
 
   const body = CreateSchema.parse(await req.json().catch(() => ({})));
   const brandData = createDefaultAppBrandData(body.brandData);
@@ -42,12 +42,13 @@ export async function POST(req: NextRequest) {
 
   const brand = await prisma.appBrand.create({
     data: {
+      organizationId: authz.organizationId,
       name,
       brandData: brandData as Prisma.InputJsonValue,
       thumbnailUrl: brandData.appIconUrl || null,
       members: {
         create: {
-          userId: session.user.id,
+          userId: authz.session.user.id,
           role: "owner",
         },
       },

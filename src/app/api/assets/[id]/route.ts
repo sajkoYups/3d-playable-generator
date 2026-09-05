@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { getAccessibleAppBrand, getAccessibleBrand, getAccessibleProject, requireApiSession } from "@/lib/api-auth";
+import { getAccessibleAppBrand, getAccessibleBrand, getAccessibleProject, requireOrgApi } from "@/lib/api-auth";
 import { deleteObject } from "@/lib/storage";
 
 function keyFromUrl(url: string): string | null {
@@ -10,19 +10,20 @@ function keyFromUrl(url: string): string | null {
 }
 
 async function canAccessAsset(
-  userId: string,
-  asset: { projectId: string | null; brandId: string | null; appBrandId: string | null },
+  organizationId: string,
+  asset: { organizationId: string | null; projectId: string | null; brandId: string | null; appBrandId: string | null },
 ) {
+  if (asset.organizationId) return asset.organizationId === organizationId;
   if (asset.projectId) {
-    const project = await getAccessibleProject(asset.projectId, userId);
+    const project = await getAccessibleProject(asset.projectId, organizationId);
     return Boolean(project);
   }
   if (asset.brandId) {
-    const brand = await getAccessibleBrand(asset.brandId, userId);
+    const brand = await getAccessibleBrand(asset.brandId, organizationId);
     return Boolean(brand);
   }
   if (asset.appBrandId) {
-    const brand = await getAccessibleAppBrand(asset.appBrandId, userId);
+    const brand = await getAccessibleAppBrand(asset.appBrandId, organizationId);
     return Boolean(brand);
   }
   return false;
@@ -32,13 +33,13 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
   const { id } = await context.params;
   const body = z.object({ fileName: z.string().min(1).max(200) }).parse(await req.json());
   const asset = await prisma.asset.findUnique({ where: { id } });
   if (!asset) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!(await canAccessAsset(session.user.id, asset))) {
+  if (!(await canAccessAsset(authz.organizationId, asset))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -53,12 +54,12 @@ export async function DELETE(
   _req: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
   const { id } = await context.params;
   const asset = await prisma.asset.findUnique({ where: { id } });
   if (!asset) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!(await canAccessAsset(session.user.id, asset))) {
+  if (!(await canAccessAsset(authz.organizationId, asset))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

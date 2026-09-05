@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireApiSession } from "@/lib/api-auth";
+import { requireOrgApi } from "@/lib/api-auth";
 import { createDefaultProjectData } from "@/lib/project-defaults";
 import { ensureDemoProjects } from "@/lib/ensure-demo-projects";
 import { TemplateIdSchema, OrientationSchema, ProjectDataSchema } from "@/types/project";
@@ -13,16 +13,16 @@ const CreateSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
 
-  await ensureDemoProjects(session.user.id);
+  await ensureDemoProjects(authz.organizationId, authz.session.user.id);
 
   const q = req.nextUrl.searchParams.get("q")?.trim() || "";
 
   const projects = await prisma.project.findMany({
     where: {
-      members: { some: { userId: session.user.id } },
+      organizationId: authz.organizationId,
       ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
     },
     select: {
@@ -41,8 +41,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
 
   const body = CreateSchema.parse(await req.json());
   const projectData = createDefaultProjectData(body.templateId);
@@ -50,12 +50,13 @@ export async function POST(req: NextRequest) {
 
   const project = await prisma.project.create({
     data: {
+      organizationId: authz.organizationId,
       name: body.name,
       templateId: body.templateId,
       defaultOrientation: body.defaultOrientation,
       members: {
         create: {
-          userId: session.user.id,
+          userId: authz.session.user.id,
           role: "owner",
         },
       },

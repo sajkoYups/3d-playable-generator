@@ -1,16 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+function safeNext(value: string | null): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/projects";
+  return value;
+}
+
 export default function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -26,7 +31,7 @@ export default function SignInForm() {
       setError(err.message || "Sign in failed");
       return;
     }
-    router.push("/projects");
+    router.push(safeNext(searchParams.get("next")));
     router.refresh();
   }
 
@@ -37,7 +42,7 @@ export default function SignInForm() {
         <CardHeader>
           <p className="text-xs uppercase tracking-[0.25em] text-accent">Forge</p>
           <CardTitle>Sign in</CardTitle>
-          <CardDescription>Open your playable projects</CardDescription>
+          <CardDescription>Access is invite-only</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
@@ -54,12 +59,6 @@ export default function SignInForm() {
               {loading ? "Signing in..." : "Sign in"}
             </Button>
           </form>
-          <p className="mt-4 text-center text-sm text-muted">
-            No account?{" "}
-            <Link href="/sign-up" className="font-medium text-foreground underline">
-              Sign up
-            </Link>
-          </p>
         </CardContent>
       </Card>
     </div>

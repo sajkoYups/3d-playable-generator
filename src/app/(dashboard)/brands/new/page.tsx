@@ -1,14 +1,15 @@
 import { redirect } from "next/navigation";
-import { requireSession } from "@/lib/session";
+import { requireOrganization } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { createDefaultAppBrandData } from "@/lib/app-brand-defaults";
 import type { Prisma } from "@/generated/prisma/client";
 
 export default async function NewBrandPage() {
-  const session = await requireSession();
+  const { session, organizationId } = await requireOrganization();
   const brandData = createDefaultAppBrandData();
   const brand = await prisma.appBrand.create({
     data: {
+      organizationId,
       name: "Untitled brand",
       brandData: brandData as Prisma.InputJsonValue,
       members: {

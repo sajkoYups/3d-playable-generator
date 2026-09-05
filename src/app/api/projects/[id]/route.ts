@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { getAccessibleProject, requireApiSession } from "@/lib/api-auth";
+import { getAccessibleProject, requireOrgApi } from "@/lib/api-auth";
 
 const PatchSchema = z.object({
   name: z.string().min(1).max(120).optional(),
@@ -12,10 +12,10 @@ export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
   const { id } = await context.params;
-  const project = await getAccessibleProject(id, session.user.id);
+  const project = await getAccessibleProject(id, authz.organizationId);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ project });
 }
@@ -24,10 +24,10 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
   const { id } = await context.params;
-  const existing = await getAccessibleProject(id, session.user.id);
+  const existing = await getAccessibleProject(id, authz.organizationId);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const parsed = PatchSchema.safeParse(await req.json());
@@ -53,10 +53,10 @@ export async function DELETE(
   _req: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
   const { id } = await context.params;
-  const existing = await getAccessibleProject(id, session.user.id);
+  const existing = await getAccessibleProject(id, authz.organizationId);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await prisma.project.delete({ where: { id } });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAccessibleVariation, requireApiSession } from "@/lib/api-auth";
+import { getAccessibleVariation, requireOrgApi } from "@/lib/api-auth";
 import { exportPlayableHtml } from "@/lib/export-playable";
 import { resolveVariationPlayable } from "@/lib/resolve-variation";
 import type { NetworkId, TemplateId } from "@/types/project";
@@ -10,10 +10,10 @@ export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string; vid: string }> },
 ) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
   const { id, vid } = await context.params;
-  const access = await getAccessibleVariation(id, vid, session.user.id);
+  const access = await getAccessibleVariation(id, vid, authz.organizationId);
   if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = (await req.json().catch(() => ({}))) as {
@@ -31,6 +31,7 @@ export async function POST(
     brandId: access.variation.brandId,
     appBrandId: access.variation.appBrandId,
     overrides: access.variation.overrides,
+    organizationId: authz.organizationId,
   });
 
   const results = [];

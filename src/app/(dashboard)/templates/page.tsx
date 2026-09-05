@@ -1,12 +1,12 @@
-import { requireSession } from "@/lib/session";
+import { requireOrganization } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { BrandsDashboard } from "@/features/brands/brands-dashboard";
 import { parseBrandData } from "@/lib/resolve-playable";
 
 export default async function TemplatesPage() {
-  const session = await requireSession();
+  const { organizationId } = await requireOrganization();
   const brands = await prisma.brand.findMany({
-    where: { members: { some: { userId: session.user.id } } },
+    where: { organizationId },
     include: { _count: { select: { variations: true } } },
     orderBy: { updatedAt: "desc" },
   });

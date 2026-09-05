@@ -20,7 +20,13 @@ npm run dev
 
 Postgres is mapped to **5433** so it does not collide with the 2D editor on 5432.
 
-Open `http://localhost:3000`, sign up, and you get one demo project per template.
+Open `http://localhost:3000`. Signup is invite-only. Add your email to `PLATFORM_ADMIN_EMAILS`, then:
+
+```bash
+npm run bootstrap-admin -- you@example.com 'a-strong-password' 'Your Name'
+```
+
+Sign in, open **Admin**, create a company, and copy the owner invite link. Existing accounts were backfilled into their own company (`npm run db:backfill-organizations`).
 
 ## Templates
 

@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAccessibleProject, requireApiSession } from "@/lib/api-auth";
+import { getAccessibleProject, requireOrgApi } from "@/lib/api-auth";
 import type { Prisma } from "@/generated/prisma/client";
 
 export async function POST(
   _req: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
   const { id } = await context.params;
-  const existing = await getAccessibleProject(id, session.user.id);
+  const existing = await getAccessibleProject(id, authz.organizationId);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const sources = await prisma.variation.findMany({
@@ -20,12 +20,13 @@ export async function POST(
 
   const project = await prisma.project.create({
     data: {
+      organizationId: authz.organizationId,
       name: `${existing.name} (Copy)`,
       templateId: existing.templateId,
       defaultOrientation: existing.defaultOrientation,
       members: {
         create: {
-          userId: session.user.id,
+          userId: authz.session.user.id,
           role: "owner",
         },
       },

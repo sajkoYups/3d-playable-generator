@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/session";
+import { requireOrganization } from "@/lib/session";
 import { getAccessibleVariation } from "@/lib/api-auth";
 import { notFound } from "next/navigation";
 import { EditorShell } from "@/features/editor/editor-shell";
@@ -11,9 +11,9 @@ export default async function VariationEditorPage({
 }: {
   params: Promise<{ id: string; vid: string }>;
 }) {
-  const session = await requireSession();
+  const { organizationId } = await requireOrganization();
   const { id, vid } = await params;
-  const access = await getAccessibleVariation(id, vid, session.user.id);
+  const access = await getAccessibleVariation(id, vid, organizationId);
   if (!access) notFound();
 
   const templateId = access.project.templateId as TemplateId;

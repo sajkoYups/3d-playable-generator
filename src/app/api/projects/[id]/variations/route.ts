@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { getAccessibleProject, requireApiSession } from "@/lib/api-auth";
+import { getAccessibleProject, requireOrgApi } from "@/lib/api-auth";
 import { createDefaultProjectData } from "@/lib/project-defaults";
 import { parseOverrides, parseProjectData } from "@/lib/resolve-playable";
 import type { Prisma } from "@/generated/prisma/client";
@@ -17,10 +17,10 @@ export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
   const { id } = await context.params;
-  const project = await getAccessibleProject(id, session.user.id);
+  const project = await getAccessibleProject(id, authz.organizationId);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const variations = await prisma.variation.findMany({
@@ -36,17 +36,17 @@ export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
   const { id } = await context.params;
-  const project = await getAccessibleProject(id, session.user.id);
+  const project = await getAccessibleProject(id, authz.organizationId);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = CreateVariationSchema.parse(await req.json().catch(() => ({})));
 
   if (body.brandId) {
     const brand = await prisma.brand.findFirst({
-      where: { id: body.brandId, members: { some: { userId: session.user.id } } },
+      where: { id: body.brandId, organizationId: authz.organizationId },
     });
     if (!brand) return NextResponse.json({ error: "Template not found" }, { status: 404 });
   }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { getAccessibleVariation, requireApiSession } from "@/lib/api-auth";
+import { getAccessibleVariation, requireOrgApi } from "@/lib/api-auth";
 import {
   OVERRIDABLE_SLOT_IDS,
   ProjectDataSchema,
@@ -26,10 +26,10 @@ export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ id: string; vid: string }> },
 ) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
   const { id, vid } = await context.params;
-  const access = await getAccessibleVariation(id, vid, session.user.id);
+  const access = await getAccessibleVariation(id, vid, authz.organizationId);
   if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const resolved = await resolveVariationPlayable({
@@ -38,6 +38,7 @@ export async function GET(
     brandId: access.variation.brandId,
     appBrandId: access.variation.appBrandId,
     overrides: access.variation.overrides,
+    organizationId: authz.organizationId,
   });
 
   return NextResponse.json({
@@ -51,10 +52,10 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string; vid: string }> },
 ) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
   const { id, vid } = await context.params;
-  const access = await getAccessibleVariation(id, vid, session.user.id);
+  const access = await getAccessibleVariation(id, vid, authz.organizationId);
   if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const parsed = PatchSchema.safeParse(await req.json());
@@ -72,14 +73,14 @@ export async function PATCH(
 
   if (body.brandId !== undefined && body.brandId !== null) {
     const brand = await prisma.brand.findFirst({
-      where: { id: body.brandId, members: { some: { userId: session.user.id } } },
+      where: { id: body.brandId, organizationId: authz.organizationId },
     });
     if (!brand) return NextResponse.json({ error: "Template not found" }, { status: 404 });
   }
 
   if (body.appBrandId !== undefined && body.appBrandId !== null) {
     const appBrand = await prisma.appBrand.findFirst({
-      where: { id: body.appBrandId, members: { some: { userId: session.user.id } } },
+      where: { id: body.appBrandId, organizationId: authz.organizationId },
     });
     if (!appBrand) return NextResponse.json({ error: "Brand not found" }, { status: 404 });
   }
@@ -93,7 +94,9 @@ export async function PATCH(
       brandId === access.variation.brandId
         ? access.variation.brand
         : brandId
-          ? await prisma.brand.findUnique({ where: { id: brandId } })
+          ? await prisma.brand.findFirst({
+              where: { id: brandId, organizationId: authz.organizationId },
+            })
           : null;
     const brandData = brandRow ? parseBrandData(brandRow.brandData) : null;
     const previous = parseOverrides(body.overrides ?? access.variation.overrides);
@@ -124,6 +127,7 @@ export async function PATCH(
     brandId: variation.brandId,
     appBrandId: variation.appBrandId,
     overrides: variation.overrides ?? parseOverrides(overrides),
+    organizationId: authz.organizationId,
   });
 
   return NextResponse.json({ variation, resolved });
@@ -133,10 +137,10 @@ export async function DELETE(
   _req: NextRequest,
   context: { params: Promise<{ id: string; vid: string }> },
 ) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
   const { id, vid } = await context.params;
-  const access = await getAccessibleVariation(id, vid, session.user.id);
+  const access = await getAccessibleVariation(id, vid, authz.organizationId);
   if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const remaining = await prisma.variation.count({ where: { projectId: id } });

@@ -13,9 +13,9 @@ const DEMO_TEMPLATES: TemplateId[] = [
   "match-3",
 ];
 
-export async function ensureDemoProjects(userId: string) {
+export async function ensureDemoProjects(organizationId: string, userId: string) {
   const existing = await prisma.project.findMany({
-    where: { members: { some: { userId } } },
+    where: { organizationId },
     select: { templateId: true },
   });
   const present = new Set(existing.map((p) => p.templateId));
@@ -27,6 +27,7 @@ export async function ensureDemoProjects(userId: string) {
     projectData.links.googlePlayUrl = "https://play.google.com/store/apps/details?id=com.example.playable";
     await prisma.project.create({
       data: {
+        organizationId,
         name: `${TEMPLATE_NAMES[templateId]} Demo`,
         templateId,
         defaultOrientation: "portrait",

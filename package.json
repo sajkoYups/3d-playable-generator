@@ -11,6 +11,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:backfill-variations": "npx tsx scripts/backfill-variations.ts",
+    "db:backfill-organizations": "npx tsx scripts/backfill-organizations.ts",
+    "bootstrap-admin": "npx tsx scripts/bootstrap-admin.ts",
     "models:generate": "npx tsx scripts/generate-models.ts",
     "models:embed-kenney": "npx tsx scripts/embed-kenney-cars.ts",
     "models:embed-kenney-food": "npx tsx scripts/embed-kenney-food.ts",

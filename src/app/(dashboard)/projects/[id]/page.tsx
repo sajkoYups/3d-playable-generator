@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/session";
+import { requireOrganization } from "@/lib/session";
 import { getAccessibleProject } from "@/lib/api-auth";
 import { notFound } from "next/navigation";
 import { VariationGallery } from "@/features/projects/variation-gallery";
@@ -11,9 +11,9 @@ export default async function ProjectGalleryPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await requireSession();
+  const { organizationId } = await requireOrganization();
   const { id } = await params;
-  const project = await getAccessibleProject(id, session.user.id);
+  const project = await getAccessibleProject(id, organizationId);
   if (!project) notFound();
 
   const variations = project.variations.map((v) => {

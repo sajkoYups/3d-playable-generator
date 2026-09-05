@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/session";
+import { requireOrganization } from "@/lib/session";
 import { getAccessibleProject } from "@/lib/api-auth";
 import { notFound, redirect } from "next/navigation";
 
@@ -7,9 +7,9 @@ export default async function LegacyEditorRedirect({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await requireSession();
+  const { organizationId } = await requireOrganization();
   const { id } = await params;
-  const project = await getAccessibleProject(id, session.user.id);
+  const project = await getAccessibleProject(id, organizationId);
   if (!project) notFound();
   const first = project.variations[0];
   if (!first) notFound();

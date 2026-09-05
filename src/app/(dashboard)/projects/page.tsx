@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/session";
+import { requireOrganization } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { ProjectsDashboard } from "@/features/projects/projects-dashboard";
 import { ensureDemoProjects } from "@/lib/ensure-demo-projects";
@@ -8,14 +8,14 @@ export default async function ProjectsPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  const session = await requireSession();
+  const { session, organizationId } = await requireOrganization();
   const { q } = await searchParams;
 
-  await ensureDemoProjects(session.user.id);
+  await ensureDemoProjects(organizationId, session.user.id);
 
   const projects = await prisma.project.findMany({
     where: {
-      members: { some: { userId: session.user.id } },
+      organizationId,
       ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
     },
     include: {

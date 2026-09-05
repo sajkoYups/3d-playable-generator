@@ -15,14 +15,25 @@ export async function resolveVariationPlayable(input: {
   brandId?: string | null;
   appBrandId?: string | null;
   overrides?: unknown;
+  organizationId?: string;
 }): Promise<ProjectData> {
   const parsed = parseProjectData(input.projectData ?? createDefaultProjectData(input.templateId as TemplateId));
   const brand = input.brandId
-    ? await prisma.brand.findUnique({ where: { id: input.brandId } })
+    ? await prisma.brand.findFirst({
+        where: {
+          id: input.brandId,
+          ...(input.organizationId ? { organizationId: input.organizationId } : {}),
+        },
+      })
     : null;
   const brandData = brand ? parseBrandData(brand.brandData) : null;
   const appBrand = input.appBrandId
-    ? await prisma.appBrand.findUnique({ where: { id: input.appBrandId } })
+    ? await prisma.appBrand.findFirst({
+        where: {
+          id: input.appBrandId,
+          ...(input.organizationId ? { organizationId: input.organizationId } : {}),
+        },
+      })
     : null;
   const appBrandData = appBrand ? parseAppBrandData(appBrand.brandData) : null;
   return resolvePlayable(parsed, brandData, parseOverrides(input.overrides), appBrandData);

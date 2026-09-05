@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAccessibleAppBrand, getAccessibleBrand, getAccessibleProject, requireApiSession } from "@/lib/api-auth";
+import { getAccessibleAppBrand, getAccessibleBrand, getAccessibleProject, requireOrgApi } from "@/lib/api-auth";
 import { optimizeImage } from "@/lib/sharp";
 import { optimizeGlb } from "@/lib/optimize-model";
 import { optimizeAudio, optimizeVideo } from "@/lib/optimize-media";
@@ -24,33 +24,33 @@ function kindOf(file: File): AssetKind | null {
 }
 
 export async function GET(req: NextRequest) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
 
   const projectId = req.nextUrl.searchParams.get("projectId");
   const brandId = req.nextUrl.searchParams.get("brandId");
   const appBrandId = req.nextUrl.searchParams.get("appBrandId");
   if (appBrandId) {
-    const brand = await getAccessibleAppBrand(appBrandId, session.user.id);
+    const brand = await getAccessibleAppBrand(appBrandId, authz.organizationId);
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ assets: brand.assets });
   }
   if (brandId) {
-    const brand = await getAccessibleBrand(brandId, session.user.id);
+    const brand = await getAccessibleBrand(brandId, authz.organizationId);
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ assets: brand.assets });
   }
   if (!projectId) return NextResponse.json({ error: "projectId, brandId, or appBrandId required" }, { status: 400 });
 
-  const project = await getAccessibleProject(projectId, session.user.id);
+  const project = await getAccessibleProject(projectId, authz.organizationId);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({ assets: project.assets });
 }
 
 export async function POST(req: NextRequest) {
-  const session = await requireApiSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authz = await requireOrgApi();
+  if (!authz.ok) return authz.response;
 
   const form = await req.formData();
   const projectId = String(form.get("projectId") || "");
@@ -63,21 +63,21 @@ export async function POST(req: NextRequest) {
   }
 
   if (appBrandId) {
-    const brand = await getAccessibleAppBrand(appBrandId, session.user.id);
+    const brand = await getAccessibleAppBrand(appBrandId, authz.organizationId);
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
   } else if (brandId) {
-    const brand = await getAccessibleBrand(brandId, session.user.id);
+    const brand = await getAccessibleBrand(brandId, authz.organizationId);
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
   } else {
-    const project = await getAccessibleProject(projectId, session.user.id);
+    const project = await getAccessibleProject(projectId, authz.organizationId);
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const folderRoot = appBrandId
-    ? `app-brands/${appBrandId}`
+    ? `orgs/${authz.organizationId}/app-brands/${appBrandId}`
     : brandId
-      ? `brands/${brandId}`
-      : `projects/${projectId}`;
+      ? `orgs/${authz.organizationId}/brands/${brandId}`
+      : `orgs/${authz.organizationId}/projects/${projectId}`;
 
   const kind = kindOf(file);
   if (!kind) {
@@ -170,6 +170,7 @@ export async function POST(req: NextRequest) {
 
   const asset = await prisma.asset.create({
     data: {
+      organizationId: authz.organizationId,
       projectId: projectId || null,
       brandId: brandId || null,
       appBrandId: appBrandId || null,

@@ -9,12 +9,19 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/projects") ||
     pathname.startsWith("/brands") ||
     pathname.startsWith("/templates") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/pending-access") ||
     pathname.startsWith("/api/projects") ||
     pathname.startsWith("/api/brands") ||
     pathname.startsWith("/api/templates") ||
     pathname.startsWith("/api/app-brands") ||
     pathname.startsWith("/api/assets") ||
-    pathname.startsWith("/api/export");
+    pathname.startsWith("/api/export") ||
+    pathname.startsWith("/api/admin") ||
+    pathname.startsWith("/api/team") ||
+    pathname.startsWith("/api/storage") ||
+    pathname.startsWith("/api/invitations");
 
   if (isProtected && !sessionCookie) {
     if (pathname.startsWith("/api/")) {
@@ -37,6 +44,11 @@ export const config = {
     "/brands/:path*",
     "/templates",
     "/templates/:path*",
+    "/admin",
+    "/admin/:path*",
+    "/settings",
+    "/settings/:path*",
+    "/pending-access",
     "/api/projects",
     "/api/projects/:path*",
     "/api/brands",
@@ -46,6 +58,12 @@ export const config = {
     "/api/app-brands",
     "/api/app-brands/:path*",
     "/api/assets",
+    "/api/assets/:path*",
     "/api/export/:path*",
+    "/api/admin/:path*",
+    "/api/team",
+    "/api/team/:path*",
+    "/api/storage/:path*",
+    "/api/invitations/:path*",
   ],
 };

@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
 import { ColorField } from "@/features/editor/color-field";
-import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, END_POLICY_SLOT_ID, UNLOCK_COIN_SLOT_ID, UNLOCK_END_BG_SLOT_ID, UNLOCK_LINKS_SLOT_ID, UNLOCK_START_BG_SLOT_ID, is2DTemplate, isBrandSlotId, isOverridableSlotId, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type TowerDefenseConfig, type TowerDefenseRound, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
+import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, END_POLICY_SLOT_ID, UNLOCK_COIN_SLOT_ID, UNLOCK_END_BG_SLOT_ID, UNLOCK_LINKS_SLOT_ID, UNLOCK_START_BG_SLOT_ID, is2DTemplate, isBrandSlotId, isOverridableSlotId, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type StackTowerConfig, type StackTowerRound, type TowerDefenseConfig, type TowerDefenseRound, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
 import { MATCH3_PIECE_META, defaultPieceImages, stampCoinImage } from "@/lib/project-defaults";
 import { TemplateSlotUnlockControls } from "@/features/editor/template-slot-unlock-controls";
 import { isPlayableTemplateLocked } from "@/features/editor/store";
@@ -17,6 +17,7 @@ import { ensureParkingRounds, repairParkingCars, setParkingRoundCount, syncParki
 import { ensureMatchRounds, propagateMatchFoods, setMatchRoundCount, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
 import { ensureLaneRounds, propagateLaneWinDistance, setLaneRoundCount, syncLaneRound } from "@/playable-runtime/engines/lane-runner/rounds";
 import { ensureTdRounds, setTdRoundCount } from "@/playable-runtime/engines/tower-defense/rounds";
+import { ensureStackRounds, setStackRoundCount, syncStackRound } from "@/playable-runtime/engines/stack-tower/rounds";
 
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n));
@@ -85,6 +86,22 @@ function patchTdRound(
     const round = cfg.rounds[i];
     if (!round) return;
     patch(round, cfg);
+  });
+}
+
+function patchStackRound(
+  updateData: (updater: (draft: ProjectData) => void) => void,
+  index: number,
+  patch: (round: StackTowerRound, cfg: StackTowerConfig) => void,
+) {
+  updateData((d) => {
+    const cfg = d.gameplay.stackTower;
+    ensureStackRounds(cfg);
+    const i = Math.max(0, Math.min(index, cfg.rounds.length - 1));
+    const round = cfg.rounds[i];
+    if (!round) return;
+    patch(round, cfg);
+    syncStackRound(cfg, i);
   });
 }
 
@@ -187,6 +204,7 @@ function CoinIconField({ locked }: { locked?: boolean }) {
     data.gameplay.tripleMatch.coinImageUrl ||
     data.gameplay.laneRunner.coinImageUrl ||
     data.gameplay.towerDefense.coinImageUrl ||
+    data.gameplay.stackTower.coinImageUrl ||
     "";
 
   return (
@@ -377,7 +395,7 @@ function GameplaySettings() {
         )}
       </div>
 
-      {templateId !== "stack-tower" && templateId !== "water-sort" && (
+      {templateId !== "water-sort" && (
         <>
           <Separator />
           <CoinIconField />
@@ -709,34 +727,166 @@ function GameplaySettings() {
         <>
           <Separator />
           <h4 className="text-sm font-medium">Stack Tower</h4>
-          <Label>Blocks to win</Label>
-          <Input type="number" value={data.gameplay.stackTower.blocksToWin} onChange={(e) => updateData((d) => { d.gameplay.stackTower.blocksToWin = Number(e.target.value) || 10; })} />
-          <Label>Speed</Label>
-          <Input type="number" step="0.1" value={data.gameplay.stackTower.speed} onChange={(e) => updateData((d) => { d.gameplay.stackTower.speed = Number(e.target.value) || 1; })} />
-          <Label>Miss limit</Label>
-          <Input type="number" value={data.gameplay.stackTower.missLimit} onChange={(e) => updateData((d) => { d.gameplay.stackTower.missLimit = Number(e.target.value) || 3; })} />
-          <div className="flex gap-1">
-            {data.gameplay.stackTower.palette.map((c, i) => (
-              <input
-                key={i}
-                type="color"
-                value={c}
-                onChange={(e) =>
-                  updateData((d) => {
-                    d.gameplay.stackTower.palette[i] = e.target.value;
-                  })
-                }
-              />
-            ))}
-          </div>
-          <div className="flex gap-1">
-            {(["matte", "glossy", "metallic"] as const).map((f) => (
-              <Button key={f} size="sm" variant={data.gameplay.stackTower.materialFinish === f ? "default" : "outline"} onClick={() => updateData((d) => { d.gameplay.stackTower.materialFinish = f; })}>
-                {f}
-              </Button>
-            ))}
-          </div>
-          <AssetUrlField label="Face texture" accept="image/*" value={data.gameplay.stackTower.faceTextureUrl} onChange={(url) => updateData((d) => { d.gameplay.stackTower.faceTextureUrl = url; })} />
+          {(() => {
+            const tower = data.gameplay.stackTower;
+            const rounds = tower.rounds.length
+              ? tower.rounds
+              : [{
+                  blocksToWin: tower.blocksToWin,
+                  speed: tower.speed,
+                  speedRamp: tower.speedRamp,
+                  missLimit: tower.missLimit,
+                  coins: 40,
+                }];
+            const roundIdx = Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
+            const round = rounds[roundIdx];
+            return (
+              <>
+                <Label>How many rounds</Label>
+                <p className="text-[11px] text-muted">
+                  Click a number to set the playable length. 4 means rounds 1–4 play in order.
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({ length: 9 }, (_, i) => {
+                    const count = i + 1;
+                    const included = count <= rounds.length;
+                    const selected = count === rounds.length;
+                    return (
+                      <Button
+                        key={count}
+                        size="sm"
+                        variant={selected ? "default" : included ? "secondary" : "outline"}
+                        aria-pressed={included}
+                        onClick={() => {
+                          if (count === rounds.length) return;
+                          const preview = Math.min(roundIdx, count - 1);
+                          updateData((d) => {
+                            const cfg = d.gameplay.stackTower;
+                            setStackRoundCount(cfg, count);
+                            syncStackRound(cfg, preview);
+                          });
+                          setParkingRoundIndex(preview);
+                        }}
+                      >
+                        {count}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Label>Preview</Label>
+                <p className="text-[11px] text-muted">Shows this round in the canvas. Does not change how many rounds play.</p>
+                <div className="flex flex-wrap gap-1">
+                  {rounds.map((_, i) => (
+                    <Button
+                      key={i}
+                      size="sm"
+                      variant={i === roundIdx ? "default" : "outline"}
+                      aria-current={i === roundIdx ? "true" : undefined}
+                      onClick={() => setParkingRoundIndex(i)}
+                    >
+                      {i + 1}
+                    </Button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Blocks to win</Label>
+                    <Input
+                      type="number"
+                      min={3}
+                      max={40}
+                      value={round.blocksToWin}
+                      onChange={(e) =>
+                        patchStackRound(updateData, roundIdx, (r) => {
+                          r.blocksToWin = clampInt(Number(e.target.value), 3, 40, 10);
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Coins</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={9999}
+                      value={round.coins}
+                      onChange={(e) =>
+                        patchStackRound(updateData, roundIdx, (r) => {
+                          r.coins = clampInt(Number(e.target.value), 0, 9999, 40);
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Speed</Label>
+                    <Input
+                      type="number"
+                      min={0.4}
+                      max={4}
+                      step={0.1}
+                      value={round.speed}
+                      onChange={(e) =>
+                        patchStackRound(updateData, roundIdx, (r) => {
+                          r.speed = Math.min(4, Math.max(0.4, Number(e.target.value) || 1.4));
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Speed ramp</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={0.4}
+                      step={0.01}
+                      value={round.speedRamp}
+                      onChange={(e) =>
+                        patchStackRound(updateData, roundIdx, (r) => {
+                          r.speedRamp = Math.min(0.4, Math.max(0, Number(e.target.value) || 0.08));
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <Label>Miss limit</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={8}
+                  value={round.missLimit}
+                  onChange={(e) =>
+                    patchStackRound(updateData, roundIdx, (r) => {
+                      r.missLimit = clampInt(Number(e.target.value), 1, 8, 3);
+                    })
+                  }
+                />
+                <div className="flex gap-1">
+                  {tower.palette.map((c, i) => (
+                    <input
+                      key={i}
+                      type="color"
+                      value={c}
+                      onChange={(e) =>
+                        updateData((d) => {
+                          d.gameplay.stackTower.palette[i] = e.target.value;
+                        })
+                      }
+                    />
+                  ))}
+                </div>
+                <div className="flex gap-1">
+                  {(["matte", "glossy", "metallic"] as const).map((f) => (
+                    <Button key={f} size="sm" variant={tower.materialFinish === f ? "default" : "outline"} onClick={() => updateData((d) => { d.gameplay.stackTower.materialFinish = f; })}>
+                      {f}
+                    </Button>
+                  ))}
+                </div>
+                <AssetUrlField label="Face texture" accept="image/*" value={tower.faceTextureUrl} onChange={(url) => updateData((d) => { d.gameplay.stackTower.faceTextureUrl = url; })} />
+              </>
+            );
+          })()}
         </>
       )}
 

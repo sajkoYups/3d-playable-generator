@@ -10,6 +10,7 @@ import { ensureParkingRounds, syncParkingRound } from "@/playable-runtime/engine
 import { ensureMatchRounds, propagateMatchFoods, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
 import { ensureLaneRounds, syncLaneRound } from "@/playable-runtime/engines/lane-runner/rounds";
 import { ensureTdRounds } from "@/playable-runtime/engines/tower-defense/rounds";
+import { ensureStackRounds, syncStackRound } from "@/playable-runtime/engines/stack-tower/rounds";
 
 export type EditorStage = "start" | "gameplay" | "end";
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -26,6 +27,7 @@ function activeRoundCount(templateId: TemplateId, data: ProjectData) {
   if (templateId === "parking-jam") return data.gameplay.parkingJam.rounds.length;
   if (templateId === "lane-runner") return data.gameplay.laneRunner.rounds.length;
   if (templateId === "tower-defense") return data.gameplay.towerDefense.rounds.length;
+  if (templateId === "stack-tower") return data.gameplay.stackTower.rounds.length;
   return 1;
 }
 
@@ -168,6 +170,11 @@ export const useEditorStore = create<EditorState>()(
         }
         if (payload.templateId === "tower-defense") {
           ensureTdRounds(state.data.gameplay.towerDefense);
+        }
+        if (payload.templateId === "stack-tower") {
+          const tower = state.data.gameplay.stackTower;
+          ensureStackRounds(tower);
+          syncStackRound(tower, 0);
         }
         state.orientation = payload.defaultOrientation;
         state.hydrated = true;

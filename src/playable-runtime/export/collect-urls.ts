@@ -58,6 +58,7 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
   }
 
   add(data.gameplay.stackTower.faceTextureUrl);
+  add(data.gameplay.stackTower.coinImageUrl || data.coinImageUrl || "/coin.svg");
   add(data.gameplay.parkingJam.lotTextureUrl);
   add(data.gameplay.parkingJam.pavementTextureUrl);
   add(data.gameplay.parkingJam.grassTextureUrl || "/kenney_road-textures/PNG/Retina/roadTexture_25.png");

@@ -252,6 +252,15 @@ export const AudioSlotsSchema = z.object({
 });
 export type AudioSlots = z.infer<typeof AudioSlotsSchema>;
 
+export const StackTowerRoundSchema = z.object({
+  blocksToWin: z.number().int().min(3).max(40).default(10),
+  speed: z.number().min(0.4).max(4).default(1.4),
+  speedRamp: z.number().min(0).max(0.4).default(0.08),
+  missLimit: z.number().int().min(1).max(8).default(3),
+  coins: z.number().int().min(0).max(9999).default(40),
+});
+export type StackTowerRound = z.infer<typeof StackTowerRoundSchema>;
+
 export const StackTowerConfigSchema = z.object({
   palette: z
     .array(z.string())
@@ -262,6 +271,8 @@ export const StackTowerConfigSchema = z.object({
   speedRamp: z.number().min(0).max(0.4).default(0.08),
   blocksToWin: z.number().int().min(3).max(40).default(10),
   missLimit: z.number().int().min(1).max(8).default(3),
+  rounds: z.array(StackTowerRoundSchema).max(9).default([]),
+  coinImageUrl: z.string().default(""),
 });
 export type StackTowerConfig = z.infer<typeof StackTowerConfigSchema>;
 

@@ -16,6 +16,7 @@ import { DEFAULT_PARKING_CARS, defaultParkingRoundsPack } from "@/playable-runti
 import { defaultMatchRoundsPack } from "@/playable-runtime/engines/triple-match/rounds";
 import { defaultLaneRoundsPack } from "@/playable-runtime/engines/lane-runner/rounds";
 import { defaultTdRoundsPack } from "@/playable-runtime/engines/tower-defense/rounds";
+import { defaultStackRoundsPack } from "@/playable-runtime/engines/stack-tower/rounds";
 
 export const TEMPLATE_NAMES: Record<TemplateId, string> = {
   "stack-tower": "Stack Tower",
@@ -28,7 +29,7 @@ export const TEMPLATE_NAMES: Record<TemplateId, string> = {
 };
 
 export const TEMPLATE_BLURBS: Record<TemplateId, string> = {
-  "stack-tower": "Drop and stack blocks. Perfect for logo-on-block campaigns.",
+  "stack-tower": "Drop and stack blocks. Collect coins across rounds.",
   "triple-match": "Tap matching snacks into a tray. Three of a kind clears.",
   "lane-runner": "Swipe lanes, dodge traffic, collect coins across rounds.",
   "parking-jam": "Slide cars out of a jammed lot. Grid puzzle with tinted vehicles.",
@@ -371,6 +372,7 @@ export function stampCoinImage(data: ProjectData, url: string) {
   data.gameplay.laneRunner.coinImageUrl = url;
   data.gameplay.parkingJam.coinImageUrl = url;
   data.gameplay.towerDefense.coinImageUrl = url;
+  data.gameplay.stackTower.coinImageUrl = url;
   data.gameplay.match3.coinImageUrl = url;
 }
 
@@ -436,7 +438,9 @@ function createStartScreen(templateId: TemplateId): ProjectData["startScreen"] {
             ? "Pour matching colors. Fill every tube."
             : templateId === "match-3"
               ? "Swap gems. Match three. Beat the rounds."
-          : "Tap to start. One round. Install at the end.",
+              : templateId === "stack-tower"
+                ? "Tap to drop blocks. Stack them. Beat the rounds."
+                : "Tap to start. One round. Install at the end.",
         layout({ x: 0.1, y: 0.44, width: 0.8, height: 0.06, zIndex: 4 }),
         layout({ x: 0.4, y: 0.34, width: 0.52, height: 0.1, zIndex: 4 }),
         { fontSize: 16, fontWeight: 500, color: "#c4bfb4" },
@@ -619,10 +623,15 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
                 portrait: { fov: 90, position: { x: 0, y: 5.2, z: 8.5 }, target: { x: 0, y: 0.4, z: -6 } },
                 landscape: { fov: 90, position: { x: 0, y: 5.2, z: 8.5 }, target: { x: 0, y: 0.4, z: -6 } },
               }
-            : {
-                portrait: { fov: 50, position: { x: 0, y: 8, z: 12 }, target: { x: 0, y: 2, z: 0 } },
-                landscape: { fov: 42, position: { x: 0, y: 6, z: 10 }, target: { x: 0, y: 1.6, z: 0 } },
-              },
+            : templateId === "stack-tower"
+              ? {
+                  portrait: { ...STACK_TOWER_CAMERA.portrait, position: { ...STACK_TOWER_CAMERA.portrait.position }, target: { ...STACK_TOWER_CAMERA.portrait.target } },
+                  landscape: { ...STACK_TOWER_CAMERA.landscape, position: { ...STACK_TOWER_CAMERA.landscape.position }, target: { ...STACK_TOWER_CAMERA.landscape.target } },
+                }
+              : {
+                  portrait: { fov: 50, position: { x: 0, y: 8, z: 12 }, target: { x: 0, y: 2, z: 0 } },
+                  landscape: { fov: 42, position: { x: 0, y: 6, z: 10 }, target: { x: 0, y: 1.6, z: 0 } },
+                },
     lighting: templateId === "lane-runner" ? "sunset" : "studio",
     environment: "gradient-sky",
     audio: { musicUrl: "", tapUrl: "", winUrl: "", loseUrl: "", playFromStart: false },
@@ -634,6 +643,8 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       speedRamp: 0.08,
       blocksToWin: 10,
       missLimit: 3,
+      rounds: defaultStackRoundsPack(),
+      coinImageUrl: "",
     },
     tripleMatch: {
       itemSlots: ["apple", "donut", "taco", "burger"],
@@ -778,6 +789,11 @@ export function createDefaultProjectData(templateId: TemplateId): ProjectData {
     endScreen: createEndScreen(),
   };
 }
+
+export const STACK_TOWER_CAMERA = {
+  portrait: { fov: 38, position: { x: 4.4, y: 5.6, z: 4.8 }, target: { x: 0, y: 0.55, z: 0 } },
+  landscape: { fov: 32, position: { x: 5.2, y: 4.6, z: 4.4 }, target: { x: 0, y: 0.5, z: 0 } },
+} as const;
 
 export const PARKING_JAM_BIRDS_EYE_CAMERA = {
   portrait: { fov: 14, position: { x: 0, y: 50.7, z: 17 }, target: { x: 0, y: 1.5, z: 0.8 } },

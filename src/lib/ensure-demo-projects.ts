@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { createParkingJamBirdsEyeProjectData, defaultPieceImages, defaultStarterVariations, PARKING_JAM_BIRDS_EYE_VARIATION_NAME, TEMPLATE_NAMES } from "@/lib/project-defaults";
+import { createParkingJamBirdsEyeProjectData, defaultPieceImages, defaultStarterVariations, PARKING_JAM_BIRDS_EYE_VARIATION_NAME, STACK_TOWER_CAMERA, TEMPLATE_NAMES } from "@/lib/project-defaults";
+import { defaultStackRoundsPack } from "@/playable-runtime/engines/stack-tower/rounds";
 import type { TemplateId } from "@/types/project";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -144,6 +145,58 @@ export async function ensureDemoProjects(organizationId: string, userId: string)
           },
         },
       });
+    }
+
+    const stackTowerDemoIds = (demoIdsByTemplate.get("stack-tower") ?? []).filter((id) => !extra.has(id));
+    if (stackTowerDemoIds.length > 0) {
+      const variations = await tx.variation.findMany({
+        where: { projectId: { in: stackTowerDemoIds } },
+        select: { id: true, projectData: true },
+      });
+      for (const variation of variations) {
+        const data = variation.projectData as {
+          gameplay?: {
+            camera?: {
+              portrait?: { fov?: number; position?: { x?: number; y?: number; z?: number }; target?: { x?: number; y?: number; z?: number } };
+              landscape?: { fov?: number; position?: { x?: number; y?: number; z?: number }; target?: { x?: number; y?: number; z?: number } };
+            };
+            stackTower?: { rounds?: unknown[]; coinImageUrl?: string };
+          };
+        };
+        if (!data.gameplay) continue;
+        let dirty = false;
+        const portrait = data.gameplay.camera?.portrait;
+        const farShot =
+          !portrait ||
+          (portrait.fov ?? 0) >= 80 ||
+          (Math.abs((portrait.position?.z ?? 0) - 12) < 0.05 && Math.abs((portrait.position?.y ?? 0) - 8) < 0.05);
+        if (farShot) {
+          data.gameplay.camera = {
+            portrait: {
+              fov: STACK_TOWER_CAMERA.portrait.fov,
+              position: { ...STACK_TOWER_CAMERA.portrait.position },
+              target: { ...STACK_TOWER_CAMERA.portrait.target },
+            },
+            landscape: {
+              fov: STACK_TOWER_CAMERA.landscape.fov,
+              position: { ...STACK_TOWER_CAMERA.landscape.position },
+              target: { ...STACK_TOWER_CAMERA.landscape.target },
+            },
+          };
+          dirty = true;
+        }
+        const tower = data.gameplay.stackTower ?? (data.gameplay.stackTower = {});
+        if (!tower.rounds?.length) {
+          tower.rounds = defaultStackRoundsPack();
+          tower.coinImageUrl = tower.coinImageUrl || "";
+          dirty = true;
+        }
+        if (!dirty) continue;
+        await tx.variation.update({
+          where: { id: variation.id },
+          data: { projectData: data as Prisma.InputJsonValue },
+        });
+      }
     }
 
     const parkingJamDemoIds = (demoIdsByTemplate.get("parking-jam") ?? []).filter((id) => !extra.has(id));

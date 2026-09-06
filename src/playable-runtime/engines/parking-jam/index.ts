@@ -409,8 +409,9 @@ export function createParkingJamEngine(): Playable3DEngine {
       fitObjectToFootprint(inner, cell * spec.length * 0.92, cell * 0.78);
       const group = new Group();
       group.add(inner);
-      const shadow = blobShadow(host.tracker, 0.42 + spec.length * 0.08);
-      shadow.position.y = 0.02;
+      const shadow = blobShadow(host.tracker, 0.52);
+      shadow.scale.set(0.78 + spec.length * 0.45, 1, 0.88);
+      shadow.position.set(0.34, 0.014, -0.1);
       group.add(shadow);
       root.add(group);
       cars.push({ spec, group, wheels: collectWheels(group) });
@@ -468,7 +469,8 @@ export function createParkingJamEngine(): Playable3DEngine {
       roundIndex = Math.max(0, Math.min(roundIndex, listParkingRounds(config).length - 1));
       lastEditorRoundIndex = roundIndex;
       host = new ThreeHost(init.container);
-      host.applyLighting(init.lighting);
+      host.enableStudioEnvironment();
+      host.applyParkingJamLighting(init.lighting);
       host.applyCamera(init.camera, init.orientation, host.camera.aspect);
       root = new Group();
       host.scene.add(root);
@@ -590,6 +592,9 @@ export function createParkingJamEngine(): Playable3DEngine {
         }
       }
       if (ctx) applyLivePresentation(host, options, ctx);
+      if (typeof options.lighting === "string") {
+        host?.applyParkingJamLighting(options.lighting as EngineInitContext["lighting"]);
+      }
     },
     resize(w, h) {
       host?.resize(w, h);

@@ -228,23 +228,126 @@ function isWheelMesh(mesh: Object3D) {
   return false;
 }
 
+const kenneyTintMaps = new Map<string, CanvasTexture>();
+const hsl = { h: 0, s: 0, l: 0 };
+
+function rgbToHsl(r: number, g: number, b: number) {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l };
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return { h, s, l };
+}
+
+function hue2rgb(p: number, q: number, t: number) {
+  if (t < 0) t += 1;
+  if (t > 1) t -= 1;
+  if (t < 1 / 6) return p + (q - p) * 6 * t;
+  if (t < 1 / 2) return q;
+  if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+  return p;
+}
+
+function hslToRgb(h: number, s: number, l: number) {
+  if (s === 0) return [l, l, l] as const;
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  return [hue2rgb(p, q, h + 1 / 3), hue2rgb(p, q, h), hue2rgb(p, q, h - 1 / 3)] as const;
+}
+
+/** Keep windows, chrome, tires, and lights; recolor the saturated body strips. */
+function isKenneyTrimPixel(h: number, s: number, l: number) {
+  if (l < 0.08) return true;
+  if (s < 0.2) return true;
+  const hue = h * 360;
+  if (hue >= 38 && hue <= 72 && l > 0.38) return true;
+  if (hue >= 185 && hue <= 235 && l > 0.32 && s < 0.58) return true;
+  return false;
+}
+
+function tintKenneyColormap(source: Texture, tintHex: string) {
+  const key = `${source.uuid}:${tintHex.toLowerCase()}`;
+  const hit = kenneyTintMaps.get(key);
+  if (hit) return hit;
+  const image = source.image as CanvasImageSource | undefined;
+  const width = Number((image as { width?: number } | undefined)?.width) || 0;
+  const height = Number((image as { height?: number } | undefined)?.height) || 0;
+  if (!image || !width || !height) return source;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return source;
+  ctx.drawImage(image, 0, 0, width, height);
+  const pixels = ctx.getImageData(0, 0, width, height);
+  const { data } = pixels;
+  new Color(tintHex).getHSL(hsl);
+  const tintH = hsl.h;
+  const tintS = hsl.s;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i] / 255;
+    const g = data[i + 1] / 255;
+    const b = data[i + 2] / 255;
+    const pixel = rgbToHsl(r, g, b);
+    if (isKenneyTrimPixel(pixel.h, pixel.s, pixel.l)) continue;
+    const [nr, ng, nb] = hslToRgb(tintH, Math.min(1, Math.max(pixel.s, tintS * 0.72)), pixel.l);
+    data[i] = Math.round(nr * 255);
+    data[i + 1] = Math.round(ng * 255);
+    data[i + 2] = Math.round(nb * 255);
+  }
+  ctx.putImageData(pixels, 0, 0);
+
+  const tex = new CanvasTexture(canvas);
+  tex.colorSpace = SRGBColorSpace;
+  tex.flipY = source.flipY;
+  tex.wrapS = source.wrapS;
+  tex.wrapT = source.wrapT;
+  tex.magFilter = source.magFilter;
+  tex.minFilter = source.minFilter;
+  tex.needsUpdate = true;
+  kenneyTintMaps.set(key, tex);
+  return tex;
+}
+
 function prepareCarMaterial(source: MeshStandardMaterial, tint: string, isWheel: boolean) {
   const next = source.clone();
-  next.metalness = 0;
-  next.roughness = 0.45;
   next.side = DoubleSide;
-  next.envMapIntensity = 0;
   next.transparent = false;
   next.opacity = 1;
-  if (next.map) next.map.colorSpace = SRGBColorSpace;
-  if (isWheel) next.color.set(next.map ? "#ffffff" : "#1a1a1a");
-  else next.color.set(tint);
+  const sourceMap = source.map;
+  if (sourceMap) sourceMap.colorSpace = SRGBColorSpace;
+  next.userData.kenneySourceMap = sourceMap ?? null;
+  if (isWheel) {
+    next.color.set("#ffffff");
+    next.metalness = 0.12;
+    next.roughness = 0.52;
+    next.envMapIntensity = 0.4;
+    if (sourceMap) next.map = sourceMap;
+  } else if (sourceMap) {
+    next.color.set("#ffffff");
+    next.map = tintKenneyColormap(sourceMap, tint);
+    next.metalness = 0.12;
+    next.roughness = 0.28;
+    next.envMapIntensity = 1.15;
+  } else {
+    next.color.set(tint);
+    next.metalness = 0.12;
+    next.roughness = 0.28;
+    next.envMapIntensity = 1.15;
+  }
   next.needsUpdate = true;
   return next;
 }
 
 export function tintCarMaterials(root: Object3D, tint: string) {
-  const target = new Color(tint);
   root.traverse((child) => {
     const mesh = child as Mesh;
     if (!mesh.isMesh || isWheelMesh(mesh)) return;
@@ -252,7 +355,14 @@ export function tintCarMaterials(root: Object3D, tint: string) {
     for (const m of mats) {
       if (!(m instanceof MeshStandardMaterial)) continue;
       if (m.transparent || m.emissiveIntensity > 0.2) continue;
-      m.color.copy(target);
+      const sourceMap = (m.userData.kenneySourceMap as Texture | null | undefined) ?? m.map;
+      if (sourceMap) {
+        m.map = tintKenneyColormap(sourceMap, tint);
+        m.color.set("#ffffff");
+      } else {
+        m.color.set(tint);
+      }
+      m.needsUpdate = true;
     }
   });
 }
@@ -271,8 +381,9 @@ export function cloneTintedModel(source: Object3D, tint: string, tracker: Resour
           ? prepareCarMaterial(m, tint, wheel)
           : new MeshStandardMaterial({
               color: wheel ? "#1a1a1a" : tint,
-              metalness: 0,
-              roughness: 0.45,
+              metalness: 0.12,
+              roughness: 0.28,
+              envMapIntensity: 1.15,
               side: DoubleSide,
             });
       tracker.track(prepared);

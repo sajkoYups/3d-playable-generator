@@ -1,13 +1,16 @@
 import {
+  ACESFilmicToneMapping,
   AmbientLight,
   Color,
   DirectionalLight,
   HemisphereLight,
   PerspectiveCamera,
+  PMREMGenerator,
   PointLight,
   Scene,
   WebGLRenderer,
 } from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import type { CameraConfig, LightingPreset, Orientation } from "@/types/project";
 import { ResourceTracker } from "@/playable-runtime/three/resources";
 
@@ -95,6 +98,88 @@ export class ThreeHost {
     dir.position.set(5, 10, 6);
   }
 
+  /** Parking Jam lighting: each preset keeps volume, with a different mood. */
+  applyParkingJamLighting(preset: LightingPreset) {
+    for (const light of this.lights) this.scene.remove(light);
+    this.lights = [];
+    this.scene.background = null;
+    const add = <T extends AmbientLight | DirectionalLight | HemisphereLight | PointLight>(light: T) => {
+      this.scene.add(light);
+      this.lights.push(light);
+      return light;
+    };
+
+    if (preset === "sunset") {
+      add(new HemisphereLight(0xffc38a, 0x3a1c3a, 0.42));
+      const key = add(new DirectionalLight(0xffd0a0, 1.45));
+      key.position.set(-8, 6, 5);
+      const fill = add(new DirectionalLight(0x6a4a88, 0.28));
+      fill.position.set(7, 4, -4);
+      this.setEnvironmentMood("sunset");
+      return;
+    }
+    if (preset === "overcast") {
+      add(new HemisphereLight(0xd7e4f2, 0x4a5568, 0.82));
+      const key = add(new DirectionalLight(0xf2f6fb, 0.55));
+      key.position.set(-4, 10, 3);
+      const fill = add(new DirectionalLight(0xc5d0dc, 0.22));
+      fill.position.set(5, 6, -2);
+      this.setEnvironmentMood("overcast");
+      return;
+    }
+    if (preset === "neon") {
+      add(new AmbientLight(0x1a1028, 0.22));
+      const a = add(new PointLight(0xff4d8d, 6, 0, 0));
+      a.position.set(-4.5, 3, 3);
+      const b = add(new PointLight(0x2ee6ff, 6, 0, 0));
+      b.position.set(4.5, 2.6, 1.2);
+      const key = add(new DirectionalLight(0xdfe8ff, 0.3));
+      key.position.set(-5, 8, 4);
+      this.setEnvironmentMood("neon");
+      return;
+    }
+
+    add(new HemisphereLight(0xf7f1e8, 0x2c3540, 0.38));
+    const key = add(new DirectionalLight(0xfff1dd, 1.55));
+    key.position.set(-9, 7, 4);
+    const fill = add(new DirectionalLight(0xb9c9dc, 0.22));
+    fill.position.set(7, 4, -4);
+    this.setEnvironmentMood("studio");
+  }
+
+  enableStudioEnvironment() {
+    if (this.scene.environment) return;
+    const pmrem = new PMREMGenerator(this.renderer);
+    const room = new RoomEnvironment();
+    const env = pmrem.fromScene(room, 0.04);
+    this.scene.environment = env.texture;
+    this.tracker.trackTarget(env);
+    room.dispose();
+    pmrem.dispose();
+    this.renderer.toneMapping = ACESFilmicToneMapping;
+    this.setEnvironmentMood("studio");
+  }
+
+  setEnvironmentMood(preset: LightingPreset) {
+    if (preset === "sunset") {
+      this.scene.environmentIntensity = 0.5;
+      this.renderer.toneMappingExposure = 1.12;
+      return;
+    }
+    if (preset === "overcast") {
+      this.scene.environmentIntensity = 0.28;
+      this.renderer.toneMappingExposure = 1.0;
+      return;
+    }
+    if (preset === "neon") {
+      this.scene.environmentIntensity = 0.18;
+      this.renderer.toneMappingExposure = 1.2;
+      return;
+    }
+    this.scene.environmentIntensity = 0.9;
+    this.renderer.toneMappingExposure = 1.05;
+  }
+
   setBackgroundColor(hex: string) {
     this.scene.background = new Color(hex);
   }
@@ -129,6 +214,7 @@ export class ThreeHost {
 
   destroy() {
     this.pause();
+    this.scene.environment = null;
     this.tracker.dispose();
     this.renderer.dispose();
     this.canvas.remove();

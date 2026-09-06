@@ -6,6 +6,7 @@ export type GlyphId = TemplateId | UpcomingGameId;
 const GAME_COVERS: Partial<Record<GlyphId, string>> = {
   "lane-runner": "/game-covers/endless-car-runner-playable.png",
   "parking-jam": "/game-covers/parking-jam-3d.png",
+  "triple-match": "/game-covers/triple-stack-3d-960x480.png",
 };
 
 export function TemplateGlyph({ templateId }: { templateId: GlyphId }) {

@@ -19,7 +19,7 @@ import { defaultTdRoundsPack } from "@/playable-runtime/engines/tower-defense/ro
 
 export const TEMPLATE_NAMES: Record<TemplateId, string> = {
   "stack-tower": "Stack Tower",
-  "triple-match": "Triple Match 3D",
+  "triple-match": "Triple Stack 3D",
   "lane-runner": "Endless Car Driving",
   "parking-jam": "Parking Jam",
   "tower-defense": "Tower Defense",
@@ -600,8 +600,8 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
           }
         : templateId === "triple-match"
           ? {
-              portrait: { fov: 32, position: { x: 0, y: 3.4, z: 3.6 }, target: { x: 0, y: 0.2, z: 0.35 } },
-              landscape: { fov: 28, position: { x: 0, y: 2.8, z: 3.2 }, target: { x: 0, y: 0.15, z: 0.3 } },
+              portrait: { fov: 50, position: { x: 0, y: 7.6, z: 6.8 }, target: { x: 0, y: 0.06, z: -0.2 } },
+              landscape: { fov: 40, position: { x: 0, y: 6.8, z: 7.6 }, target: { x: 0, y: 0.06, z: -0.2 } },
             }
           : templateId === "lane-runner"
             ? {

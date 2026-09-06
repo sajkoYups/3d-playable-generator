@@ -20,7 +20,11 @@ function demoName(templateId: TemplateId) {
 
 const DEMO_NAME_ALIASES: Partial<Record<TemplateId, readonly string[]>> = {
   "lane-runner": ["Lane Runner Demo"],
+  "triple-match": ["Triple Match 3D Demo"],
 };
+
+const TRIPLE_MATCH_DISPLAY_FROM = "Triple Match 3D";
+const TRIPLE_MATCH_DISPLAY_TO = "Triple Stack 3D";
 
 function isDemoProjectName(templateId: string, name: string) {
   const id = templateId as TemplateId;
@@ -72,6 +76,24 @@ export async function ensureDemoProjects(organizationId: string, userId: string)
     for (const row of renameIds) {
       if (extra.has(row.id)) continue;
       await tx.project.update({ where: { id: row.id }, data: { name: row.name } });
+    }
+
+    const tripleMatchDemoIds = (demoIdsByTemplate.get("triple-match") ?? []).filter((id) => !extra.has(id));
+    if (tripleMatchDemoIds.length > 0) {
+      const variations = await tx.variation.findMany({
+        where: { projectId: { in: tripleMatchDemoIds } },
+        select: { id: true, projectData: true },
+      });
+      for (const variation of variations) {
+        const raw = JSON.stringify(variation.projectData);
+        if (!raw.includes(TRIPLE_MATCH_DISPLAY_FROM)) continue;
+        await tx.variation.update({
+          where: { id: variation.id },
+          data: {
+            projectData: JSON.parse(raw.replaceAll(TRIPLE_MATCH_DISPLAY_FROM, TRIPLE_MATCH_DISPLAY_TO)) as Prisma.InputJsonValue,
+          },
+        });
+      }
     }
 
     for (const templateId of DEMO_TEMPLATES) {

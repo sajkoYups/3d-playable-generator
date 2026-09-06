@@ -54,13 +54,13 @@ type Pop = {
 
 const DEFAULT_ITEMS = ["apple", "donut", "taco", "burger"];
 const MAX_KINDS = 4;
-const ITEM_SIZE = 0.62;
-const TRAY_SIZE = 0.2;
+const ITEM_SIZE = 0.56;
+const TRAY_SIZE = 0.18;
 const TRAY_Z = 1.78;
-const SLOT_GAP = 0.3;
+const SLOT_GAP = 0.28;
 const COLS = 3;
-const CELL_X = 0.88;
-const CELL_Z = 1.08;
+const CELL_X = 0.78;
+const CELL_Z = 0.92;
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -160,6 +160,69 @@ export function createTripleMatchEngine(): Playable3DEngine {
   function applyEditorCamera() {
     if (!host || !ctx) return;
     host.applyCamera(ctx.camera, ctx.orientation, host.camera.aspect);
+    frameBoard();
+  }
+
+  function frameBoard() {
+    if (!host || !ctx) return;
+    const round = config ? liveRound().round : null;
+    const rows = Math.max(
+      5,
+      items.length ? Math.ceil(items.length / COLS) : Math.min(9, (round?.triplesToWin ?? 3) + 2),
+    );
+    const layout = boardLayout(rows);
+    const slots = Math.max(3, barSlots.length || round?.barSlots || 7);
+    const halfW = Math.max(layout.width / 2 + 0.38, (slots * SLOT_GAP + 0.22) / 2 + 0.1);
+    const minZ = layout.farZ - 0.22;
+    const maxZ = TRAY_Z + 0.24;
+    const look = new Vector3(0, 0.04, minZ * 0.4 + maxZ * 0.6);
+    const corners = [
+      new Vector3(-halfW, 0.5, minZ),
+      new Vector3(halfW, 0.5, minZ),
+      new Vector3(-halfW, 0.2, maxZ),
+      new Vector3(halfW, 0.2, maxZ),
+    ];
+    const landscape = ctx.orientation === "landscape";
+    const fov = landscape ? 42 : 52;
+    const aspect = Math.max(host.camera.aspect, 0.2);
+    const dir = new Vector3(0, landscape ? 0.82 : 1, 1).normalize();
+    host.camera.fov = fov;
+    host.camera.aspect = aspect;
+    host.camera.near = 0.12;
+    host.camera.far = 80;
+
+    const fitOverflow = (pad: number) => {
+      let overflow = -1;
+      for (const corner of corners) {
+        tmp.copy(corner).project(host.camera);
+        overflow = Math.max(overflow, Math.abs(tmp.x) - (1 - pad), Math.abs(tmp.y) - (1 - pad));
+      }
+      return overflow;
+    };
+
+    let dist = landscape ? 6.2 : 5.2;
+    const margin = landscape ? 0.05 : 0.03;
+    for (let i = 0; i < 24; i++) {
+      host.camera.position.copy(look).addScaledVector(dir, dist);
+      host.camera.lookAt(look);
+      host.camera.updateProjectionMatrix();
+      const overflow = fitOverflow(margin);
+      if (overflow <= 0) break;
+      dist *= 1 + Math.min(0.4, overflow * 0.8);
+    }
+    for (let i = 0; i < 14; i++) {
+      host.camera.position.copy(look).addScaledVector(dir, dist);
+      host.camera.lookAt(look);
+      host.camera.updateProjectionMatrix();
+      if (fitOverflow(margin + 0.02) > 0) {
+        dist *= 1.03;
+        break;
+      }
+      dist *= 0.96;
+    }
+    host.camera.position.copy(look).addScaledVector(dir, dist);
+    host.camera.lookAt(look);
+    host.camera.updateProjectionMatrix();
   }
 
   function liveRound(cfg = config!) {
@@ -625,6 +688,7 @@ export function createTripleMatchEngine(): Playable3DEngine {
       });
     });
     layoutGrid(items, rows);
+    applyEditorCamera();
     } finally {
       if (gen === buildGen) building = false;
     }
@@ -632,7 +696,7 @@ export function createTripleMatchEngine(): Playable3DEngine {
 
   return {
     id: "triple-match",
-    name: "Triple Match 3D",
+    name: "Triple Stack 3D",
     initialize(init) {
       ctx = init;
       const extra = init as EngineInitContext & {

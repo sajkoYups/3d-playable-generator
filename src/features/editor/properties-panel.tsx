@@ -743,7 +743,7 @@ function GameplaySettings() {
       {templateId === "triple-match" && (
         <>
           <Separator />
-          <h4 className="text-sm font-medium">Triple Match</h4>
+          <h4 className="text-sm font-medium">Triple Stack 3D</h4>
           {(() => {
             const match = data.gameplay.tripleMatch;
             const rounds = match.rounds.length

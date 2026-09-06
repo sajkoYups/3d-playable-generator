@@ -21,7 +21,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/admin") ||
     pathname.startsWith("/api/team") ||
     pathname.startsWith("/api/storage") ||
-    pathname.startsWith("/api/invitations");
+    pathname.startsWith("/api/invitations") ||
+    pathname.startsWith("/api/profile");
 
   if (isProtected && !sessionCookie) {
     if (pathname.startsWith("/api/")) {
@@ -65,5 +66,6 @@ export const config = {
     "/api/team/:path*",
     "/api/storage/:path*",
     "/api/invitations/:path*",
+    "/api/profile",
   ],
 };

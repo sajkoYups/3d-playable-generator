@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -14,8 +15,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 type BrandRow = { id: string; name: string };
+type AddMode = "regular" | "template";
 
 export function AddFromBrandDialog({
   projectId,
@@ -27,6 +30,7 @@ export function AddFromBrandDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
+  const [mode, setMode] = useState<AddMode>("regular");
   const [brands, setBrands] = useState<BrandRow[]>([]);
   const [brandId, setBrandId] = useState<string>("");
   const [name, setName] = useState("");
@@ -35,20 +39,24 @@ export function AddFromBrandDialog({
 
   useEffect(() => {
     if (!open) return;
+    setMode("regular");
+    setName("");
     setListLoading(true);
     void fetch("/api/templates")
       .then((r) => r.json())
       .then((data) => {
         const list = (data.templates ?? data.brands ?? []) as BrandRow[];
         setBrands(list);
-        setBrandId((current) => current || list[0]?.id || "");
+        setBrandId(list[0]?.id || "");
       })
       .catch(() => toast.error("Failed to load templates"))
       .finally(() => setListLoading(false));
   }, [open]);
 
+  const canCreate = mode === "regular" || Boolean(brandId);
+
   async function create() {
-    if (!brandId) {
+    if (mode === "template" && !brandId) {
       toast.error("Create a template first");
       return;
     }
@@ -56,7 +64,10 @@ export function AddFromBrandDialog({
     const res = await fetch(`/api/projects/${projectId}/variations`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brandId, name: name.trim() || undefined }),
+      body: JSON.stringify({
+        name: name.trim() || undefined,
+        ...(mode === "template" ? { brandId } : { brandId: null }),
+      }),
     });
     setLoading(false);
     if (!res.ok) {
@@ -73,48 +84,80 @@ export function AddFromBrandDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add from template</DialogTitle>
+          <DialogTitle>Add another variation</DialogTitle>
           <DialogDescription>
-            Clone this game’s latest gameplay and live-link a personal template for logos, CTAs, and store URLs.
+            Start from this game as-is, or stamp a personal template for logos, CTAs, and store URLs.
           </DialogDescription>
         </DialogHeader>
-        {listLoading ? (
-          <p className="text-sm text-muted">Loading templates...</p>
-        ) : brands.length === 0 ? (
-          <p className="text-sm text-muted">
-            No templates yet. Open Templates, save a kit, then come back.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label>Template</Label>
-              <select
-                className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-                value={brandId}
-                onChange={(e) => setBrandId(e.target.value)}
-              >
-                {brands.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <Label>Variation name (optional)</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Defaults to the template name"
-              />
-            </div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setMode("regular")}
+              className={cn(
+                "rounded-lg border px-3 py-3 text-left transition",
+                mode === "regular" ? "border-accent" : "border-border hover:border-muted",
+              )}
+            >
+              <div className="text-sm font-medium">Regular</div>
+              <div className="mt-1 text-xs text-muted">This game as-is. No template.</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("template")}
+              className={cn(
+                "rounded-lg border px-3 py-3 text-left transition",
+                mode === "template" ? "border-accent" : "border-border hover:border-muted",
+              )}
+            >
+              <div className="text-sm font-medium">From a template</div>
+              <div className="mt-1 text-xs text-muted">Live-link a kit you already saved.</div>
+            </button>
           </div>
-        )}
+
+          {mode === "template" ? (
+            listLoading ? (
+              <p className="text-sm text-muted">Loading templates...</p>
+            ) : brands.length === 0 ? (
+              <p className="text-sm text-muted">
+                No templates yet.{" "}
+                <Link href="/templates" className="text-accent underline">
+                  Create one
+                </Link>{" "}
+                then come back, or use Regular instead.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                <Label>Template</Label>
+                <select
+                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+                  value={brandId}
+                  onChange={(e) => setBrandId(e.target.value)}
+                >
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )
+          ) : null}
+
+          <div className="space-y-1">
+            <Label>Variation name (optional)</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={mode === "template" ? "Defaults to the template name" : "Untitled variation"}
+            />
+          </div>
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={create} disabled={loading || listLoading || brands.length === 0}>
+          <Button onClick={create} disabled={loading || (mode === "template" && (listLoading || !canCreate))}>
             {loading ? "Adding..." : "Create variation"}
           </Button>
         </DialogFooter>

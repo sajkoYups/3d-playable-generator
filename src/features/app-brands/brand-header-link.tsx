@@ -16,7 +16,7 @@ export function BrandHeaderLink() {
         active ? "text-foreground" : "text-muted",
       )}
     >
-      Brand
+      Brands
     </Link>
   );
 }

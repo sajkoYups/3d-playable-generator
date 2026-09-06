@@ -47,7 +47,9 @@ export function TeamSettings({
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
+  const [companyName, setCompanyName] = useState(organizationName);
   const [loading, setLoading] = useState(false);
+  const [savingName, setSavingName] = useState(false);
 
   async function onInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -93,13 +95,63 @@ export function TeamSettings({
     router.refresh();
   }
 
+  async function onSaveName(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingName(true);
+    try {
+      const res = await fetch("/api/team", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: companyName }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(body.error || "Could not save company name");
+        return;
+      }
+      toast.success("Company saved");
+      router.refresh();
+    } finally {
+      setSavingName(false);
+    }
+  }
+
   return (
     <div className="space-y-8">
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">Company</p>
-        <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight">{organizationName}</h1>
+        <h2 className="font-[family-name:var(--font-display)] text-2xl tracking-tight">{organizationName}</h2>
         <p className="mt-1 text-sm text-muted">Everyone here shares the same projects, templates, and brands.</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Company details</CardTitle>
+          <CardDescription>
+            {canManage ? "This name is visible to everyone in the company." : "Only owners and admins can change the company name."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {canManage ? (
+            <form onSubmit={onSaveName} className="flex max-w-md flex-col gap-4 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1 space-y-2">
+                <Label htmlFor="company-name">Name</Label>
+                <Input
+                  id="company-name"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" disabled={savingName}>
+                {savingName ? "Saving..." : "Save"}
+              </Button>
+            </form>
+          ) : (
+            <p className="text-sm">{organizationName}</p>
+          )}
+        </CardContent>
+      </Card>
 
       {canManage ? (
         <Card>

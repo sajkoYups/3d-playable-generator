@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { Copy, FolderOpen, Plus, Search, Trash2, Pencil } from "lucide-react";
@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateProjectDialog } from "@/features/projects/create-project-dialog";
-import { TEMPLATE_BLURBS, TEMPLATE_NAMES } from "@/lib/project-defaults";
-import type { TemplateId } from "@/types/project";
+import { TEMPLATE_NAMES } from "@/lib/project-defaults";
+import { is2DTemplate, type TemplateId } from "@/types/project";
 import { TemplateGlyph } from "@/features/projects/template-glyph";
 
 type ProjectRow = {
@@ -42,6 +42,15 @@ export function ProjectsDashboard({
     if (!q) return projects;
     return projects.filter((p) => p.name.toLowerCase().includes(q));
   }, [projects, query]);
+
+  const games3D = useMemo(
+    () => filtered.filter((p) => !is2DTemplate(p.templateId)),
+    [filtered],
+  );
+  const games2D = useMemo(
+    () => filtered.filter((p) => is2DTemplate(p.templateId)),
+    [filtered],
+  );
 
   async function duplicateProject(id: string) {
     const res = await fetch(`/api/projects/${id}/duplicate`, { method: "POST" });
@@ -80,13 +89,13 @@ export function ProjectsDashboard({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">All games</p>
           <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight">Playable projects</h1>
           <p className="text-sm text-muted">
-            All of your games. Open one to see that project’s variations.
+            Starter kits plus anything you create. Open a project to see its variations.
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
@@ -121,69 +130,143 @@ export function ProjectsDashboard({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((project) => (
-            <Card
-              key={project.id}
-              className="cursor-pointer overflow-hidden"
-              onClick={() => router.push(`/projects/${project.id}`)}
-            >
-              <div className="relative h-36 bg-elevated">
-                <TemplateGlyph templateId={project.templateId as TemplateId} />
-              </div>
-              <CardHeader>
-                {renamingId === project.id ? (
-                  <form
-                    onClick={(e) => e.stopPropagation()}
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void renameProject(project.id);
-                    }}
-                  >
-                    <Input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} autoFocus />
-                  </form>
-                ) : (
-                  <CardTitle className="truncate">{project.name}</CardTitle>
-                )}
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-card text-muted">Project</Badge>
-                  <Badge>{TEMPLATE_NAMES[project.templateId as TemplateId] || project.templateId}</Badge>
-                  <span className="text-[11px] text-muted">
-                    {project.variationCount} {project.variationCount === 1 ? "variation" : "variations"}
-                  </span>
-                  <span className="text-[11px] text-muted">
-                    {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
-                  </span>
-                </div>
-              </CardHeader>
-              <CardFooter className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
-                <Button size="sm" onClick={() => router.push(`/projects/${project.id}`)}>
-                  <FolderOpen className="h-3.5 w-3.5" />
-                  Open
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
+        <div className="space-y-10">
+          {games3D.length > 0 ? (
+            <ProjectSection title="3D games" hint="Scene-based engines">
+              {games3D.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  renamingId={renamingId}
+                  renameValue={renameValue}
+                  onRenameValueChange={setRenameValue}
+                  onRenameSubmit={() => void renameProject(project.id)}
+                  onOpen={() => router.push(`/projects/${project.id}`)}
+                  onStartRename={() => {
                     setRenamingId(project.id);
                     setRenameValue(project.name);
                   }}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => duplicateProject(project.id)}>
-                  <Copy className="h-3.5 w-3.5" />
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => deleteProject(project.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+                  onDuplicate={() => void duplicateProject(project.id)}
+                  onDelete={() => void deleteProject(project.id)}
+                />
+              ))}
+            </ProjectSection>
+          ) : null}
+          {games2D.length > 0 ? (
+            <ProjectSection title="2D games" hint="Canvas engines">
+              {games2D.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  renamingId={renamingId}
+                  renameValue={renameValue}
+                  onRenameValueChange={setRenameValue}
+                  onRenameSubmit={() => void renameProject(project.id)}
+                  onOpen={() => router.push(`/projects/${project.id}`)}
+                  onStartRename={() => {
+                    setRenamingId(project.id);
+                    setRenameValue(project.name);
+                  }}
+                  onDuplicate={() => void duplicateProject(project.id)}
+                  onDelete={() => void deleteProject(project.id)}
+                />
+              ))}
+            </ProjectSection>
+          ) : null}
         </div>
       )}
 
       <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
+  );
+}
+
+function ProjectSection({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="font-[family-name:var(--font-display)] text-xl tracking-tight">{title}</h2>
+        <p className="text-sm text-muted">{hint}</p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+    </section>
+  );
+}
+
+function ProjectCard({
+  project,
+  renamingId,
+  renameValue,
+  onRenameValueChange,
+  onRenameSubmit,
+  onOpen,
+  onStartRename,
+  onDuplicate,
+  onDelete,
+}: {
+  project: ProjectRow;
+  renamingId: string | null;
+  renameValue: string;
+  onRenameValueChange: (value: string) => void;
+  onRenameSubmit: () => void;
+  onOpen: () => void;
+  onStartRename: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <Card className="cursor-pointer overflow-hidden" onClick={onOpen}>
+      <div className="relative h-36 bg-elevated">
+        <TemplateGlyph templateId={project.templateId as TemplateId} />
+      </div>
+      <CardHeader>
+        {renamingId === project.id ? (
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault();
+              onRenameSubmit();
+            }}
+          >
+            <Input value={renameValue} onChange={(e) => onRenameValueChange(e.target.value)} autoFocus />
+          </form>
+        ) : (
+          <CardTitle className="truncate">{project.name}</CardTitle>
+        )}
+        <div className="flex items-center gap-2">
+          <Badge className="bg-card text-muted">Project</Badge>
+          <Badge>{TEMPLATE_NAMES[project.templateId as TemplateId] || project.templateId}</Badge>
+          <span className="text-[11px] text-muted">
+            {project.variationCount} {project.variationCount === 1 ? "variation" : "variations"}
+          </span>
+          <span className="text-[11px] text-muted">
+            {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
+          </span>
+        </div>
+      </CardHeader>
+      <CardFooter className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+        <Button size="sm" onClick={onOpen}>
+          <FolderOpen className="h-3.5 w-3.5" />
+          Open
+        </Button>
+        <Button size="sm" variant="outline" onClick={onStartRename}>
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+        <Button size="sm" variant="outline" onClick={onDuplicate}>
+          <Copy className="h-3.5 w-3.5" />
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDelete}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }

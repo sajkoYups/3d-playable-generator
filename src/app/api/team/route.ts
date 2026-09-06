@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireOrgApi } from "@/lib/api-auth";
+import { requireOrgApi, requireOrgManagerApi } from "@/lib/api-auth";
 import { getOrgMembership } from "@/lib/org";
 import { inviteUrl } from "@/lib/platform";
 
@@ -47,4 +48,26 @@ export async function GET() {
       url: inviteUrl(invite.id),
     })),
   });
+}
+
+const PatchSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+
+export async function PATCH(req: NextRequest) {
+  const authz = await requireOrgManagerApi();
+  if (!authz.ok) return authz.response;
+
+  const parsed = PatchSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Enter a company name" }, { status: 400 });
+  }
+
+  const organization = await prisma.organization.update({
+    where: { id: authz.organizationId },
+    data: { name: parsed.data.name },
+    select: { id: true, name: true, slug: true },
+  });
+
+  return NextResponse.json({ organization });
 }

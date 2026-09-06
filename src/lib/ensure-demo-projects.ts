@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { createDefaultProjectData, TEMPLATE_NAMES } from "@/lib/project-defaults";
+import { createDefaultProjectData, defaultPieceImages, TEMPLATE_NAMES } from "@/lib/project-defaults";
 import type { TemplateId } from "@/types/project";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -92,6 +92,31 @@ export async function ensureDemoProjects(organizationId: string, userId: string)
           data: {
             projectData: JSON.parse(raw.replaceAll(TRIPLE_MATCH_DISPLAY_FROM, TRIPLE_MATCH_DISPLAY_TO)) as Prisma.InputJsonValue,
           },
+        });
+      }
+    }
+
+    const match3DemoIds = (demoIdsByTemplate.get("match-3") ?? []).filter((id) => !extra.has(id));
+    if (match3DemoIds.length > 0) {
+      const variations = await tx.variation.findMany({
+        where: { projectId: { in: match3DemoIds } },
+        select: { id: true, projectData: true },
+      });
+      const nextPieces = defaultPieceImages();
+      for (const variation of variations) {
+        const raw = JSON.stringify(variation.projectData);
+        const swappedHand = raw.replaceAll("/demo-assets/hand.svg", "/demo-assets/pointer-hand.svg");
+        const data = JSON.parse(swappedHand) as {
+          gameplay?: { pieceImages?: string[] };
+        };
+        const pieces = data.gameplay?.pieceImages ?? [];
+        const needsPieces =
+          pieces.some((url) => url.includes("/demo-assets/pieces/")) || !pieces.some(Boolean);
+        if (needsPieces && data.gameplay) data.gameplay.pieceImages = nextPieces;
+        if (!needsPieces && swappedHand === raw) continue;
+        await tx.variation.update({
+          where: { id: variation.id },
+          data: { projectData: data as Prisma.InputJsonValue },
         });
       }
     }

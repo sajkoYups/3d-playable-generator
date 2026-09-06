@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="body" x1=".2" y1=".1" x2=".8" y2=".9"><stop stop-color="#ff7aa9"/><stop offset=".48" stop-color="#f73778"/><stop offset="1" stop-color="#bf1554"/></linearGradient>
+    <radialGradient id="shine" cx=".34" cy=".25" r=".55"><stop stop-color="#fff" stop-opacity=".9"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <filter id="shadow" x="-30%" y="-25%" width="160%" height="170%"><feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#611135" flood-opacity=".45"/></filter>
+  </defs>
+  <path filter="url(#shadow)" fill="url(#body)" stroke="#ff8cb5" stroke-width="5" d="M128 222C110 205 48 160 34 119 20 77 47 42 85 42c21 0 35 11 43 25 8-14 22-25 43-25 38 0 65 35 51 77-14 41-76 86-94 103Z"/>
+  <path fill="url(#shine)" d="M59 100c-2-25 15-42 37-39 13 2 19 12 13 20-8 10-27 7-35 28-5 13-14 8-15-9Z"/>
+</svg>

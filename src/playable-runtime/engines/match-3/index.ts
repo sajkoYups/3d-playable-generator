@@ -30,7 +30,7 @@ type CanvasOptions = {
 };
 
 const SIZE = 6;
-const COLORS = ["#f43f5e", "#38bdf8", "#a3e635", "#fbbf24", "#c084fc"];
+const COLORS = ["#f73778", "#11a9ed", "#75cf18", "#ffa51d", "#9a48ed"];
 const HUD_H_BOTH = 52;
 const HUD_H_SCORE = 36;
 const HUD_H_COINS = 48;

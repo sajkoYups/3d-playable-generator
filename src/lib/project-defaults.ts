@@ -38,11 +38,11 @@ export const TEMPLATE_BLURBS: Record<TemplateId, string> = {
 };
 
 export const MATCH3_PIECE_META = [
-  { label: "Red", color: "#f43f5e", url: "/demo-assets/pieces/piece-red.svg" },
-  { label: "Blue", color: "#38bdf8", url: "/demo-assets/pieces/piece-blue.svg" },
-  { label: "Green", color: "#a3e635", url: "/demo-assets/pieces/piece-green.svg" },
-  { label: "Yellow", color: "#fbbf24", url: "/demo-assets/pieces/piece-yellow.svg" },
-  { label: "Purple", color: "#c084fc", url: "/demo-assets/pieces/piece-purple.svg" },
+  { label: "Heart", color: "#f73778", url: "/demo-assets/new%20pieces/heart-pink.svg" },
+  { label: "Diamond", color: "#11a9ed", url: "/demo-assets/new%20pieces/diamond-blue.svg" },
+  { label: "Square", color: "#75cf18", url: "/demo-assets/new%20pieces/square-green.svg" },
+  { label: "Star", color: "#ffa51d", url: "/demo-assets/new%20pieces/star-orange.svg" },
+  { label: "Circle", color: "#9a48ed", url: "/demo-assets/new%20pieces/circle-purple.svg" },
 ] as const;
 
 export function defaultPieceImages(): string[] {
@@ -57,7 +57,7 @@ export const DEMO_URLS = {
   bgStartLandscape: "/demo-assets/bg-start-landscape.svg",
   bgEndPortrait: "/demo-assets/bg-end-portrait.svg",
   bgEndLandscape: "/demo-assets/bg-end-landscape.svg",
-  hand: "/demo-assets/hand.svg",
+  hand: "/demo-assets/pointer-hand.svg",
 } as const;
 
 function textEl(
@@ -563,10 +563,16 @@ function createEndScreen(): ProjectData["endScreen"] {
 function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"] {
   return {
     allowBackgroundReplace: true,
-    background: {
-      portrait: canvasBackground("gradient", "#12141a", "#1c1f2a", "#12141a"),
-      landscape: canvasBackground("gradient", "#12141a", "#1c1f2a", "#12141a"),
-    },
+    background:
+      templateId === "match-3"
+        ? {
+            portrait: canvasBackground("gradient", "#12143a", "#1e2470", "#0e1028"),
+            landscape: canvasBackground("gradient", "#12143a", "#1e2470", "#0e1028"),
+          }
+        : {
+            portrait: canvasBackground("gradient", "#12141a", "#1c1f2a", "#12141a"),
+            landscape: canvasBackground("gradient", "#12141a", "#1c1f2a", "#12141a"),
+          },
     stageBackground:
       templateId === "parking-jam" || templateId === "tower-defense"
         ? {
@@ -583,10 +589,15 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
                 portrait: canvasBackground("gradient", "#1c2430", "#9aafc2", "#1a2230"),
                 landscape: canvasBackground("gradient", "#1c2430", "#9aafc2", "#1a2230"),
               }
-          : {
-              portrait: canvasBackground("solid", "#12141a", "#12141a", "#0a0b10"),
-              landscape: canvasBackground("solid", "#12141a", "#12141a", "#0a0b10"),
-            },
+          : templateId === "match-3"
+            ? {
+                portrait: canvasBackground("gradient", "#12143a", "#1e2470", "#0e1028"),
+                landscape: canvasBackground("gradient", "#12143a", "#1e2470", "#0e1028"),
+              }
+            : {
+                portrait: canvasBackground("solid", "#12141a", "#12141a", "#0a0b10"),
+                landscape: canvasBackground("solid", "#12141a", "#12141a", "#0a0b10"),
+              },
     camera:
       templateId === "tower-defense"
         ? {

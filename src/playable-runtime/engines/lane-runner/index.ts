@@ -728,7 +728,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
 
   return {
     id: "lane-runner",
-    name: "Lane Runner",
+    name: "Endless Car Driving",
     initialize(init) {
       ctx = init;
       const extra = init as EngineInitContext & {
@@ -741,10 +741,10 @@ export function createLaneRunnerEngine(): Playable3DEngine {
         obstacleSet: ["suv", "taxi", "truck", "cone"],
         environmentTheme: "city",
         laneCount: 3,
-        startSpeed: 8,
-        speedRamp: 0.6,
+        startSpeed: 4,
+        speedRamp: 0.5,
         laneSwitchSpeed: 10,
-        winDistance: 180,
+        winDistance: 160,
         roadTextureUrl: "",
         grassTextureUrl: "",
         coinImageUrl: "",

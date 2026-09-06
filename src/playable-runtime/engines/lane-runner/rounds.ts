@@ -1,11 +1,11 @@
 import type { LaneRunnerConfig, LaneRunnerRound } from "@/types/project";
 
-const DIST = [80, 100, 120, 140, 160, 180, 200, 220, 240];
-const SPEED = [7, 7.5, 8, 8.5, 9, 9.5, 10, 11, 12];
-const RAMP = [0.4, 0.45, 0.5, 0.55, 0.6, 0.7, 0.8, 0.9, 1];
+const DIST = [160, 100, 120, 140, 160, 180, 200, 220, 240];
+const SPEED = [4, 7.5, 8, 8.5, 9, 9.5, 10, 11, 12];
+const RAMP = [0.5, 0.45, 0.5, 0.55, 0.6, 0.7, 0.8, 0.9, 1];
 const COINS = [40, 45, 50, 55, 60, 70, 80, 90, 100];
 const MAX_LANE_ROUNDS = 9;
-export const DEFAULT_LANE_COINS = 50;
+export const DEFAULT_LANE_COINS = 40;
 
 function roundCoins(value: number | undefined) {
   if (!Number.isFinite(value)) return DEFAULT_LANE_COINS;
@@ -29,9 +29,9 @@ function clampRamp(n: number | undefined, fallback: number) {
 
 export function cloneLaneRound(src: LaneRunnerRound): LaneRunnerRound {
   return {
-    winDistance: clampDist(src.winDistance, 180),
-    startSpeed: clampSpeed(src.startSpeed, 8),
-    speedRamp: clampRamp(src.speedRamp, 0.6),
+    winDistance: clampDist(src.winDistance, 160),
+    startSpeed: clampSpeed(src.startSpeed, 4),
+    speedRamp: clampRamp(src.speedRamp, 0.5),
     coins: roundCoins(src.coins),
   };
 }
@@ -39,9 +39,9 @@ export function cloneLaneRound(src: LaneRunnerRound): LaneRunnerRound {
 export function defaultLaneRoundAt(index: number): LaneRunnerRound {
   const i = Math.max(0, Math.min(index, DIST.length - 1));
   return {
-    winDistance: DIST[i] ?? 180,
-    startSpeed: SPEED[i] ?? 8,
-    speedRamp: RAMP[i] ?? 0.6,
+    winDistance: DIST[i] ?? 160,
+    startSpeed: SPEED[i] ?? 4,
+    speedRamp: RAMP[i] ?? 0.5,
     coins: COINS[i] ?? DEFAULT_LANE_COINS,
   };
 }
@@ -52,9 +52,9 @@ export function defaultLaneRoundsPack(): LaneRunnerRound[] {
 
 function fallbackRound(cfg: LaneRunnerConfig): LaneRunnerRound {
   return {
-    winDistance: clampDist(cfg.winDistance, 180),
-    startSpeed: clampSpeed(cfg.startSpeed, 8),
-    speedRamp: clampRamp(cfg.speedRamp, 0.6),
+    winDistance: clampDist(cfg.winDistance, 160),
+    startSpeed: clampSpeed(cfg.startSpeed, 4),
+    speedRamp: clampRamp(cfg.speedRamp, 0.5),
     coins: DEFAULT_LANE_COINS,
   };
 }
@@ -77,7 +77,7 @@ function applyLaneRoundCount(cfg: LaneRunnerConfig, count: number) {
   // Existing packs unify to round 1; brand-new packs use cfg / factory default.
   const sharedDist = clampDist(
     prev.length ? (prev[0]?.winDistance ?? cfg.winDistance) : cfg.winDistance,
-    180,
+    160,
   );
   cfg.rounds = pack.slice(0, n).map((p, i) => {
     const existing = prev[i];
@@ -114,7 +114,7 @@ export function syncLaneRound(cfg: LaneRunnerConfig, index: number) {
 
 /** Apply the same win distance to every round (shared length for the whole pack). */
 export function propagateLaneWinDistance(cfg: LaneRunnerConfig, winDistance: number) {
-  const dist = clampDist(winDistance, 180);
+  const dist = clampDist(winDistance, 160);
   ensureLaneRounds(cfg);
   for (const round of cfg.rounds) round.winDistance = dist;
   cfg.winDistance = dist;

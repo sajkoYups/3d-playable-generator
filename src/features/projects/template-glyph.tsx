@@ -3,7 +3,20 @@ import type { UpcomingGameId } from "@/features/projects/upcoming-games";
 
 export type GlyphId = TemplateId | UpcomingGameId;
 
+const GAME_COVERS: Partial<Record<GlyphId, string>> = {
+  "lane-runner": "/game-covers/endless-car-runner-playable.png",
+  "parking-jam": "/game-covers/parking-jam-3d.png",
+};
+
 export function TemplateGlyph({ templateId }: { templateId: GlyphId }) {
+  const cover = GAME_COVERS[templateId];
+  if (cover) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- dashboard/export cards, not remote LCP
+      <img src={cover} alt="" className="h-full w-full object-cover" aria-hidden />
+    );
+  }
+
   return (
     <svg viewBox="0 0 240 120" className="h-full w-full" aria-hidden>
       {templateId === "stack-tower" && (
@@ -21,25 +34,6 @@ export function TemplateGlyph({ templateId }: { templateId: GlyphId }) {
           <circle cx="120" cy="58" r="12" fill="#f4c430" />
           <circle cx="160" cy="58" r="12" fill="#7c5cff" />
           <rect x="70" y="84" width="100" height="10" rx="3" fill="#1c1f2a" />
-        </>
-      )}
-      {templateId === "lane-runner" && (
-        <>
-          <rect x="70" y="10" width="8" height="100" fill="#f3ede0" opacity="0.3" />
-          <rect x="116" y="10" width="8" height="100" fill="#f3ede0" opacity="0.3" />
-          <rect x="162" y="10" width="8" height="100" fill="#f3ede0" opacity="0.3" />
-          <rect x="108" y="78" width="24" height="28" rx="4" fill="#e07a3d" />
-          <rect x="70" y="28" width="20" height="16" rx="2" fill="#e85d4c" />
-          <circle cx="166" cy="40" r="8" fill="#e0b04a" />
-        </>
-      )}
-      {templateId === "parking-jam" && (
-        <>
-          <rect x="40" y="20" width="160" height="80" fill="#2a2e3a" />
-          <rect x="50" y="50" width="50" height="18" rx="3" fill="#e07a3d" />
-          <rect x="110" y="28" width="18" height="54" rx="3" fill="#2bb5a0" />
-          <rect x="140" y="60" width="46" height="18" rx="3" fill="#7c5cff" />
-          <rect x="188" y="48" width="12" height="24" fill="#e07a3d" />
         </>
       )}
       {templateId === "tower-defense" && (

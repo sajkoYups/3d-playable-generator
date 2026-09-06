@@ -20,7 +20,7 @@ import { defaultTdRoundsPack } from "@/playable-runtime/engines/tower-defense/ro
 export const TEMPLATE_NAMES: Record<TemplateId, string> = {
   "stack-tower": "Stack Tower",
   "triple-match": "Triple Match 3D",
-  "lane-runner": "Lane Runner",
+  "lane-runner": "Endless Car Driving",
   "parking-jam": "Parking Jam",
   "tower-defense": "Tower Defense",
   "water-sort": "Water Sort",
@@ -605,14 +605,14 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
             }
           : templateId === "lane-runner"
             ? {
-                portrait: { fov: 48, position: { x: 0, y: 5.2, z: 8.5 }, target: { x: 0, y: 0.4, z: -6 } },
-                landscape: { fov: 42, position: { x: 0, y: 4.2, z: 8 }, target: { x: 0, y: 0.3, z: -6 } },
+                portrait: { fov: 90, position: { x: 0, y: 5.2, z: 8.5 }, target: { x: 0, y: 0.4, z: -6 } },
+                landscape: { fov: 90, position: { x: 0, y: 5.2, z: 8.5 }, target: { x: 0, y: 0.4, z: -6 } },
               }
             : {
                 portrait: { fov: 50, position: { x: 0, y: 8, z: 12 }, target: { x: 0, y: 2, z: 0 } },
                 landscape: { fov: 42, position: { x: 0, y: 6, z: 10 }, target: { x: 0, y: 1.6, z: 0 } },
               },
-    lighting: templateId === "lane-runner" ? "overcast" : "studio",
+    lighting: templateId === "lane-runner" ? "sunset" : "studio",
     environment: "gradient-sky",
     audio: { musicUrl: "", tapUrl: "", winUrl: "", loseUrl: "", playFromStart: false },
     stackTower: {
@@ -638,10 +638,10 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       obstacleSet: ["suv", "taxi", "truck", "cone"],
       environmentTheme: "city",
       laneCount: 3,
-      startSpeed: 8,
-      speedRamp: 0.6,
+      startSpeed: 4,
+      speedRamp: 0.5,
       laneSwitchSpeed: 10,
-      winDistance: 180,
+      winDistance: 160,
       roadTextureUrl: "",
       grassTextureUrl: "",
       coinImageUrl: "",

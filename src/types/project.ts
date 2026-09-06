@@ -288,10 +288,10 @@ export const TripleMatchConfigSchema = z.object({
 export type TripleMatchConfig = z.infer<typeof TripleMatchConfigSchema>;
 
 export const LaneRunnerRoundSchema = z.object({
-  winDistance: z.number().min(40).max(800).default(180),
-  startSpeed: z.number().min(4).max(20).default(8),
-  speedRamp: z.number().min(0).max(4).default(0.6),
-  coins: z.number().int().min(0).max(9999).default(50),
+  winDistance: z.number().min(40).max(800).default(160),
+  startSpeed: z.number().min(4).max(20).default(4),
+  speedRamp: z.number().min(0).max(4).default(0.5),
+  coins: z.number().int().min(0).max(9999).default(40),
 });
 export type LaneRunnerRound = z.infer<typeof LaneRunnerRoundSchema>;
 
@@ -300,11 +300,11 @@ export const LaneRunnerConfigSchema = z.object({
   obstacleSet: z.array(z.string()).default(["suv", "taxi", "truck", "cone"]),
   environmentTheme: z.enum(["desert", "city", "neon"]).default("city"),
   laneCount: z.number().int().min(3).max(5).default(3),
-  startSpeed: z.number().min(4).max(20).default(8),
-  speedRamp: z.number().min(0).max(4).default(0.6),
+  startSpeed: z.number().min(4).max(20).default(4),
+  speedRamp: z.number().min(0).max(4).default(0.5),
   /** How fast the car slides between lanes when swiping (higher = snappier). */
   laneSwitchSpeed: z.number().min(4).max(24).default(10),
-  winDistance: z.number().min(40).max(800).default(180),
+  winDistance: z.number().min(40).max(800).default(160),
   roadTextureUrl: z.string().default(""),
   grassTextureUrl: z.string().default(""),
   coinImageUrl: z.string().default(""),

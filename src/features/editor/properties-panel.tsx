@@ -909,7 +909,7 @@ function GameplaySettings() {
       {templateId === "lane-runner" && (
         <>
           <Separator />
-          <h4 className="text-sm font-medium">Lane Runner</h4>
+          <h4 className="text-sm font-medium">Endless Car Driving</h4>
           {(() => {
             const runner = data.gameplay.laneRunner;
             const rounds = runner.rounds.length

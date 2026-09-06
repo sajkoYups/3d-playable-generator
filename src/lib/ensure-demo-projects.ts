@@ -18,6 +18,17 @@ function demoName(templateId: TemplateId) {
   return `${TEMPLATE_NAMES[templateId]} Demo`;
 }
 
+const DEMO_NAME_ALIASES: Partial<Record<TemplateId, readonly string[]>> = {
+  "lane-runner": ["Lane Runner Demo"],
+};
+
+function isDemoProjectName(templateId: string, name: string) {
+  const id = templateId as TemplateId;
+  if (!TEMPLATE_NAMES[id]) return false;
+  if (name === demoName(id)) return true;
+  return DEMO_NAME_ALIASES[id]?.includes(name) ?? false;
+}
+
 export async function ensureDemoProjects(organizationId: string, userId: string) {
   await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${DEMO_LOCK_NAMESPACE}, hashtext(${organizationId}))`;
@@ -31,15 +42,18 @@ export async function ensureDemoProjects(organizationId: string, userId: string)
     const extraIds: string[] = [];
     const present = new Set<string>();
     const demoIdsByTemplate = new Map<string, string[]>();
+    const renameIds: { id: string; name: string }[] = [];
 
     for (const project of existing) {
-      const expectedName = TEMPLATE_NAMES[project.templateId as TemplateId]
-        ? demoName(project.templateId as TemplateId)
-        : null;
-      if (expectedName && project.name === expectedName) {
+      const tid = project.templateId as TemplateId;
+      if (isDemoProjectName(project.templateId, project.name)) {
         const ids = demoIdsByTemplate.get(project.templateId) ?? [];
         ids.push(project.id);
         demoIdsByTemplate.set(project.templateId, ids);
+        const nextName = demoName(tid);
+        if (project.name !== nextName) {
+          renameIds.push({ id: project.id, name: nextName });
+        }
       } else {
         present.add(project.templateId);
       }
@@ -52,6 +66,12 @@ export async function ensureDemoProjects(organizationId: string, userId: string)
 
     if (extraIds.length > 0) {
       await tx.project.deleteMany({ where: { id: { in: extraIds } } });
+    }
+
+    const extra = new Set(extraIds);
+    for (const row of renameIds) {
+      if (extra.has(row.id)) continue;
+      await tx.project.update({ where: { id: row.id }, data: { name: row.name } });
     }
 
     for (const templateId of DEMO_TEMPLATES) {

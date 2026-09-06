@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { createDefaultProjectData, defaultPieceImages, TEMPLATE_NAMES } from "@/lib/project-defaults";
+import { createParkingJamBirdsEyeProjectData, defaultPieceImages, defaultStarterVariations, PARKING_JAM_BIRDS_EYE_VARIATION_NAME, TEMPLATE_NAMES } from "@/lib/project-defaults";
 import type { TemplateId } from "@/types/project";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -123,9 +123,6 @@ export async function ensureDemoProjects(organizationId: string, userId: string)
 
     for (const templateId of DEMO_TEMPLATES) {
       if (present.has(templateId)) continue;
-      const projectData = createDefaultProjectData(templateId);
-      projectData.links.appStoreUrl = "https://apps.apple.com/app/id000000000";
-      projectData.links.googlePlayUrl = "https://play.google.com/store/apps/details?id=com.example.playable";
       await tx.project.create({
         data: {
           organizationId,
@@ -134,13 +131,38 @@ export async function ensureDemoProjects(organizationId: string, userId: string)
           defaultOrientation: "portrait",
           members: { create: { userId, role: "owner" } },
           variations: {
-            create: {
-              name: "Default",
-              projectData: projectData as Prisma.InputJsonValue,
-              status: "ready",
-              overrides: {},
-            },
+            create: defaultStarterVariations(templateId).map((variation) => {
+              variation.projectData.links.appStoreUrl = "https://apps.apple.com/app/id000000000";
+              variation.projectData.links.googlePlayUrl = "https://play.google.com/store/apps/details?id=com.example.playable";
+              return {
+                name: variation.name,
+                projectData: variation.projectData as Prisma.InputJsonValue,
+                status: "ready" as const,
+                overrides: {},
+              };
+            }),
           },
+        },
+      });
+    }
+
+    const parkingJamDemoIds = (demoIdsByTemplate.get("parking-jam") ?? []).filter((id) => !extra.has(id));
+    for (const projectId of parkingJamDemoIds) {
+      const existing = await tx.variation.findMany({
+        where: { projectId },
+        select: { name: true },
+      });
+      if (existing.some((row) => row.name === PARKING_JAM_BIRDS_EYE_VARIATION_NAME)) continue;
+      const projectData = createParkingJamBirdsEyeProjectData();
+      projectData.links.appStoreUrl = "https://apps.apple.com/app/id000000000";
+      projectData.links.googlePlayUrl = "https://play.google.com/store/apps/details?id=com.example.playable";
+      await tx.variation.create({
+        data: {
+          projectId,
+          name: PARKING_JAM_BIRDS_EYE_VARIATION_NAME,
+          projectData: projectData as Prisma.InputJsonValue,
+          status: "ready",
+          overrides: {},
         },
       });
     }

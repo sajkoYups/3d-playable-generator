@@ -778,3 +778,31 @@ export function createDefaultProjectData(templateId: TemplateId): ProjectData {
     endScreen: createEndScreen(),
   };
 }
+
+export const PARKING_JAM_BIRDS_EYE_CAMERA = {
+  portrait: { fov: 14, position: { x: 0, y: 50.7, z: 17 }, target: { x: 0, y: 1.5, z: 0.8 } },
+  landscape: { fov: 16, position: { x: 0, y: 50.7, z: 14 }, target: { x: 0, y: 1.5, z: 0.8 } },
+} as const;
+
+export const PARKING_JAM_BIRDS_EYE_VARIATION_NAME = "Bird's eye";
+
+export function createParkingJamBirdsEyeProjectData(): ProjectData {
+  const data = createDefaultProjectData("parking-jam");
+  data.gameplay.camera = {
+    portrait: { ...PARKING_JAM_BIRDS_EYE_CAMERA.portrait, position: { ...PARKING_JAM_BIRDS_EYE_CAMERA.portrait.position }, target: { ...PARKING_JAM_BIRDS_EYE_CAMERA.portrait.target } },
+    landscape: { ...PARKING_JAM_BIRDS_EYE_CAMERA.landscape, position: { ...PARKING_JAM_BIRDS_EYE_CAMERA.landscape.position }, target: { ...PARKING_JAM_BIRDS_EYE_CAMERA.landscape.target } },
+  };
+  data.gameplay.lighting = "studio";
+  return data;
+}
+
+export function defaultStarterVariations(templateId: TemplateId): { name: string; projectData: ProjectData }[] {
+  const variations = [{ name: "Default", projectData: createDefaultProjectData(templateId) }];
+  if (templateId === "parking-jam") {
+    variations.push({
+      name: PARKING_JAM_BIRDS_EYE_VARIATION_NAME,
+      projectData: createParkingJamBirdsEyeProjectData(),
+    });
+  }
+  return variations;
+}

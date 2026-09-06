@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireOrgApi } from "@/lib/api-auth";
-import { createDefaultProjectData } from "@/lib/project-defaults";
+import { defaultStarterVariations } from "@/lib/project-defaults";
 import { ensureDemoProjects } from "@/lib/ensure-demo-projects";
 import { TemplateIdSchema, OrientationSchema, ProjectDataSchema } from "@/types/project";
 
@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
   if (!authz.ok) return authz.response;
 
   const body = CreateSchema.parse(await req.json());
-  const projectData = createDefaultProjectData(body.templateId);
-  ProjectDataSchema.parse(projectData);
+  const variations = defaultStarterVariations(body.templateId);
+  for (const variation of variations) ProjectDataSchema.parse(variation.projectData);
 
   const project = await prisma.project.create({
     data: {
@@ -61,12 +61,12 @@ export async function POST(req: NextRequest) {
         },
       },
       variations: {
-        create: {
-          name: "Default",
-          projectData,
-          status: "draft",
+        create: variations.map((variation) => ({
+          name: variation.name,
+          projectData: variation.projectData,
+          status: "draft" as const,
           overrides: {},
-        },
+        })),
       },
     },
     include: { variations: true },

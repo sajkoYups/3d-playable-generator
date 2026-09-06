@@ -8,7 +8,6 @@ const DEMO_TEMPLATES: TemplateId[] = [
   "triple-match",
   "lane-runner",
   "parking-jam",
-  "tower-defense",
   "water-sort",
   "match-3",
 ];

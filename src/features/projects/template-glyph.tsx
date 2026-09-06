@@ -1,6 +1,9 @@
 import type { TemplateId } from "@/types/project";
+import type { UpcomingGameId } from "@/features/projects/upcoming-games";
 
-export function TemplateGlyph({ templateId }: { templateId: TemplateId }) {
+export type GlyphId = TemplateId | UpcomingGameId;
+
+export function TemplateGlyph({ templateId }: { templateId: GlyphId }) {
   return (
     <svg viewBox="0 0 240 120" className="h-full w-full" aria-hidden>
       {templateId === "stack-tower" && (
@@ -47,6 +50,21 @@ export function TemplateGlyph({ templateId }: { templateId: TemplateId }) {
           <rect x="118" y="58" width="16" height="32" rx="3" fill="#8a6a48" />
           <circle cx="176" cy="42" r="8" fill="#c45a3a" />
           <circle cx="196" cy="70" r="10" fill="#5cbf5a" />
+        </>
+      )}
+      {templateId === "zombie-apocalypse" && (
+        <>
+          <rect x="20" y="18" width="200" height="90" rx="8" fill="#2a241c" />
+          <rect x="36" y="42" width="28" height="52" fill="#3a3228" />
+          <rect x="78" y="30" width="22" height="64" fill="#2e2820" />
+          <rect x="168" y="38" width="34" height="56" fill="#3a3228" />
+          <circle cx="198" cy="34" r="10" fill="#c4a050" opacity="0.85" />
+          <rect x="108" y="68" width="12" height="28" rx="3" fill="#6a8a4a" />
+          <circle cx="114" cy="62" r="7" fill="#7aa052" />
+          <rect x="132" y="74" width="11" height="22" rx="3" fill="#5c7a40" />
+          <circle cx="137" cy="70" r="6" fill="#6e9050" />
+          <rect x="92" y="80" width="10" height="16" rx="2" fill="#4e6a38" />
+          <circle cx="97" cy="76" r="5" fill="#628046" />
         </>
       )}
       {templateId === "water-sort" && (

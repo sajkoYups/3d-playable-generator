@@ -3,7 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
-import { Copy, FolderOpen, Plus, Search, Trash2, Pencil } from "lucide-react";
+import { Copy, FolderOpen, Lock, Plus, Search, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { CreateProjectDialog } from "@/features/projects/create-project-dialog";
 import { TEMPLATE_NAMES } from "@/lib/project-defaults";
 import { is2DTemplate, type TemplateId } from "@/types/project";
 import { TemplateGlyph } from "@/features/projects/template-glyph";
+import { UPCOMING_GAMES, type UpcomingGame } from "@/features/projects/upcoming-games";
 
 type ProjectRow = {
   id: string;
@@ -44,7 +45,7 @@ export function ProjectsDashboard({
   }, [projects, query]);
 
   const games3D = useMemo(
-    () => filtered.filter((p) => !is2DTemplate(p.templateId)),
+    () => filtered.filter((p) => p.templateId !== "tower-defense" && !is2DTemplate(p.templateId)),
     [filtered],
   );
   const games2D = useMemo(
@@ -119,62 +120,69 @@ export function ProjectsDashboard({
         />
       </div>
 
-      {filtered.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <p className="text-muted">No playable projects yet. Pick a game engine and start dressing a scene.</p>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Create project
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-10">
-          {games3D.length > 0 ? (
-            <ProjectSection title="3D games" hint="Scene-based engines">
-              {games3D.map((project) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  renamingId={renamingId}
-                  renameValue={renameValue}
-                  onRenameValueChange={setRenameValue}
-                  onRenameSubmit={() => void renameProject(project.id)}
-                  onOpen={() => router.push(`/projects/${project.id}`)}
-                  onStartRename={() => {
-                    setRenamingId(project.id);
-                    setRenameValue(project.name);
-                  }}
-                  onDuplicate={() => void duplicateProject(project.id)}
-                  onDelete={() => void deleteProject(project.id)}
-                />
-              ))}
-            </ProjectSection>
-          ) : null}
-          {games2D.length > 0 ? (
-            <ProjectSection title="2D games" hint="Canvas engines">
-              {games2D.map((project) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  renamingId={renamingId}
-                  renameValue={renameValue}
-                  onRenameValueChange={setRenameValue}
-                  onRenameSubmit={() => void renameProject(project.id)}
-                  onOpen={() => router.push(`/projects/${project.id}`)}
-                  onStartRename={() => {
-                    setRenamingId(project.id);
-                    setRenameValue(project.name);
-                  }}
-                  onDuplicate={() => void duplicateProject(project.id)}
-                  onDelete={() => void deleteProject(project.id)}
-                />
-              ))}
-            </ProjectSection>
-          ) : null}
-        </div>
-      )}
+      <div className="space-y-10">
+        {games3D.length === 0 && games2D.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+              <p className="text-muted">No playable projects yet. Pick a game engine and start dressing a scene.</p>
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Create project
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {games3D.length > 0 ? (
+              <ProjectSection title="3D games" hint="Scene-based engines">
+                {games3D.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    renamingId={renamingId}
+                    renameValue={renameValue}
+                    onRenameValueChange={setRenameValue}
+                    onRenameSubmit={() => void renameProject(project.id)}
+                    onOpen={() => router.push(`/projects/${project.id}`)}
+                    onStartRename={() => {
+                      setRenamingId(project.id);
+                      setRenameValue(project.name);
+                    }}
+                    onDuplicate={() => void duplicateProject(project.id)}
+                    onDelete={() => void deleteProject(project.id)}
+                  />
+                ))}
+              </ProjectSection>
+            ) : null}
+            {games2D.length > 0 ? (
+              <ProjectSection title="2D games" hint="Canvas engines">
+                {games2D.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    renamingId={renamingId}
+                    renameValue={renameValue}
+                    onRenameValueChange={setRenameValue}
+                    onRenameSubmit={() => void renameProject(project.id)}
+                    onOpen={() => router.push(`/projects/${project.id}`)}
+                    onStartRename={() => {
+                      setRenamingId(project.id);
+                      setRenameValue(project.name);
+                    }}
+                    onDuplicate={() => void duplicateProject(project.id)}
+                    onDelete={() => void deleteProject(project.id)}
+                  />
+                ))}
+              </ProjectSection>
+            ) : null}
+          </>
+        )}
+        <ProjectSection title="Upcoming games" hint="In the works">
+          {UPCOMING_GAMES.map((game) => (
+            <ComingSoonCard key={game.id} game={game} />
+          ))}
+        </ProjectSection>
+      </div>
 
       <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
@@ -198,6 +206,34 @@ function ProjectSection({
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
     </section>
+  );
+}
+
+function ComingSoonCard({ game }: { game: UpcomingGame }) {
+  return (
+    <Card
+      aria-disabled="true"
+      className="pointer-events-none select-none overflow-hidden border-dashed opacity-80"
+    >
+      <div className="relative h-36 bg-elevated">
+        <div className="opacity-40">
+          <TemplateGlyph templateId={game.id} />
+        </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-card/65">
+          <Lock className="h-5 w-5 text-muted" />
+          <span className="rounded-md border border-dashed border-muted bg-card px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
+            Coming soon
+          </span>
+        </div>
+      </div>
+      <CardHeader>
+        <CardTitle className="truncate text-muted">{game.name}</CardTitle>
+        <div className="flex items-center gap-2">
+          <Badge className="bg-card text-muted">Upcoming</Badge>
+          <span className="text-[11px] text-muted">{game.blurb}</span>
+        </div>
+      </CardHeader>
+    </Card>
   );
 }
 

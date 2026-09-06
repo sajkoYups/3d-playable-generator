@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Lock } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -17,9 +18,33 @@ import { Label } from "@/components/ui/label";
 import type { Orientation, TemplateId } from "@/types/project";
 import { TEMPLATE_BLURBS, TEMPLATE_NAMES } from "@/lib/project-defaults";
 import { TemplateGlyph } from "@/features/projects/template-glyph";
+import { UPCOMING_GAMES, type UpcomingGame } from "@/features/projects/upcoming-games";
 
-const TEMPLATES_3D: TemplateId[] = ["stack-tower", "triple-match", "lane-runner", "parking-jam", "tower-defense"];
+const TEMPLATES_3D: TemplateId[] = ["stack-tower", "triple-match", "lane-runner", "parking-jam"];
 const TEMPLATES_2D: TemplateId[] = ["water-sort", "match-3"];
+
+function UpcomingTemplateCard({ game }: { game: UpcomingGame }) {
+  return (
+    <div
+      aria-disabled="true"
+      className="pointer-events-none select-none overflow-hidden rounded-lg border border-dashed border-muted text-left opacity-70"
+    >
+      <div className="relative h-20 bg-elevated">
+        <div className="opacity-40">
+          <TemplateGlyph templateId={game.id} />
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center gap-1.5 bg-card/65">
+          <Lock className="h-3.5 w-3.5 text-muted" />
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">Coming soon</span>
+        </div>
+      </div>
+      <div className="p-3">
+        <div className="text-sm font-medium text-muted">{game.name}</div>
+        <div className="mt-1 text-xs text-muted">Coming soon</div>
+      </div>
+    </div>
+  );
+}
 
 function TemplateCard({
   id,
@@ -112,6 +137,14 @@ export function CreateProjectDialog({
             <div className="grid grid-cols-2 gap-2">
               {TEMPLATES_2D.map((id) => (
                 <TemplateCard key={id} id={id} selected={templateId === id} onSelect={setTemplateId} />
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Upcoming games</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {UPCOMING_GAMES.map((game) => (
+                <UpcomingTemplateCard key={game.id} game={game} />
               ))}
             </div>
           </div>

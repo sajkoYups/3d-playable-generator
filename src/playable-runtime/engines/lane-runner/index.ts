@@ -22,7 +22,7 @@ import { applyLivePresentation } from "@/playable-runtime/three/presentation";
 import { attachPointer } from "@/playable-runtime/three/input";
 import { blobShadow, createProceduralModel } from "@/playable-runtime/models/procedural";
 import {
-  cloneTexturedModel,
+  cloneTintedModel,
   fitObjectToMax,
   KENNEY_ASPHALT,
   KENNEY_GRASS_URL,
@@ -312,7 +312,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
     const inner = new Group();
     if (source) {
       try {
-        inner.add(cloneTexturedModel(source, host.tracker));
+        inner.add(cloneTintedModel(source, tint, host.tracker));
       } catch {
         inner.add(makeFallback(id, tint));
       }
@@ -322,8 +322,9 @@ export function createLaneRunnerEngine(): Playable3DEngine {
     fitObjectToMax(inner, size);
     if (facingZ && !isConeId(id)) yawObjectTowardXZ(inner, 0, -1);
     group.add(inner);
-    const shadow = blobShadow(host.tracker, isConeId(id) ? 0.28 : 0.42);
-    shadow.position.y = 0.02;
+    const shadow = blobShadow(host.tracker, isConeId(id) ? 0.32 : 0.5);
+    shadow.scale.set(isConeId(id) ? 1 : 1.4, 1, 0.82);
+    shadow.position.set(0.14, 0.02, 0.06);
     group.add(shadow);
     return group;
   }
@@ -509,7 +510,8 @@ export function createLaneRunnerEngine(): Playable3DEngine {
     const scroll = speed * dt * 4.2;
     distance += speed * dt * 4;
     const span = SEGMENT_COUNT * SEGMENT_LEN;
-    const front = PLAYER_Z + SEGMENT_LEN * 0.45;
+    const camZ = host?.camera.position.z ?? PLAYER_Z;
+    const front = camZ + SEGMENT_LEN * 0.5 + 14;
 
     for (const piece of [...roads, ...shoulders, ...props]) {
       piece.z += scroll;
@@ -623,7 +625,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
       syncHud();
 
       host.setBackgroundColor(theme.fog);
-      host.scene.fog = new Fog(theme.fog, 20, 56);
+      host.scene.fog = new Fog(theme.fog, 28, 72);
 
       const roadW = cfg.laneCount * LANE_GAP + 0.55;
       const painted = roadMap ? null : createLaneRoadTexture(cfg.laneCount);
@@ -632,9 +634,10 @@ export function createLaneRunnerEngine(): Playable3DEngine {
       roadTex.wrapS = RepeatWrapping;
       roadTex.wrapT = RepeatWrapping;
       roadTex.repeat.set(1, 4);
+      const wrapFront = host.camera.position.z + SEGMENT_LEN * 0.5 + 14;
 
       for (let i = 0; i < SEGMENT_COUNT; i++) {
-        const z = PLAYER_Z - 4 - i * SEGMENT_LEN;
+        const z = wrapFront - SEGMENT_LEN * 0.5 - i * SEGMENT_LEN;
         const geo = new PlaneGeometry(roadW, SEGMENT_LEN);
         host.tracker.track(geo);
         const mat = new MeshStandardMaterial({
@@ -667,10 +670,24 @@ export function createLaneRunnerEngine(): Playable3DEngine {
         shoulders.push({ group: shoulder, z });
       }
 
+      const coverGeo = new PlaneGeometry(40, 48);
+      host.tracker.track(coverGeo);
+      const coverMat = new MeshStandardMaterial({
+        color: theme.shoulder,
+        roughness: 1,
+        metalness: 0,
+      });
+      host.tracker.track(coverMat);
+      const cover = new Mesh(coverGeo, coverMat);
+      cover.rotation.x = -Math.PI / 2;
+      cover.position.set(0, -0.06, (host.camera.position.z + PLAYER_Z) * 0.5);
+      root.add(cover);
+
       const side = roadW / 2 + 1.7;
+      const wrapSpan = SEGMENT_COUNT * SEGMENT_LEN;
       for (let i = 0; i < 8; i++) {
         const prop = makeProp(theme, i);
-        const z = PLAYER_Z - 2 - (i % 4) * (SEGMENT_LEN / 1.35);
+        const z = wrapZ(PLAYER_Z - 2 - (i % 4) * (SEGMENT_LEN / 1.35), wrapFront, wrapSpan);
         const x = i < 4 ? -side : side;
         prop.position.set(x, 0, z);
         root.add(prop);
@@ -755,7 +772,8 @@ export function createLaneRunnerEngine(): Playable3DEngine {
       roundIndex = Math.max(0, Math.min(roundIndex, listLaneRounds(config).length - 1));
       lastEditorRoundIndex = roundIndex;
       host = new ThreeHost(init.container);
-      host.applyLighting(init.lighting);
+      host.enableStudioEnvironment();
+      host.applyParkingJamLighting(init.lighting);
       host.applyCamera(init.camera, init.orientation, host.camera.aspect);
       world = new Group();
       host.scene.add(world);
@@ -826,6 +844,9 @@ export function createLaneRunnerEngine(): Playable3DEngine {
         else syncHud();
       }
       if (ctx) applyLivePresentation(host, options, ctx);
+      if (typeof options.lighting === "string") {
+        host?.applyParkingJamLighting(options.lighting as EngineInitContext["lighting"]);
+      }
     },
     resize(w, h) {
       host?.resize(w, h);

@@ -588,7 +588,7 @@ export function createAsphaltTexture(cols: number, rows: number, exitRow: number
   const cellY = pad + er * cellH;
   const cx = cellX + cellW * 0.52;
   const cy = cellY + cellH * 0.5;
-  ctx.fillStyle = "#e07a3d";
+  ctx.fillStyle = "#ff3b30";
   for (let i = 0; i < 3; i++) {
     const ox = cx - 10 + i * 11;
     ctx.beginPath();

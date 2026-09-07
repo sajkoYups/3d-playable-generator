@@ -52,12 +52,42 @@ function easeOutCubic(t: number) {
   return 1 - (1 - x) ** 3;
 }
 
+const HERO_SCALE = 1.12;
+const HERO_EMISSIVE = 0.16;
+
 function collectWheels(root: Group) {
   const wheels: Mesh[] = [];
   root.traverse((ch) => {
     if (ch instanceof Mesh && /wheel/i.test(ch.name)) wheels.push(ch);
   });
   return wheels;
+}
+
+function isWheelNode(mesh: Mesh) {
+  let node: { name: string; parent: typeof mesh.parent } | null = mesh;
+  while (node) {
+    if (/wheel/i.test(node.name)) return true;
+    node = node.parent;
+  }
+  return false;
+}
+
+/** Soft paint glow + gloss so the exit car reads against the lot. Intensity stays under 0.2 so live tints still hit the body. */
+function applyHeroPaint(root: Group, color: string) {
+  root.traverse((child) => {
+    const mesh = child as Mesh;
+    if (!mesh.isMesh || isWheelNode(mesh)) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const m of mats) {
+      if (!(m instanceof MeshStandardMaterial)) continue;
+      if (m.transparent || m.emissiveIntensity > 0.2) continue;
+      m.emissive.set(color);
+      m.emissiveIntensity = HERO_EMISSIVE;
+      m.roughness = Math.min(m.roughness, 0.22);
+      m.envMapIntensity = Math.max(m.envMapIntensity, 1.4);
+      m.needsUpdate = true;
+    }
+  });
 }
 
 export function createParkingJamEngine(): Playable3DEngine {
@@ -115,6 +145,7 @@ export function createParkingJamEngine(): Playable3DEngine {
         length: c.length,
         axis: c.axis,
         isHero: c.isHero,
+        color: c.color,
       })),
     });
   }
@@ -266,10 +297,10 @@ export function createParkingJamEngine(): Playable3DEngine {
     building = true;
     try {
     const cfg = config;
-    const { round } = liveRound(cfg);
+    let { round } = liveRound(cfg);
     const assets = ctx?.assets ?? {};
     const exitRow = round.cars.find((c) => c.isHero)?.row ?? 2;
-    const kind = libraryCarKind(cfg.carModelUrl || "sedan");
+    let kind = libraryCarKind(cfg.carModelUrl || "sedan");
     const compactUrl = resolveRuntimeUrl(cfg.carModelUrl || "sedan", assets);
     const stretchedUrl = longCarUrl(cfg.carModelUrl || "sedan", assets);
     const lotUrl = resolveRuntimeUrl(cfg.lotTextureUrl, assets);
@@ -330,7 +361,9 @@ export function createParkingJamEngine(): Playable3DEngine {
         pavementMap = null;
       }
     }
-    if (gen !== buildGen || !host || !root) return;
+    if (gen !== buildGen || !host || !root || !config) return;
+    round = liveRound(config).round;
+    kind = libraryCarKind(config.carModelUrl || "sedan");
 
     if (lotMap === paintedLot) host.tracker.track(lotMap);
     while (root.children.length) root.remove(root.children[0]);
@@ -407,10 +440,15 @@ export function createParkingJamEngine(): Playable3DEngine {
         inner.add(createProceduralModel(kind, host.tracker, spec.color));
       }
       fitObjectToFootprint(inner, cell * spec.length * 0.92, cell * 0.78);
+      if (spec.isHero) {
+        inner.scale.multiplyScalar(HERO_SCALE);
+        applyHeroPaint(inner, spec.color);
+      }
       const group = new Group();
       group.add(inner);
       const shadow = blobShadow(host.tracker, 0.52);
       shadow.scale.set(0.78 + spec.length * 0.45, 1, 0.88);
+      if (spec.isHero) shadow.scale.multiplyScalar(HERO_SCALE);
       shadow.position.set(0.34, 0.014, -0.1);
       group.add(shadow);
       root.add(group);
@@ -587,6 +625,7 @@ export function createParkingJamEngine(): Playable3DEngine {
             const live = state.find((c) => c.id === spec.id);
             if (live) live.color = spec.color;
             tintCarMaterials(actor.group, spec.color);
+            if (spec.isHero) applyHeroPaint(actor.group, spec.color);
           }
           syncHud();
         }

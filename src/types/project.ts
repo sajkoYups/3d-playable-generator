@@ -335,7 +335,7 @@ export const ParkingCarSchema = z.object({
 export type ParkingCar = z.infer<typeof ParkingCarSchema>;
 
 const DefaultParkingCars: ParkingCar[] = [
-  { id: "hero", col: 0, row: 2, length: 2, axis: "h", color: "#e07a3d", isHero: true },
+  { id: "hero", col: 0, row: 2, length: 2, axis: "h", color: "#ff3b30", isHero: true },
   { id: "c1", col: 3, row: 0, length: 3, axis: "v", color: "#2bb5a0", isHero: false },
   { id: "c2", col: 0, row: 5, length: 2, axis: "h", color: "#7c5cff", isHero: false },
   { id: "c3", col: 4, row: 4, length: 2, axis: "v", color: "#e85d4c", isHero: false },
@@ -355,7 +355,7 @@ export const ParkingJamConfigSchema = z.object({
   grassTextureUrl: z.string().default(""),
   pavementTextureUrl: z.string().default(""),
   carModelUrl: z.string().default("sedan"),
-  carColors: z.array(z.string()).default(["#e07a3d", "#2bb5a0", "#7c5cff", "#e85d4c", "#f3ede0"]),
+  carColors: z.array(z.string()).default(["#ff3b30", "#2bb5a0", "#7c5cff", "#e85d4c", "#f3ede0"]),
   movesLimit: z.number().int().min(8).max(80).default(24),
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
   gridCols: z.number().int().min(4).max(8).default(6),

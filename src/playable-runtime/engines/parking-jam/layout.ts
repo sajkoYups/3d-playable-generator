@@ -1,5 +1,6 @@
 import type { ParkingCar, ParkingJamConfig, ParkingRound } from "@/types/project";
 import {
+  cloneParkingRound,
   defaultParkingRoundsPack,
   DEFAULT_PARKING_ROUNDS,
 } from "@/playable-runtime/engines/parking-jam/rounds";
@@ -83,11 +84,12 @@ function applyParkingRoundCount(jam: ParkingJamConfig, count: number) {
   const prev = jam.rounds ?? [];
   jam.rounds = pack.slice(0, n).map((p, i) => {
     const existing = prev[i];
-    return {
-      ...p,
-      coins: existing ? roundCoins(existing.coins) : p.coins,
-      movesLimit: existing?.movesLimit ?? p.movesLimit,
-    };
+    if (existing) {
+      const next = cloneParkingRound(existing);
+      next.coins = roundCoins(existing.coins);
+      return next;
+    }
+    return cloneParkingRound(p);
   });
 }
 

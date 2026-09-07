@@ -674,7 +674,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       grassTextureUrl: "",
       pavementTextureUrl: "",
       carModelUrl: "sedan",
-      carColors: ["#e07a3d", "#2bb5a0", "#7c5cff", "#e85d4c", "#f3ede0"],
+      carColors: ["#ff3b30", "#2bb5a0", "#7c5cff", "#e85d4c", "#f3ede0"],
       movesLimit: 24,
       difficulty: "medium",
       gridCols: 6,

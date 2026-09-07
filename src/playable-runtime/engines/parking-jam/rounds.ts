@@ -1,7 +1,7 @@
 import type { ParkingCar, ParkingRound } from "@/types/project";
 
 const C = {
-  hero: "#e07a3d",
+  hero: "#ff3b30",
   teal: "#2bb5a0",
   purple: "#7c5cff",
   red: "#e85d4c",

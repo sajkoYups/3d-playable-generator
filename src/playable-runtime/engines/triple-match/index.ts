@@ -165,6 +165,7 @@ export function createTripleMatchEngine(): Playable3DEngine {
 
   function frameBoard() {
     if (!host || !ctx) return;
+    const scene = host;
     const round = config ? liveRound().round : null;
     const rows = Math.max(
       5,
@@ -184,17 +185,18 @@ export function createTripleMatchEngine(): Playable3DEngine {
     ];
     const landscape = ctx.orientation === "landscape";
     const fov = landscape ? 42 : 52;
-    const aspect = Math.max(host.camera.aspect, 0.2);
+    const camera = scene.camera;
+    const aspect = Math.max(camera.aspect, 0.2);
     const dir = new Vector3(0, landscape ? 0.82 : 1, 1).normalize();
-    host.camera.fov = fov;
-    host.camera.aspect = aspect;
-    host.camera.near = 0.12;
-    host.camera.far = 80;
+    camera.fov = fov;
+    camera.aspect = aspect;
+    camera.near = 0.12;
+    camera.far = 80;
 
     const fitOverflow = (pad: number) => {
       let overflow = -1;
       for (const corner of corners) {
-        tmp.copy(corner).project(host.camera);
+        tmp.copy(corner).project(camera);
         overflow = Math.max(overflow, Math.abs(tmp.x) - (1 - pad), Math.abs(tmp.y) - (1 - pad));
       }
       return overflow;
@@ -203,26 +205,26 @@ export function createTripleMatchEngine(): Playable3DEngine {
     let dist = landscape ? 6.2 : 5.2;
     const margin = landscape ? 0.05 : 0.03;
     for (let i = 0; i < 24; i++) {
-      host.camera.position.copy(look).addScaledVector(dir, dist);
-      host.camera.lookAt(look);
-      host.camera.updateProjectionMatrix();
+      camera.position.copy(look).addScaledVector(dir, dist);
+      camera.lookAt(look);
+      camera.updateProjectionMatrix();
       const overflow = fitOverflow(margin);
       if (overflow <= 0) break;
       dist *= 1 + Math.min(0.4, overflow * 0.8);
     }
     for (let i = 0; i < 14; i++) {
-      host.camera.position.copy(look).addScaledVector(dir, dist);
-      host.camera.lookAt(look);
-      host.camera.updateProjectionMatrix();
+      camera.position.copy(look).addScaledVector(dir, dist);
+      camera.lookAt(look);
+      camera.updateProjectionMatrix();
       if (fitOverflow(margin + 0.02) > 0) {
         dist *= 1.03;
         break;
       }
       dist *= 0.96;
     }
-    host.camera.position.copy(look).addScaledVector(dir, dist);
-    host.camera.lookAt(look);
-    host.camera.updateProjectionMatrix();
+    camera.position.copy(look).addScaledVector(dir, dist);
+    camera.lookAt(look);
+    camera.updateProjectionMatrix();
   }
 
   function liveRound(cfg = config!) {

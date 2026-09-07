@@ -27,13 +27,19 @@ export function playableMediaSrc(url: string): string {
   if (hit) return hit;
   const parsed = dataUriToBytes(url);
   if (!parsed) return url;
-  const blobUrl = URL.createObjectURL(new Blob([parsed.bytes.buffer.slice(parsed.bytes.byteOffset, parsed.bytes.byteOffset + parsed.bytes.byteLength)], { type: parsed.mime }));
+  const blobUrl = URL.createObjectURL(new Blob([toArrayBuffer(parsed.bytes)], { type: parsed.mime }));
   blobSrc.set(url, blobUrl);
   return blobUrl;
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(copy).set(bytes);
+  return copy;
 }
 
 export function dataUriToArrayBuffer(url: string): ArrayBuffer | null {
   const parsed = dataUriToBytes(url);
   if (!parsed) return null;
-  return parsed.bytes.buffer.slice(parsed.bytes.byteOffset, parsed.bytes.byteOffset + parsed.bytes.byteLength);
+  return toArrayBuffer(parsed.bytes);
 }

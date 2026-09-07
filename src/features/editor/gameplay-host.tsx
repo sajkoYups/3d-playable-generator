@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { is2DTemplate, type Orientation, type ProjectData, type TemplateId } from "@/types/project";
+import { boardBackgroundForPlay, is2DTemplate, isFullBackgroundActive, type Orientation, type ProjectData, type TemplateId } from "@/types/project";
 import { createEngine } from "@/playable-runtime/engines";
 import type { Playable3DEngine } from "@/playable-runtime/engines/types";
 import { AudioBus } from "@/playable-runtime/audio/bus";
@@ -54,7 +54,11 @@ export function GameplayHost({
         playAllRounds: true,
         parkingRoundIndex: parkingRoundIndexRef.current,
         audioBus: audio,
-        background: current.gameplay.background[orientationRef.current],
+        background: boardBackgroundForPlay(
+          current.gameplay.background[orientationRef.current],
+          current.gameplay.fullBackground,
+        ),
+        fullBackgroundActive: isFullBackgroundActive(current.gameplay.fullBackground),
         pieceImages: current.gameplay.pieceImages,
         match3: current.gameplay.match3
           ? { ...current.gameplay.match3, hintHandEnabled: false }
@@ -100,7 +104,11 @@ export function GameplayHost({
       towerDefense: data.gameplay.towerDefense,
       playAllRounds: true,
       parkingRoundIndex,
-      background: data.gameplay.background[orientation],
+      background: boardBackgroundForPlay(
+        data.gameplay.background[orientation],
+        data.gameplay.fullBackground,
+      ),
+      fullBackgroundActive: isFullBackgroundActive(data.gameplay.fullBackground),
       pieceImages: data.gameplay.pieceImages,
       match3: data.gameplay.match3
         ? { ...data.gameplay.match3, hintHandEnabled: false }
@@ -120,6 +128,7 @@ export function GameplayHost({
     data.gameplay.parkingJam,
     data.gameplay.towerDefense,
     data.gameplay.background,
+    data.gameplay.fullBackground,
     data.gameplay.pieceImages,
     data.gameplay.match3,
     data.gameplay.waterSort,
@@ -129,7 +138,13 @@ export function GameplayHost({
     <div
       ref={ref}
       className={className}
-      style={{ pointerEvents: interactive ? "auto" : "none", touchAction: "none", width: "100%", height: "100%" }}
+      style={{
+        pointerEvents: interactive ? "auto" : "none",
+        touchAction: "none",
+        width: "100%",
+        height: "100%",
+        background: isFullBackgroundActive(data.gameplay.fullBackground) ? "transparent" : undefined,
+      }}
     />
   );
 }

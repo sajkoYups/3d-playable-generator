@@ -36,6 +36,8 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
   walkBg(data.gameplay.background.landscape);
   walkBg(data.gameplay.stageBackground.portrait);
   walkBg(data.gameplay.stageBackground.landscape);
+  add(data.gameplay.fullBackground.portraitImageUrl);
+  add(data.gameplay.fullBackground.landscapeImageUrl);
   add(data.startScreen.videoUrl);
   add(data.endScreen.videoUrl);
   add(data.coinImageUrl);

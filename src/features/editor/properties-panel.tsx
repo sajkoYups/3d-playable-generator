@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
 import { ColorField } from "@/features/editor/color-field";
-import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, END_POLICY_SLOT_ID, UNLOCK_COIN_SLOT_ID, UNLOCK_END_BG_SLOT_ID, UNLOCK_LINKS_SLOT_ID, UNLOCK_START_BG_SLOT_ID, is2DTemplate, isBrandSlotId, isOverridableSlotId, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type StackTowerConfig, type StackTowerRound, type TowerDefenseConfig, type TowerDefenseRound, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
+import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, END_POLICY_SLOT_ID, UNLOCK_COIN_SLOT_ID, UNLOCK_END_BG_SLOT_ID, UNLOCK_LINKS_SLOT_ID, UNLOCK_START_BG_SLOT_ID, is2DTemplate, isBrandSlotId, isFullBackgroundActive, isOverridableSlotId, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type StackTowerConfig, type StackTowerRound, type TowerDefenseConfig, type TowerDefenseRound, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
 import { MATCH3_PIECE_META, defaultPieceImages, stampCoinImage } from "@/lib/project-defaults";
 import { TemplateSlotUnlockControls } from "@/features/editor/template-slot-unlock-controls";
 import { isPlayableTemplateLocked } from "@/features/editor/store";
@@ -255,12 +255,69 @@ function GameplaySettings() {
   const parkingRoundIndex = useEditorStore((s) => s.parkingRoundIndex);
   const setParkingRoundIndex = useEditorStore((s) => s.setParkingRoundIndex);
   const cam = data.gameplay.camera[orientation];
+  const fullBg = data.gameplay.fullBackground;
+  const fullBgOn = isFullBackgroundActive(fullBg);
 
   return (
     <div className="space-y-4 p-4">
       <div>
         <h3 className="font-semibold">Gameplay</h3>
         <p className="text-xs text-muted">Engine is locked. Tune presentation and difficulty.</p>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h4 className="text-sm font-medium">Full background</h4>
+            <p className="text-[11px] leading-snug text-muted">
+              Sits behind the game and HUD on the whole screen. Empty game pixels stay transparent so this image shows through.
+            </p>
+          </div>
+          <Switch
+            id="full-background"
+            checked={fullBgOn}
+            onCheckedChange={(checked) =>
+              updateData((d) => {
+                d.gameplay.fullBackground.enabled = checked;
+              })
+            }
+          />
+        </div>
+        {fullBgOn ? (
+          <>
+            <AssetUrlField
+              label={orientation === "portrait" ? "Portrait image" : "Landscape image"}
+              accept="image/*"
+              value={
+                orientation === "portrait"
+                  ? fullBg.portraitImageUrl || ""
+                  : fullBg.landscapeImageUrl || ""
+              }
+              onChange={(url) =>
+                updateData((d) => {
+                  if (orientation === "portrait") d.gameplay.fullBackground.portraitImageUrl = url;
+                  else d.gameplay.fullBackground.landscapeImageUrl = url;
+                })
+              }
+            />
+            <div className="flex flex-wrap gap-1">
+              {(["cover", "contain", "stretch"] as const).map((fit) => (
+                <Button
+                  key={fit}
+                  size="sm"
+                  variant={fullBg.imageFit === fit ? "default" : "outline"}
+                  onClick={() =>
+                    updateData((d) => {
+                      d.gameplay.fullBackground.imageFit = fit;
+                    })
+                  }
+                >
+                  {fit}
+                </Button>
+              ))}
+            </div>
+          </>
+        ) : null}
       </div>
 
       <div className="space-y-2">
@@ -280,7 +337,11 @@ function GameplaySettings() {
           <Separator />
           <div className="space-y-2">
             <h4 className="text-sm font-medium">Board background ({orientation})</h4>
-            <p className="text-[11px] text-muted">Drawn inside the gameplay area.</p>
+            <p className="text-[11px] text-muted">
+              {fullBgOn
+                ? "Unused while Full background is on, so the image shows through the board."
+                : "Drawn inside the gameplay area."}
+            </p>
             <BackgroundEditor
               background={data.gameplay.background[orientation]}
               orientation={orientation}
@@ -1462,6 +1523,11 @@ function GameplaySettings() {
               })
             }
           />
+          <p className="text-[11px] text-muted">
+            {fullBgOn
+              ? "Unused while Full background is on. That one image replaces parking surface, pavement, and grass."
+              : "Leave empty to keep the Kenney defaults. Uploads replace that layer only."}
+          </p>
           <AssetUrlField
             label="Parking surface"
             accept="image/*"
@@ -1480,7 +1546,6 @@ function GameplaySettings() {
             value={data.gameplay.parkingJam.grassTextureUrl}
             onChange={(url) => updateData((d) => { d.gameplay.parkingJam.grassTextureUrl = url; })}
           />
-          <p className="text-[11px] text-muted">Leave empty to keep the Kenney defaults. Uploads replace that layer only.</p>
           <p className="text-[11px] text-muted">Car colors</p>
           {(data.gameplay.parkingJam.rounds[Math.max(0, Math.min(parkingRoundIndex, data.gameplay.parkingJam.rounds.length - 1))]?.cars
             ?? data.gameplay.parkingJam.cars).map((car) => (

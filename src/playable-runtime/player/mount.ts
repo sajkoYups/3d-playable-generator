@@ -1,8 +1,8 @@
 import type { Orientation, PlayableElement, ProjectData, TemplateId } from "@/types/project";
-import { screenVideoUrl } from "@/types/project";
+import { boardBackgroundForPlay, isFullBackgroundActive, screenVideoUrl } from "@/types/project";
 import type { Playable3DEngine } from "@/playable-runtime/engines/types";
 import type { NetworkAdapter } from "@/playable-runtime/networks";
-import { applyStyle, backgroundToStyle, layoutToStyle } from "@/playable-runtime/layout/layout";
+import { applyStyle, backgroundToStyle, fullBackgroundToStyle, layoutToStyle } from "@/playable-runtime/layout/layout";
 import { renderElement } from "@/playable-runtime/overlay/dom";
 import { AudioBus } from "@/playable-runtime/audio/bus";
 import { DEFAULT_TIMER_DURATION } from "@/playable-runtime/screens/format-time";
@@ -213,7 +213,11 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         towerDefense: data.gameplay.towerDefense,
         playAllRounds: true,
         audioBus: audio,
-        background: data.gameplay.background[orientation],
+        background: boardBackgroundForPlay(
+          data.gameplay.background[orientation],
+          data.gameplay.fullBackground,
+        ),
+        fullBackgroundActive: isFullBackgroundActive(data.gameplay.fullBackground),
         pieceImages: data.gameplay.pieceImages,
         match3: data.gameplay.match3,
         waterSort: data.gameplay.waterSort,
@@ -331,6 +335,16 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     bg.style.position = "absolute";
     bg.style.inset = "0";
     applyStyle(bg, backgroundToStyle(data.gameplay.stageBackground[orientation], orientation));
+    const fullStyle = fullBackgroundToStyle(data.gameplay.fullBackground, orientation);
+    if (fullStyle) {
+      const fullLayer = document.createElement("div");
+      fullLayer.style.position = "absolute";
+      fullLayer.style.inset = "0";
+      fullLayer.style.zIndex = "0";
+      fullLayer.style.pointerEvents = "none";
+      applyStyle(fullLayer, fullStyle);
+      bg.appendChild(fullLayer);
+    }
     const box = data.gameplay.overlays.find((e) => e.type === "gameplayContainer");
     gameBox = document.createElement("div");
     gameBox.style.overflow = "hidden";
@@ -338,6 +352,10 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     else {
       gameBox.style.position = "absolute";
       gameBox.style.inset = "0";
+      gameBox.style.zIndex = "1";
+    }
+    if (isFullBackgroundActive(data.gameplay.fullBackground)) {
+      gameBox.style.background = "transparent";
     }
     bg.appendChild(gameBox);
     overlayRoot = document.createElement("div");
@@ -410,7 +428,11 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         laneRunner: data.gameplay.laneRunner,
         parkingJam: data.gameplay.parkingJam,
         towerDefense: data.gameplay.towerDefense,
-        background: data.gameplay.background[orientation],
+        background: boardBackgroundForPlay(
+          data.gameplay.background[orientation],
+          data.gameplay.fullBackground,
+        ),
+        fullBackgroundActive: isFullBackgroundActive(data.gameplay.fullBackground),
         pieceImages: data.gameplay.pieceImages,
         match3: data.gameplay.match3,
         waterSort: data.gameplay.waterSort,

@@ -567,6 +567,12 @@ function createEndScreen(): ProjectData["endScreen"] {
 function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"] {
   return {
     allowBackgroundReplace: true,
+    fullBackground: {
+      enabled: false,
+      portraitImageUrl: "",
+      landscapeImageUrl: "",
+      imageFit: "cover" as const,
+    },
     background:
       templateId === "match-3"
         ? {

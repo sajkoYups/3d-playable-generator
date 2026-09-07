@@ -1,5 +1,5 @@
-import type { Background, LayoutBox, Orientation } from "@/types/project";
-import { backgroundImageUrl } from "@/types/project";
+import type { Background, FullBackground, LayoutBox, Orientation } from "@/types/project";
+import { backgroundImageUrl, fullBackgroundImageUrl, isFullBackgroundActive } from "@/types/project";
 
 export type StyleMap = Record<string, string | number>;
 
@@ -69,6 +69,33 @@ export function backgroundToStyle(
   }
 
   return { backgroundColor: background.color };
+}
+
+export function fullBackgroundToStyle(
+  fullBackground: FullBackground | undefined | null,
+  orientation: Orientation,
+): StyleMap | null {
+  if (!fullBackground || !isFullBackgroundActive(fullBackground)) return null;
+  const imageUrl = fullBackgroundImageUrl(fullBackground, orientation);
+  if (!imageUrl) return null;
+  return backgroundToStyle(
+    {
+      type: "image",
+      color: "#000000",
+      gradientFrom: "#000000",
+      gradientTo: "#000000",
+      gradientAngle: 180,
+      portraitImageUrl: fullBackground.portraitImageUrl,
+      landscapeImageUrl: fullBackground.landscapeImageUrl,
+      portraitVideoUrl: "",
+      landscapeVideoUrl: "",
+      imageFit: fullBackground.imageFit,
+      imagePosition: "center",
+      overlayColor: "#000000",
+      overlayOpacity: 0,
+    },
+    orientation,
+  );
 }
 
 export function hexToRgba(hex: string, alpha: number): string {

@@ -127,6 +127,38 @@ export function screenVideoUrl(
   return backgroundVideoUrl(screen.background, orientation) || screen.videoUrl || "";
 }
 
+export const FullBackgroundSchema = z.object({
+  enabled: z.boolean().default(false),
+  portraitImageUrl: z.string().default(""),
+  landscapeImageUrl: z.string().default(""),
+  imageFit: z.enum(["cover", "contain", "stretch"]).default("cover"),
+});
+export type FullBackground = z.infer<typeof FullBackgroundSchema>;
+
+export function isFullBackgroundActive(
+  fb: FullBackground | undefined | null,
+): boolean {
+  return Boolean(fb?.enabled);
+}
+
+export function fullBackgroundImageUrl(
+  fb: FullBackground | undefined | null,
+  orientation: Orientation = "portrait",
+): string {
+  if (!fb) return "";
+  return orientation === "portrait"
+    ? fb.portraitImageUrl || fb.landscapeImageUrl || ""
+    : fb.landscapeImageUrl || fb.portraitImageUrl || "";
+}
+
+export function boardBackgroundForPlay(
+  background: Background,
+  fullBackground: FullBackground | undefined | null,
+): Background {
+  if (!isFullBackgroundActive(fullBackground)) return background;
+  return { ...background, type: "transparent" };
+}
+
 export const ElementActionSchema = z.object({
   type: z.enum([
     "START_PLAYABLE",
@@ -523,6 +555,7 @@ export const GameplaySchema = z.object({
   allowBackgroundReplace: z.boolean().default(true),
   background: DualBackgroundSchema.default(DefaultDualGameplayBackground),
   stageBackground: DualBackgroundSchema.default(DefaultDualStageBackground),
+  fullBackground: FullBackgroundSchema.prefault({}),
   camera: DualCameraSchema.prefault({
     portrait: DefaultCamera,
     landscape: { fov: 45, position: { x: 0, y: 6, z: 10 }, target: { x: 0, y: 1.5, z: 0 } },

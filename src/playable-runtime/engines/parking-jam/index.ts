@@ -1,4 +1,4 @@
-import { Group, Mesh, MeshStandardMaterial, PlaneGeometry, Raycaster, Texture, Vector2 } from "three";
+import { Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Raycaster, Texture, Vector2 } from "three";
 import type { ParkingCar, ParkingJamConfig } from "@/types/project";
 import type { EngineInitContext, Playable3DEngine } from "@/playable-runtime/engines/types";
 import { ThreeHost } from "@/playable-runtime/three/host";
@@ -8,6 +8,7 @@ import { blobShadow, createProceduralModel } from "@/playable-runtime/models/pro
 import {
   cloneTintedModel,
   createAsphaltTexture,
+  createParkingGridTexture,
   fitObjectToFootprint,
   KENNEY_GRASS_URL,
   KENNEY_PAVEMENT,
@@ -117,6 +118,7 @@ export function createParkingJamEngine(): Playable3DEngine {
   let building = false;
   let earned = 0;
   let lastEditorRoundIndex: number | null = null;
+  let fullBackgroundActive = false;
   const hud = createPayoutHud();
 
   function liveRound(cfg = config!) {
@@ -147,6 +149,7 @@ export function createParkingJamEngine(): Playable3DEngine {
         isHero: c.isHero,
         color: c.color,
       })),
+      fullBg: fullBackgroundActive,
     });
   }
 
@@ -303,9 +306,10 @@ export function createParkingJamEngine(): Playable3DEngine {
     let kind = libraryCarKind(cfg.carModelUrl || "sedan");
     const compactUrl = resolveRuntimeUrl(cfg.carModelUrl || "sedan", assets);
     const stretchedUrl = longCarUrl(cfg.carModelUrl || "sedan", assets);
-    const lotUrl = resolveRuntimeUrl(cfg.lotTextureUrl, assets);
-    const grassUrl = resolveRuntimeUrl(cfg.grassTextureUrl || KENNEY_GRASS_URL, assets);
-    const pavementUrl = resolveRuntimeUrl(cfg.pavementTextureUrl, assets);
+    const lotUrl = fullBackgroundActive ? "" : resolveRuntimeUrl(cfg.lotTextureUrl, assets);
+    const grassUrl = fullBackgroundActive ? "" : resolveRuntimeUrl(cfg.grassTextureUrl || KENNEY_GRASS_URL, assets);
+    const pavementUrl = fullBackgroundActive ? "" : resolveRuntimeUrl(cfg.pavementTextureUrl, assets);
+    const vPad = zPad / (round.gridRows * cell + zPad * 2);
 
     async function loadTemplate(url: string) {
       if (!url) return null;
@@ -322,12 +326,9 @@ export function createParkingJamEngine(): Playable3DEngine {
     }
     const compactGltf = await loadTemplate(compactUrl);
     const longGltf = stretchedUrl === compactUrl ? compactGltf : await loadTemplate(stretchedUrl);
-    let lotMap: Texture = createAsphaltTexture(
-      round.gridCols,
-      round.gridRows,
-      exitRow,
-      zPad / (round.gridRows * cell + zPad * 2),
-    );
+    let lotMap: Texture = fullBackgroundActive
+      ? createParkingGridTexture(round.gridCols, round.gridRows, exitRow, vPad)
+      : createAsphaltTexture(round.gridCols, round.gridRows, exitRow, vPad);
     const paintedLot = lotMap;
     if (lotUrl) {
       try {
@@ -382,7 +383,7 @@ export function createParkingJamEngine(): Playable3DEngine {
     const lotH = round.gridRows * cell;
     const lotDepth = lotH + zPad * 2;
 
-    if (grassMap) {
+    if (!fullBackgroundActive && grassMap) {
       const grassTex = grassMap.clone();
       grassTex.repeat.set(10, 10);
       const grassGeo = new PlaneGeometry(lotW + 10, lotDepth + 10);
@@ -399,27 +400,37 @@ export function createParkingJamEngine(): Playable3DEngine {
       root.add(grass);
     }
 
-    const walkGeo = new PlaneGeometry(lotW + 0.72, lotDepth + 0.72);
-    host.tracker.track(walkGeo);
-    const walkMat = new MeshStandardMaterial(
-      pavementMap
-        ? { map: pavementMap, color: "#ffffff", roughness: 0.88, metalness: 0.02 }
-        : { color: KENNEY_PAVEMENT, roughness: 0.88, metalness: 0.02 },
-    );
-    host.tracker.track(walkMat);
-    const walk = new Mesh(walkGeo, walkMat);
-    walk.rotation.x = -Math.PI / 2;
-    walk.position.y = -0.015;
-    root.add(walk);
+    if (!fullBackgroundActive) {
+      const walkGeo = new PlaneGeometry(lotW + 0.72, lotDepth + 0.72);
+      host.tracker.track(walkGeo);
+      const walkMat = new MeshStandardMaterial(
+        pavementMap
+          ? { map: pavementMap, color: "#ffffff", roughness: 0.88, metalness: 0.02 }
+          : { color: KENNEY_PAVEMENT, roughness: 0.88, metalness: 0.02 },
+      );
+      host.tracker.track(walkMat);
+      const walk = new Mesh(walkGeo, walkMat);
+      walk.rotation.x = -Math.PI / 2;
+      walk.position.y = -0.015;
+      root.add(walk);
+    }
 
     const lotGeo = new PlaneGeometry(lotW, lotDepth);
     host.tracker.track(lotGeo);
-    const lotMat = new MeshStandardMaterial({
-      map: lotMap,
-      color: "#ffffff",
-      roughness: 0.92,
-      metalness: 0.04,
-    });
+    const lotMat = fullBackgroundActive
+      ? new MeshBasicMaterial({
+          map: lotMap,
+          transparent: true,
+          depthWrite: false,
+          alphaTest: 0.08,
+          toneMapped: false,
+        })
+      : new MeshStandardMaterial({
+          map: lotMap,
+          color: "#ffffff",
+          roughness: 0.92,
+          metalness: 0.04,
+        });
     host.tracker.track(lotMat);
     const lot = new Mesh(lotGeo, lotMat);
     lot.rotation.x = -Math.PI / 2;
@@ -484,9 +495,11 @@ export function createParkingJamEngine(): Playable3DEngine {
         parkingJam?: ParkingJamConfig;
         playAllRounds?: boolean;
         parkingRoundIndex?: number;
+        fullBackgroundActive?: boolean;
       };
       config = extra.parkingJam ?? null;
       playAllRounds = extra.playAllRounds !== false;
+      fullBackgroundActive = Boolean(extra.fullBackgroundActive);
       roundIndex = typeof extra.parkingRoundIndex === "number" ? extra.parkingRoundIndex : 0;
       if (!config) {
         config = {
@@ -601,6 +614,9 @@ export function createParkingJamEngine(): Playable3DEngine {
       const next = options.parkingJam as ParkingJamConfig | undefined;
       const prevKey = config ? parkingLayoutKey(config, roundIndex, playAllRounds) : "";
       if (next) config = next;
+      if (typeof options.fullBackgroundActive === "boolean") {
+        fullBackgroundActive = options.fullBackgroundActive;
+      }
       if (typeof options.playAllRounds === "boolean") playAllRounds = options.playAllRounds;
       if (typeof options.parkingRoundIndex === "number" && config) {
         const n = listParkingRounds(config).length;

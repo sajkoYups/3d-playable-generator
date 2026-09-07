@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditorStore, useStageElements } from "@/features/editor/store";
 import { useFittedIphoneFrame } from "@/features/editor/iphone-frame";
 import type { CSSProperties } from "react";
-import { backgroundToStyle, layoutToStyle, snapToCenter, clamp01 } from "@/playable-runtime/layout/layout";
+import { backgroundToStyle, fullBackgroundToStyle, layoutToStyle, snapToCenter, clamp01 } from "@/playable-runtime/layout/layout";
 import { ElementView } from "@/features/editor/element-view";
 import { GameplayHost } from "@/features/editor/gameplay-host";
 import { isBrandSlotId, screenVideoUrl } from "@/types/project";
@@ -62,6 +62,10 @@ export function EditorCanvas() {
     stage === "start" ? data.startScreen : stage === "end" ? data.endScreen : null;
   const screenVideoSrc =
     screen && screen.background.type === "video" ? screenVideoUrl(screen, orientation) : "";
+  const fullBgStyle =
+    stage === "gameplay" && editorMode !== "brand"
+      ? fullBackgroundToStyle(data.gameplay.fullBackground, orientation)
+      : null;
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent, id: string, mode: "move" | "resize") => {
@@ -166,6 +170,12 @@ export function EditorCanvas() {
                   style={backgroundToStyle(data.gameplay.stageBackground[orientation], orientation) as CSSProperties}
                 />
               )}
+              {fullBgStyle ? (
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={fullBgStyle as CSSProperties}
+                />
+              ) : null}
 
               <div className="pointer-events-none absolute inset-[4%] rounded-lg border border-dashed border-white/20" />
               <div

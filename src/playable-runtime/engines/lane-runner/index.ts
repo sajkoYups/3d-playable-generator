@@ -216,6 +216,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
   let building = false;
   let earned = 0;
   let lastEditorRoundIndex: number | null = null;
+  let fullBackgroundActive = false;
   const hud = createPayoutHud();
   const templates = new Map<string, Group>();
 
@@ -624,7 +625,8 @@ export function createLaneRunnerEngine(): Playable3DEngine {
       targetLane = lane;
       syncHud();
 
-      host.setBackgroundColor(theme.fog);
+      if (!fullBackgroundActive) host.setBackgroundColor(theme.fog);
+      else host.scene.background = null;
       host.scene.fog = new Fog(theme.fog, 28, 72);
 
       const roadW = cfg.laneCount * LANE_GAP + 0.55;
@@ -752,6 +754,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
         laneRunner?: LaneRunnerConfig;
         playAllRounds?: boolean;
         parkingRoundIndex?: number;
+        fullBackgroundActive?: boolean;
       };
       config = extra.laneRunner ?? {
         characterModelUrl: "sedan",
@@ -768,6 +771,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
         rounds: [],
       };
       playAllRounds = extra.playAllRounds !== false;
+      fullBackgroundActive = Boolean(extra.fullBackgroundActive);
       roundIndex = typeof extra.parkingRoundIndex === "number" ? extra.parkingRoundIndex : 0;
       roundIndex = Math.max(0, Math.min(roundIndex, listLaneRounds(config).length - 1));
       lastEditorRoundIndex = roundIndex;
@@ -844,6 +848,14 @@ export function createLaneRunnerEngine(): Playable3DEngine {
         else syncHud();
       }
       if (ctx) applyLivePresentation(host, options, ctx);
+      if (typeof options.fullBackgroundActive === "boolean") {
+        fullBackgroundActive = options.fullBackgroundActive;
+        if (host && config) {
+          const theme = THEMES[config.environmentTheme] ?? THEMES.city;
+          if (fullBackgroundActive) host.scene.background = null;
+          else host.setBackgroundColor(theme.fog);
+        }
+      }
       if (typeof options.lighting === "string") {
         host?.applyParkingJamLighting(options.lighting as EngineInitContext["lighting"]);
       }

@@ -543,6 +543,64 @@ export function fitObjectToXZ(object: Object3D, maxXZ: number, maxY = maxXZ) {
   object.position.y -= seated.min.y;
 }
 
+function paintParkingExit(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  cols: number,
+  rows: number,
+  exitRow: number,
+  vPad: number,
+) {
+  const pad = Math.max(0, Math.min(0.4, vPad)) * size;
+  const innerH = size - pad * 2;
+  const cellW = size / cols;
+  const cellH = innerH / rows;
+  const er = Math.max(0, Math.min(rows - 1, exitRow));
+  const cellX = (cols - 1) * cellW;
+  const cellY = pad + er * cellH;
+  const cx = cellX + cellW * 0.52;
+  const cy = cellY + cellH * 0.5;
+  ctx.fillStyle = "#ff3b30";
+  for (let i = 0; i < 3; i++) {
+    const ox = cx - 10 + i * 11;
+    ctx.beginPath();
+    ctx.moveTo(ox + 10, cy);
+    ctx.lineTo(ox, cy - cellH * 0.18);
+    ctx.lineTo(ox, cy + cellH * 0.18);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function paintParkingGrid(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  cols: number,
+  rows: number,
+  exitRow: number,
+  vPad: number,
+) {
+  const pad = Math.max(0, Math.min(0.4, vPad)) * size;
+  const innerH = size - pad * 2;
+  const cellW = size / cols;
+  const cellH = innerH / rows;
+  ctx.strokeStyle = "rgba(232, 236, 242, 0.78)";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([10, 8]);
+  for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      ctx.strokeRect(c * cellW + 6, pad + r * cellH + 6, cellW - 12, cellH - 12);
+    }
+  }
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle = "rgba(210, 216, 224, 0.9)";
+  ctx.lineWidth = 10;
+  ctx.strokeRect(6, 6, size - 12, size - 12);
+
+  paintParkingExit(ctx, size, cols, rows, exitRow, vPad);
+}
+
 export function createAsphaltTexture(cols: number, rows: number, exitRow: number, vPad = 0): CanvasTexture {
   const size = 512;
   const canvas = document.createElement("canvas");
@@ -565,39 +623,30 @@ export function createAsphaltTexture(cols: number, rows: number, exitRow: number
     ctx.fillRect(x, y, 1.5, 1.5);
   }
 
-  const pad = Math.max(0, Math.min(0.4, vPad)) * size;
-  const innerH = size - pad * 2;
-  const cellW = size / cols;
-  const cellH = innerH / rows;
-  ctx.strokeStyle = "rgba(232, 236, 242, 0.78)";
-  ctx.lineWidth = 2;
-  ctx.setLineDash([10, 8]);
-  for (let c = 0; c < cols; c++) {
-    for (let r = 0; r < rows; r++) {
-      ctx.strokeRect(c * cellW + 6, pad + r * cellH + 6, cellW - 12, cellH - 12);
-    }
-  }
-  ctx.setLineDash([]);
+  paintParkingGrid(ctx, size, cols, rows, exitRow, vPad);
 
-  ctx.strokeStyle = "rgba(210, 216, 224, 0.9)";
-  ctx.lineWidth = 10;
-  ctx.strokeRect(6, 6, size - 12, size - 12);
+  const tex = new CanvasTexture(canvas);
+  tex.colorSpace = SRGBColorSpace;
+  tex.anisotropy = 2;
+  tex.needsUpdate = true;
+  return tex;
+}
 
-  const er = Math.max(0, Math.min(rows - 1, exitRow));
-  const cellX = (cols - 1) * cellW;
-  const cellY = pad + er * cellH;
-  const cx = cellX + cellW * 0.52;
-  const cy = cellY + cellH * 0.5;
-  ctx.fillStyle = "#ff3b30";
-  for (let i = 0; i < 3; i++) {
-    const ox = cx - 10 + i * 11;
-    ctx.beginPath();
-    ctx.moveTo(ox + 10, cy);
-    ctx.lineTo(ox, cy - cellH * 0.18);
-    ctx.lineTo(ox, cy + cellH * 0.18);
-    ctx.closePath();
-    ctx.fill();
+/** Exit chevrons only — alpha 0 elsewhere so a full-background image shows through. */
+export function createParkingGridTexture(cols: number, rows: number, exitRow: number, vPad = 0): CanvasTexture {
+  const size = 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    const fallback = new CanvasTexture(canvas);
+    fallback.colorSpace = SRGBColorSpace;
+    return fallback;
   }
+
+  ctx.clearRect(0, 0, size, size);
+  paintParkingExit(ctx, size, cols, rows, exitRow, vPad);
 
   const tex = new CanvasTexture(canvas);
   tex.colorSpace = SRGBColorSpace;

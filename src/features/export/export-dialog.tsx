@@ -14,7 +14,7 @@ import { useEditorStore } from "@/features/editor/store";
 import { formatBytes } from "@/lib/utils";
 import { toast } from "sonner";
 import { NETWORK_IDS, type NetworkId } from "@/types/project";
-import { NETWORK_LABELS, NETWORK_LIMITS } from "@/playable-runtime/networks";
+import { ENABLED_NETWORK_IDS, NETWORK_LABELS, NETWORK_LIMITS } from "@/playable-runtime/networks";
 
 type ExportPayload = {
   html?: string;
@@ -46,7 +46,7 @@ export function ExportDialog({
   const projectName = useEditorStore((s) => s.projectName);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ExportPayload | null>(null);
-  const [selected, setSelected] = useState<NetworkId[]>(["generic"]);
+  const [selected, setSelected] = useState<NetworkId[]>([]);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
 
   async function runExport() {
@@ -59,7 +59,7 @@ export function ExportDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           networkId: selected[0],
-          networks: selected,
+          networks: selected.filter((id) => ENABLED_NETWORK_IDS.includes(id)),
         }),
       });
       if (!res.ok) {
@@ -103,6 +103,7 @@ export function ExportDialog({
   }
 
   function toggle(id: NetworkId) {
+    if (!ENABLED_NETWORK_IDS.includes(id)) return;
     setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   }
 
@@ -126,13 +127,28 @@ export function ExportDialog({
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-2">
-          {NETWORK_IDS.map((id) => (
-            <label key={id} className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
-              <input type="checkbox" checked={selected.includes(id)} onChange={() => toggle(id)} />
-              <span>{NETWORK_LABELS[id]}</span>
-              <span className="ml-auto text-[11px] text-muted">{Math.round(NETWORK_LIMITS[id] / 1024 / 1024)} MB</span>
-            </label>
-          ))}
+          {NETWORK_IDS.map((id) => {
+            const enabled = ENABLED_NETWORK_IDS.includes(id);
+            return (
+              <label
+                key={id}
+                className={`flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm ${
+                  enabled ? "" : "cursor-not-allowed opacity-50"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={enabled && selected.includes(id)}
+                  disabled={!enabled}
+                  onChange={() => toggle(id)}
+                />
+                <span>{NETWORK_LABELS[id]}</span>
+                <span className="ml-auto text-[11px] text-muted">
+                  {Math.round(NETWORK_LIMITS[id] / 1024 / 1024)} MB
+                </span>
+              </label>
+            );
+          })}
         </div>
 
         {!result ? (
@@ -156,8 +172,8 @@ export function ExportDialog({
               <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-3 text-amber-200">
                 <p className="font-medium">Warnings</p>
                 <ul className="mt-1 list-disc pl-4">
-                  {result.warnings.map((w) => (
-                    <li key={w}>{w}</li>
+                  {result.warnings.map((w, i) => (
+                    <li key={`${i}-${w}`}>{w}</li>
                   ))}
                 </ul>
               </div>

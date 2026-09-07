@@ -1,4 +1,5 @@
-import { startLoopMusic, stopLoopMusic, setLoopMusicMuted, isLoopMusicPlaying } from "@/playable-runtime/audio/loop";
+import { startLoopMusic, stopLoopMusic, setLoopMusicMuted, isLoopMusicPlaying, prepareLoopMusic } from "@/playable-runtime/audio/loop";
+import { dataUriToArrayBuffer, playableMediaSrc } from "@/playable-runtime/media/src";
 
 export type AudioSlot = "music" | "tap" | "win" | "lose";
 
@@ -47,6 +48,7 @@ export class AudioBus {
 
   setUrls(urls: AudioBusOptions) {
     this.urls = urls;
+    if (urls.musicUrl) prepareLoopMusic(urls.musicUrl);
     if (this.unlocked) void this.preload();
   }
 
@@ -55,24 +57,21 @@ export class AudioBus {
     if (this.unlocked) void this.preload();
   }
 
-  async unlock() {
-    if (this.ctx) {
-      if (this.ctx.state === "suspended") await this.ctx.resume();
-      this.unlocked = true;
-      return;
+  unlock() {
+    if (!this.ctx) {
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      this.ctx = new Ctx();
+      this.master = this.ctx.createGain();
+      this.musicGain = this.ctx.createGain();
+      this.sfxGain = this.ctx.createGain();
+      this.musicGain.gain.value = 0.35;
+      this.sfxGain.gain.value = 0.7;
+      this.musicGain.connect(this.master);
+      this.sfxGain.connect(this.master);
+      this.master.connect(this.ctx.destination);
     }
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    this.ctx = new Ctx();
-    this.master = this.ctx.createGain();
-    this.musicGain = this.ctx.createGain();
-    this.sfxGain = this.ctx.createGain();
-    this.musicGain.gain.value = 0.35;
-    this.sfxGain.gain.value = 0.7;
-    this.musicGain.connect(this.master);
-    this.sfxGain.connect(this.master);
-    this.master.connect(this.ctx.destination);
-    if (this.ctx.state === "suspended") await this.ctx.resume();
+    if (this.ctx.state === "suspended") void this.ctx.resume();
     this.unlocked = true;
     void this.preload();
   }
@@ -88,8 +87,12 @@ export class AudioBus {
       entries.map(async ([slot, url]) => {
         if (!url || !this.ctx) return;
         try {
-          const res = await fetch(url);
-          const arr = await res.arrayBuffer();
+          let arr: ArrayBuffer | null = url.startsWith("data:") ? dataUriToArrayBuffer(url) : null;
+          if (!arr) {
+            const res = await fetch(playableMediaSrc(url));
+            if (!res.ok) return;
+            arr = await res.arrayBuffer();
+          }
           const buf = await this.ctx.decodeAudioData(arr.slice(0));
           this.buffers.set(slot, buf);
         } catch {

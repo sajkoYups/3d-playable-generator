@@ -51,7 +51,7 @@ export function backgroundToStyle(
       backgroundImage: `linear-gradient(${hexToRgba(
         background.overlayColor,
         background.overlayOpacity,
-      )}, ${hexToRgba(background.overlayColor, background.overlayOpacity)}), url(${imageUrl})`,
+      )}, ${hexToRgba(background.overlayColor, background.overlayOpacity)}), url(${JSON.stringify(imageUrl)})`,
       backgroundSize: size,
       backgroundPosition: background.imagePosition || "center",
       backgroundRepeat: "no-repeat",

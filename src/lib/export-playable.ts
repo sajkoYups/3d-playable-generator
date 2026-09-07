@@ -56,9 +56,35 @@ function mimeFromUrl(url: string): string {
   if (ext === "mp3") return "audio/mpeg";
   if (ext === "wav") return "audio/wav";
   if (ext === "ogg") return "audio/ogg";
+  if (ext === "m4a") return "audio/mp4";
   if (ext === "mp4") return "video/mp4";
   if (ext === "webm") return "video/webm";
   return "application/octet-stream";
+}
+
+function mimeFromBuffer(buf: Buffer, url: string): string {
+  const fromUrl = mimeFromUrl(url);
+  if (fromUrl !== "application/octet-stream") return fromUrl;
+  if (buf.length >= 4 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return "image/png";
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
+  if (buf.length >= 12 && buf.toString("ascii", 0, 4) === "RIFF") {
+    const kind = buf.toString("ascii", 8, 12);
+    if (kind === "WAVE") return "audio/wav";
+    if (kind === "WEBP") return "image/webp";
+  }
+  if (buf.length >= 3 && buf.toString("ascii", 0, 3) === "ID3") return "audio/mpeg";
+  if (buf.length >= 2 && buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0) return "audio/mpeg";
+  if (buf.length >= 8 && buf.toString("ascii", 4, 8) === "ftyp") {
+    const brand = buf.toString("ascii", 8, 12);
+    if (/m4a|M4A|mp4a/i.test(brand)) return "audio/mp4";
+    return "video/mp4";
+  }
+  if (buf.length >= 4 && buf.toString("ascii", 0, 4) === "OggS") return "audio/ogg";
+  if (buf.length >= 4 && buf.toString("ascii", 0, 4) === "glTF") return "model/gltf-binary";
+  if (buf.length >= 4 && buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3) {
+    return "video/webm";
+  }
+  return fromUrl;
 }
 
 function categoryFor(url: string, mime: string): keyof Omit<ExportBreakdown, "htmlShell" | "javascript" | "total"> {
@@ -89,9 +115,8 @@ export async function exportPlayableHtml(options: {
   };
 
   const urls = collectAssetUrls(data, options.templateId);
-  const json = JSON.stringify(data);
-  let rewritten = json;
   const assets: Record<string, string> = {};
+  let sawVideo = false;
 
   for (const url of urls) {
     if (!url || url.startsWith("data:")) continue;
@@ -100,17 +125,12 @@ export async function exportPlayableHtml(options: {
       warnings.push(`Missing asset: ${url}`);
       continue;
     }
-    const mime = mimeFromUrl(url);
-    const dataUri = `data:${mime};base64,${buf.toString("base64")}`;
-    assets[url] = dataUri;
-    rewritten = rewritten.split(JSON.stringify(url)).join(JSON.stringify(dataUri));
-    breakdown[categoryFor(url, mime)] += buf.length;
-    if (categoryFor(url, mime) === "video") {
-      warnings.push("Video assets dominate playable size budgets. Prefer a short loop or a poster image.");
-    }
+    const mime = mimeFromBuffer(buf, url);
+    assets[url] = `data:${mime};base64,${buf.toString("base64")}`;
+    const category = categoryFor(url, mime);
+    breakdown[category] += buf.length;
+    if (category === "video") sawVideo = true;
   }
-
-  const inlinedData = JSON.parse(rewritten) as ProjectData;
   const factory = ENGINE_FACTORY[options.templateId];
   const engineFile = ENGINE_FILE[options.templateId];
 
@@ -157,7 +177,7 @@ if (root && config) {
   breakdown.javascript = Buffer.byteLength(js);
 
   const configJson = JSON.stringify({
-    data: inlinedData,
+    data,
     templateId: options.templateId,
     networkId,
     assets,
@@ -186,6 +206,9 @@ button{font-family:system-ui,sans-serif}
   breakdown.htmlShell = Buffer.byteLength(html) - breakdown.javascript - Buffer.byteLength(configJson);
   breakdown.total = Buffer.byteLength(html);
 
+  if (sawVideo) {
+    warnings.push("Video assets dominate playable size budgets. Prefer a short loop or a poster image.");
+  }
   const limit = NETWORK_LIMITS[networkId];
   if (breakdown.total > limit) {
     warnings.push(`${adapter.name} limit is ${Math.round(limit / 1024 / 1024)} MB; this file is ${(breakdown.total / 1024 / 1024).toFixed(2)} MB.`);
@@ -194,7 +217,7 @@ button{font-family:system-ui,sans-serif}
     warnings.push("Meta/Moloco require a parameterless FbPlayableAd.onCTAClick() call in the HTML; it is missing from this export.");
   }
 
-  return { html, size: breakdown.total, networkId, breakdown, warnings };
+  return { html, size: breakdown.total, networkId, breakdown, warnings: [...new Set(warnings)] };
 }
 
 function pathTo(rel: string) {

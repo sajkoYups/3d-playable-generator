@@ -1,3 +1,5 @@
+import { playableMediaSrc } from "@/playable-runtime/media/src";
+
 export const DEFAULT_COIN_URL = "/coin.svg";
 
 const MAX_DPR = 2;
@@ -45,7 +47,7 @@ function loadImage(url: string, onLoad: (img: HTMLImageElement | null) => void) 
   const img = new Image();
   img.onload = () => onLoad(img);
   img.onerror = () => onLoad(null);
-  img.src = url;
+  img.src = playableMediaSrc(url);
 }
 
 export type PayoutHud = {

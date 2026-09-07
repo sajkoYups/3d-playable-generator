@@ -65,7 +65,7 @@ export async function POST(
     zipBase64: zipBuf.toString("base64"),
     results,
     size: zipBuf.length,
-    warnings: results.flatMap((r) => r.warnings),
+    warnings: [...new Set(results.flatMap((r) => r.warnings))],
     breakdown: {
       htmlShell: 0,
       javascript: total,

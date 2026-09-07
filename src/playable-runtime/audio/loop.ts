@@ -1,4 +1,7 @@
+import { playableMediaSrc } from "@/playable-runtime/media/src";
+
 let bed: HTMLAudioElement | null = null;
+let bedKey = "";
 
 function ensureBed() {
   if (bed) return bed;
@@ -18,20 +21,35 @@ function ignoreInterruptedPlay(err: unknown) {
   if (name === "AbortError" || name === "NotAllowedError") return;
 }
 
+/** Decode data: URIs and assign src now so play() can stay inside a tap. */
+export function prepareLoopMusic(url: string) {
+  if (!url) return;
+  try {
+    const el = ensureBed();
+    const src = playableMediaSrc(url);
+    if (bedKey === src) return;
+    el.pause();
+    el.preload = "auto";
+    el.src = src;
+    bedKey = src;
+    el.load();
+  } catch {
+    /* ignore */
+  }
+}
+
 export function startLoopMusic(url: string, muted = false, loop = true) {
   if (!url) return;
-  const el = ensureBed();
-  el.muted = muted;
-  el.loop = loop;
-  el.volume = 0.45;
-  const abs = new URL(url, window.location.href).href;
-  if (el.src === abs) {
-    if (!el.paused) return;
-  } else {
-    el.pause();
-    el.src = url;
+  try {
+    prepareLoopMusic(url);
+    const el = ensureBed();
+    el.muted = muted;
+    el.loop = loop;
+    el.volume = 0.45;
+    void el.play().catch(ignoreInterruptedPlay);
+  } catch {
+    /* data: URIs / autoplay must not take down the playable */
   }
-  void el.play().catch(ignoreInterruptedPlay);
 }
 
 export function stopLoopMusic() {

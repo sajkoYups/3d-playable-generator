@@ -5,9 +5,9 @@ import type { NetworkAdapter } from "@/playable-runtime/networks";
 import { applyStyle, backgroundToStyle, layoutToStyle } from "@/playable-runtime/layout/layout";
 import { renderElement } from "@/playable-runtime/overlay/dom";
 import { AudioBus } from "@/playable-runtime/audio/bus";
-import { startLoopMusic } from "@/playable-runtime/audio/loop";
 import { DEFAULT_TIMER_DURATION } from "@/playable-runtime/screens/format-time";
 import { isGameplayDownloadCta, resolveStoreUrl } from "@/playable-runtime/store/url";
+import { playableMediaSrc } from "@/playable-runtime/media/src";
 
 export type MountOptions = {
   data: ProjectData;
@@ -24,12 +24,23 @@ export type MountedPlayable = {
   setData(data: ProjectData): void;
 };
 
+function withInlinedAssets(data: ProjectData, assets?: Record<string, string>): ProjectData {
+  if (!assets) return data;
+  const entries = Object.entries(assets);
+  if (entries.length === 0) return data;
+  let json = JSON.stringify(data);
+  for (const [url, dataUri] of entries) {
+    if (!url || !dataUri) continue;
+    json = json.split(JSON.stringify(url)).join(JSON.stringify(dataUri));
+  }
+  return JSON.parse(json) as ProjectData;
+}
+
 export function mountPlayable(root: HTMLElement, options: MountOptions): MountedPlayable {
   const audio = new AudioBus();
-  audio.setUrls(options.data.gameplay.audio);
+  let data = withInlinedAssets(options.data, options.assets);
+  audio.setUrls(data.gameplay.audio);
   options.network.init();
-
-  let data = options.data;
   let phase: "start" | "game" | "end" = "start";
   if (options.jumpToEnd) phase = "end";
   let orientation: Orientation = options.forcedOrientation || "portrait";
@@ -57,7 +68,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
 
   const onPointerDown = () => {
     audioUnlocked = true;
-    void audio.unlock();
+    audio.unlock();
     applyScreenMedia();
   };
   root.addEventListener("pointerdown", onPointerDown, { capture: true });
@@ -75,15 +86,26 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
   }
 
   function applyScreenMedia() {
-    if (screenVideo) screenVideo.muted = true;
-    const videoUrl = currentScreenVideoUrl();
-    if (videoUrl && (phase === "start" || phase === "end")) {
-      const loop = !(phase === "start" && data.startScreen.startAfterVideo);
-      if (!muted) startLoopMusic(videoUrl, muted, loop);
-      return;
-    }
-    if (phase === "start" && data.gameplay.audio.playFromStart && audioUnlocked && !muted) {
-      audio.play("music");
+    try {
+      if (screenVideo) {
+        const live = audioUnlocked && !muted;
+        screenVideo.muted = !live;
+        if (live) {
+          screenVideo.volume = 0.8;
+          void screenVideo.play().catch(() => undefined);
+        }
+        return;
+      }
+      if (muted) return;
+      if (phase === "start" && data.gameplay.audio.playFromStart) {
+        audio.play("music");
+        return;
+      }
+      if (phase === "game" && data.gameplay.audio.musicUrl && !audio.isMusicPlaying()) {
+        audio.play("music");
+      }
+    } catch {
+      /* media errors must not block taps / START */
     }
   }
 
@@ -106,7 +128,9 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
   function beginGameplay() {
     if (phase !== "start") return;
     audioUnlocked = true;
-    void audio.unlock();
+    audio.unlock();
+    discardScreenVideo();
+    audio.play("music");
     setPhase("game");
   }
 
@@ -117,11 +141,18 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     }
     if (type === "REPLAY") {
       audio.play("tap");
+      audio.play("music");
       setPhase("game");
     }
     if (type === "MUTE") {
       muted = !muted;
       audio.setMuted(muted);
+      if (screenVideo) {
+        screenVideo.muted = muted;
+        if (!muted) void screenVideo.play().catch(() => undefined);
+      } else if (!muted) {
+        if (phase === "game" || data.gameplay.audio.playFromStart) audio.play("music");
+      }
       if (phase === "game") paintGameOverlays();
       else syncMuteButtons();
     }
@@ -204,7 +235,13 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     });
     engine.start();
     engineReady = true;
-    audio.play("music");
+    if (!muted) {
+      try {
+        audio.play("music");
+      } catch {
+        /* music must not abort round flow */
+      }
+    }
   }
 
   function paintGameOverlays() {
@@ -251,11 +288,14 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
     if (videoSrc) {
       const video = document.createElement("video");
       const startAfterVideo = phase === "start" && data.startScreen.startAfterVideo;
-      video.src = videoSrc;
+      video.src = playableMediaSrc(videoSrc);
       video.autoplay = true;
       video.loop = !startAfterVideo;
-      video.muted = true;
+      video.muted = !audioUnlocked || muted;
       video.playsInline = true;
+      video.setAttribute("playsinline", "true");
+      video.setAttribute("webkit-playsinline", "true");
+      video.volume = 0.8;
       video.style.width = "100%";
       video.style.height = "100%";
       video.style.objectFit = "cover";
@@ -340,7 +380,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         engine.resize?.(gameBox?.clientWidth || size.w, gameBox?.clientHeight || size.h);
         paintGameOverlays();
       }
-    } else {
+    } else if (orientation !== prev) {
       paintScreen();
     }
   });
@@ -359,24 +399,24 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
       stage.remove();
     },
     setData(next) {
-      data = next;
-      audio.setUrls(next.gameplay.audio);
+      data = withInlinedAssets(next, options.assets);
+      audio.setUrls(data.gameplay.audio);
       engine.setOptions?.({
-        camera: next.gameplay.camera[orientation],
-        lighting: next.gameplay.lighting,
+        camera: data.gameplay.camera[orientation],
+        lighting: data.gameplay.lighting,
         orientation,
-        stackTower: next.gameplay.stackTower,
-        tripleMatch: next.gameplay.tripleMatch,
-        laneRunner: next.gameplay.laneRunner,
-        parkingJam: next.gameplay.parkingJam,
-        towerDefense: next.gameplay.towerDefense,
-        background: next.gameplay.background[orientation],
-        pieceImages: next.gameplay.pieceImages,
-        match3: next.gameplay.match3,
-        waterSort: next.gameplay.waterSort,
-        hintHandUrl: next.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.content.imageUrl || "",
+        stackTower: data.gameplay.stackTower,
+        tripleMatch: data.gameplay.tripleMatch,
+        laneRunner: data.gameplay.laneRunner,
+        parkingJam: data.gameplay.parkingJam,
+        towerDefense: data.gameplay.towerDefense,
+        background: data.gameplay.background[orientation],
+        pieceImages: data.gameplay.pieceImages,
+        match3: data.gameplay.match3,
+        waterSort: data.gameplay.waterSort,
+        hintHandUrl: data.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.content.imageUrl || "",
         hintHandVisible: Boolean(
-          next.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.layout[orientation].visible,
+          data.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.layout[orientation].visible,
         ),
       });
       if (phase === "game") paintGameOverlays();

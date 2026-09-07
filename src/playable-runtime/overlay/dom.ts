@@ -1,4 +1,5 @@
 import type { PlayableElement } from "@/types/project";
+import { playableMediaSrc } from "@/playable-runtime/media/src";
 import {
   DEFAULT_TIMER_DURATION,
   DEFAULT_TIMER_WARNING,
@@ -86,7 +87,7 @@ export function renderElement(
       return wrap;
     }
     const img = document.createElement("img");
-    img.src = content.imageUrl;
+    img.src = playableMediaSrc(content.imageUrl);
     img.alt = "";
     img.draggable = false;
     img.style.width = "100%";

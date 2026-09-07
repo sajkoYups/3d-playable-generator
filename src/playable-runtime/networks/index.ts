@@ -66,6 +66,9 @@ export const NETWORK_LABELS: Record<NetworkId, string> = {
   tiktok: "TikTok",
 };
 
+/** Networks currently offered in the export dialog. */
+export const ENABLED_NETWORK_IDS: NetworkId[] = ["generic", "meta", "applovin", "unity", "ironsource"];
+
 function base(id: NetworkId, extra: Partial<NetworkAdapter> = {}): NetworkAdapter {
   return {
     id,

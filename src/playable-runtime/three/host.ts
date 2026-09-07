@@ -200,8 +200,16 @@ export class ThreeHost {
       if (!this.running) return;
       const dt = Math.min(0.05, (now - this.last) / 1000);
       this.last = now;
-      this.onFrame?.(dt);
-      this.renderer.render(this.scene, this.camera);
+      try {
+        this.onFrame?.(dt);
+      } catch {
+        /* keep the loop alive so round payouts can finish */
+      }
+      try {
+        this.renderer.render(this.scene, this.camera);
+      } catch {
+        /* WebGL hiccup during rebuild */
+      }
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);

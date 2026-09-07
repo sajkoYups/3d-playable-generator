@@ -1,5 +1,6 @@
 import { backgroundImageUrl } from "@/types/project";
 import type { Background } from "@/types/project";
+import { playableMediaSrc } from "@/playable-runtime/media/src";
 
 export function drawCanvasBackground(
   ctx: CanvasRenderingContext2D,
@@ -60,10 +61,10 @@ export function loadImage(url: string): Promise<HTMLImageElement | null> {
   if (!url) return Promise.resolve(null);
   return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = "anonymous";
+    if (!url.startsWith("data:") && !url.startsWith("blob:")) img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
-    img.src = url;
+    img.src = playableMediaSrc(url);
   });
 }
 

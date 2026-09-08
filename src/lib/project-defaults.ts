@@ -793,6 +793,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       hintDelayMs: 1800,
       coinImageUrl: "/demo-assets/coin.svg",
       hudTransparent: false,
+      endless: false,
       rounds: defaultTappyRoundsPack(),
     },
     racingLap: {

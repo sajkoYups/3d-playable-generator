@@ -913,24 +913,35 @@ function GameplaySettings() {
       {templateId === "tappy-plane" && (() => {
         const cfg = data.gameplay.tappyPlane;
         const rounds = cfg.rounds.length ? cfg.rounds : [{ gapsToWin: 5, speed: 1.2, gapSize: 0.42, coins: 40 }];
-        const roundIdx = Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
+        const roundIdx = cfg.endless ? 0 : Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
         const round = rounds[roundIdx];
         return (
           <>
             <Separator />
             <h4 className="text-sm font-medium">Tappy Plane</h4>
             <p className="text-[11px] text-muted">Tap to flap through rock gaps. A hand hints the first tap.</p>
-            <RoundLengthPicker
-              count={rounds.length}
-              preview={roundIdx}
-              onCount={(n, preview) => {
-                updateData((d) => { setTappyRoundCount(d.gameplay.tappyPlane, n); });
-                setParkingRoundIndex(preview);
-              }}
-              onPreview={setParkingRoundIndex}
-            />
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label>Endless</Label>
+                <p className="text-[11px] text-muted">One continuous round. Score until you crash.</p>
+              </div>
+              <Switch checked={Boolean(cfg.endless)} onCheckedChange={(v) => updateData((d) => { d.gameplay.tappyPlane.endless = v; })} />
+            </div>
+            {!cfg.endless && (
+              <RoundLengthPicker
+                count={rounds.length}
+                preview={roundIdx}
+                onCount={(n, preview) => {
+                  updateData((d) => { setTappyRoundCount(d.gameplay.tappyPlane, n); });
+                  setParkingRoundIndex(preview);
+                }}
+                onPreview={setParkingRoundIndex}
+              />
+            )}
             <div className="grid grid-cols-2 gap-2">
-              <NumberField label="Gaps to win" integer min={2} max={20} value={round.gapsToWin} onChange={(n) => updateData((d) => { ensureTappyRounds(d.gameplay.tappyPlane); d.gameplay.tappyPlane.rounds[roundIdx].gapsToWin = n; })} />
+              {!cfg.endless && (
+                <NumberField label="Gaps to win" integer min={2} max={20} value={round.gapsToWin} onChange={(n) => updateData((d) => { ensureTappyRounds(d.gameplay.tappyPlane); d.gameplay.tappyPlane.rounds[roundIdx].gapsToWin = n; })} />
+              )}
               <NumberField label="Coins" integer min={0} max={9999} value={round.coins} onChange={(n) => updateData((d) => { ensureTappyRounds(d.gameplay.tappyPlane); d.gameplay.tappyPlane.rounds[roundIdx].coins = n; })} />
               <NumberField label="Speed" min={0.6} max={4} step={0.05} value={round.speed} onChange={(n) => updateData((d) => { ensureTappyRounds(d.gameplay.tappyPlane); d.gameplay.tappyPlane.rounds[roundIdx].speed = n; })} />
               <NumberField label="Gap size" min={0.22} max={0.7} step={0.01} value={round.gapSize} onChange={(n) => updateData((d) => { ensureTappyRounds(d.gameplay.tappyPlane); d.gameplay.tappyPlane.rounds[roundIdx].gapSize = n; })} />

@@ -2,7 +2,7 @@ import type { Background, Orientation, TappyPlaneConfig } from "@/types/project"
 import type { EngineInitContext, Playable3DEngine } from "@/playable-runtime/engines/types";
 import { canvasBgUrl, drawCanvasBackground, loadImage } from "@/playable-runtime/engines/canvas";
 import { attachPlayableCanvas, beginCanvasFrame } from "@/playable-runtime/engines/canvas-setup";
-import { CANVAS_HUD_H, drawCanvasHud } from "@/playable-runtime/engines/canvas-hud";
+import { CANVAS_HUD_H, drawCanvasHud, drawCoinIcon } from "@/playable-runtime/engines/canvas-hud";
 import { drawHintHand } from "@/playable-runtime/engines/hint-hand";
 import { TAPPY_SPRITES } from "@/playable-runtime/engines/kenney-2d-assets";
 import { resolveRuntimeUrl } from "@/playable-runtime/models/assets";
@@ -18,7 +18,53 @@ type Extra = {
   hintHandVisible?: boolean;
 };
 
-type Rock = { x: number; gapY: number; passed: boolean };
+type RockCoin = { taken: boolean; offset: number };
+type Rock = { x: number; gapY: number; gapSize: number; passed: boolean; coin: RockCoin | null };
+
+type BurstPiece = {
+  angle: number;
+  dist: number;
+  size: number;
+  rot: number;
+  rotSpeed: number;
+  delay: number;
+};
+type BurstSparkle = { angle: number; dist: number; life: number; size: number };
+type Burst = {
+  t0: number;
+  until: number;
+  ox: number;
+  oy: number;
+  reward: number;
+  coins: BurstPiece[];
+  sparkles: BurstSparkle[];
+};
+
+const GROUND_ASPECT = 808 / 71;
+/** Transparent / jagged grass at the top of the Kenney ground strip. */
+const GROUND_SOLID = 0.34;
+const PLANE_HIT_W = 0.48;
+const PLANE_HIT_H = 0.36;
+const ROCK_INSET_X = 0.3;
+const BURST_COUNT = 12;
+const BURST_SPARKLES = 10;
+const BURST_MS = 220;
+const COLLECT_MS = 560;
+const STAGGER_MS = 22;
+const HOLD_MS = 120;
+
+function overlaps(ax: number, ay: number, aw: number, ah: number, bx: number, by: number, bw: number, bh: number) {
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+function easeOutCubic(t: number) {
+  const x = Math.min(1, Math.max(0, t));
+  return 1 - (1 - x) ** 3;
+}
+
+function easeInOut(t: number) {
+  return t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+}
 
 export function createTappyPlaneEngine(): Playable3DEngine {
   let container: HTMLElement | null = null;
@@ -30,7 +76,15 @@ export function createTappyPlaneEngine(): Playable3DEngine {
   let raf = 0;
   let ended = false;
   let last = 0;
-  let config: TappyPlaneConfig = { failEnabled: true, hintHandEnabled: true, hintDelayMs: 1800, coinImageUrl: "", hudTransparent: false, rounds: [] };
+  let config: TappyPlaneConfig = {
+    failEnabled: true,
+    hintHandEnabled: true,
+    hintDelayMs: 1800,
+    coinImageUrl: "",
+    hudTransparent: false,
+    endless: false,
+    rounds: [],
+  };
   let playAllRounds = true;
   let roundIndex = 0;
   let earned = 0;
@@ -55,13 +109,80 @@ export function createTappyPlaneEngine(): Playable3DEngine {
   let scroll = 0;
   let rocks: Rock[] = [];
   let started = false;
+  let bursts: Burst[] = [];
+
+  function isEndless() {
+    return config.endless === true;
+  }
 
   function rounds() {
     return listTappyRounds(config);
   }
   function current() {
     const list = rounds();
+    if (isEndless()) return list[0] ?? list[list.length - 1];
     return list[Math.max(0, Math.min(roundIndex, list.length - 1))] ?? list[0];
+  }
+
+  /** Endless ramps with pipes passed. Round mode uses the round’s own knobs. */
+  function flightStats() {
+    const round = current();
+    if (!isEndless()) return { speed: round.speed, gapSize: round.gapSize };
+    const n = passed;
+    return {
+      speed: Math.min(2.65, round.speed + 0.22 + n * 0.055),
+      gapSize: Math.max(0.248, round.gapSize - 0.06 - n * 0.011),
+    };
+  }
+
+  function groundBand(w: number, h: number) {
+    const aspect =
+      groundImg?.complete && groundImg.naturalWidth && groundImg.naturalHeight
+        ? groundImg.naturalWidth / groundImg.naturalHeight
+        : GROUND_ASPECT;
+    const gH = Math.max(26, Math.min(Math.round(h * 0.14), Math.round(w / aspect)));
+    return { gH, tileW: gH * aspect };
+  }
+
+  function playLayout() {
+    const w = Math.max(1, container?.clientWidth || canvas?.clientWidth || 360);
+    const h = Math.max(1, container?.clientHeight || canvas?.clientHeight || 640);
+    const { gH, tileW } = groundBand(w, h);
+    const playTop = CANVAS_HUD_H;
+    const playH = Math.max(1, h - playTop - gH);
+    return { w, h, gH, tileW, playTop, playH };
+  }
+
+  function planeSprite(w: number) {
+    const pw = w * 0.16;
+    return { pw, ph: pw * 0.72, px: w * 0.22 };
+  }
+
+  function planeHit(w: number, playTop: number, playH: number) {
+    const { pw, ph, px } = planeSprite(w);
+    const py = playTop + y * playH;
+    const hitW = pw * PLANE_HIT_W;
+    const hitH = ph * PLANE_HIT_H;
+    return {
+      pw,
+      ph,
+      px,
+      py,
+      hitX: px + (pw - hitW) * 0.42,
+      hitY: py - hitH / 2,
+      hitW,
+      hitH,
+    };
+  }
+
+  function coinWorld(rock: Rock, w: number, playTop: number, playH: number) {
+    const rw = w * 0.16;
+    const size = Math.max(16, w * 0.075);
+    return {
+      cx: rock.x * w + rw * 0.5,
+      cy: playTop + (rock.gapY + rock.gapSize * (rock.coin?.offset ?? 0.5)) * playH,
+      size,
+    };
   }
 
   function resetFlight() {
@@ -72,17 +193,68 @@ export function createTappyPlaneEngine(): Playable3DEngine {
     started = false;
     ended = false;
     rocks = [];
+    bursts = [];
     lastInputAt = performance.now();
-    spawn(1.15);
-    spawn(1.85);
+    spawn(isEndless() ? 0.62 : 1.15);
+    spawn(isEndless() ? 1.38 : 1.85);
   }
 
   function spawn(x: number) {
-    rocks.push({ x, gapY: 0.28 + Math.random() * 0.34, passed: false });
+    const { gapSize } = flightStats();
+    const margin = isEndless() ? 0.11 : 0.14;
+    const lo = margin;
+    const hi = Math.max(lo + 0.02, 1 - gapSize - margin);
+    const coin: RockCoin | null = isEndless()
+      ? { taken: false, offset: 0.28 + Math.random() * 0.44 }
+      : null;
+    rocks.push({ x, gapY: lo + Math.random() * (hi - lo), gapSize, passed: false, coin });
+  }
+
+  function spawnBurst(ox: number, oy: number, reward: number) {
+    const t0 = performance.now();
+    const coins: BurstPiece[] = [];
+    const sparkles: BurstSparkle[] = [];
+    for (let i = 0; i < BURST_COUNT; i++) {
+      coins.push({
+        angle: -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.4,
+        dist: 28 + Math.random() * 56,
+        size: 12 + Math.random() * 10,
+        rot: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.02,
+        delay: i * STAGGER_MS + Math.random() * 16,
+      });
+    }
+    for (let i = 0; i < BURST_SPARKLES; i++) {
+      sparkles.push({
+        angle: Math.random() * Math.PI * 2,
+        dist: 14 + Math.random() * 46,
+        life: 240 + Math.random() * 240,
+        size: 1.4 + Math.random() * 2.2,
+      });
+    }
+    const lastDelay = (BURST_COUNT - 1) * STAGGER_MS + 16;
+    bursts.push({
+      t0,
+      until: t0 + BURST_MS + lastDelay + COLLECT_MS + HOLD_MS,
+      ox,
+      oy,
+      reward,
+      coins,
+      sparkles,
+    });
+  }
+
+  function collectCoin(rock: Rock, w: number, playTop: number, playH: number) {
+    if (!rock.coin || rock.coin.taken) return;
+    rock.coin.taken = true;
+    const { cx, cy } = coinWorld(rock, w, playTop, playH);
+    const reward = Math.max(5, Math.round(current().coins / 4));
+    earned += reward;
+    spawnBurst(cx, cy, reward);
   }
 
   function completeRound() {
-    if (ended) return;
+    if (ended || isEndless()) return;
     earned += current().coins;
     const list = rounds();
     if (playAllRounds && roundIndex < list.length - 1) {
@@ -118,92 +290,267 @@ export function createTappyPlaneEngine(): Playable3DEngine {
 
   function tick(dt: number) {
     if (!started || ended) return;
-    const round = current();
-    vy += 1.35 * dt;
+    const stats = flightStats();
+    const gravity = isEndless() ? 1.42 + Math.min(0.28, passed * 0.014) : 1.35;
+    vy += gravity * dt;
     y += vy * dt;
-    scroll += round.speed * 0.28 * dt;
-    for (const rock of rocks) rock.x -= round.speed * 0.32 * dt;
+    scroll += stats.speed * 0.28 * dt;
+    for (const rock of rocks) rock.x -= stats.speed * 0.32 * dt;
     if (rocks.length && rocks[0].x < -0.35) {
       rocks.shift();
-      spawn(1.2 + Math.random() * 0.2);
+      const lastX = rocks.length ? rocks[rocks.length - 1].x : 1.15;
+      const spacing = isEndless()
+        ? Math.max(0.86, 1.06 - passed * 0.016) + Math.random() * 0.08
+        : 1.2 + Math.random() * 0.2;
+      spawn(lastX + spacing);
     }
-    const gap = round.gapSize;
+
+    const { w, h, gH, playTop, playH } = playLayout();
+    const { hitX, hitY, hitW, hitH } = planeHit(w, playTop, playH);
+    const solidY = h - gH + gH * GROUND_SOLID;
+    if (hitY <= playTop || hitY + hitH >= solidY) {
+      crash();
+      return;
+    }
+
+    const rw = w * 0.16;
+    const inset = rw * ROCK_INSET_X;
     for (const rock of rocks) {
       if (!rock.passed && rock.x + 0.08 < 0.28) {
         rock.passed = true;
         passed += 1;
-        if (passed >= round.gapsToWin) completeRound();
+        if (!isEndless() && passed >= current().gapsToWin) {
+          completeRound();
+          return;
+        }
       }
-      const inX = rock.x < 0.38 && rock.x + 0.18 > 0.22;
-      if (inX && (y < rock.gapY || y > rock.gapY + gap)) crash();
+      if (rock.coin && !rock.coin.taken) {
+        const { cx, cy, size } = coinWorld(rock, w, playTop, playH);
+        const r = size * 0.42;
+        if (overlaps(hitX, hitY, hitW, hitH, cx - r, cy - r, r * 2, r * 2)) {
+          collectCoin(rock, w, playTop, playH);
+        }
+      }
+      const rx = rock.x * w + inset;
+      const rockW = Math.max(4, rw - inset * 2);
+      const gapY = playTop + rock.gapY * playH;
+      const gapPx = rock.gapSize * playH;
+      const topH = gapY - playTop;
+      if (topH > 6 && overlaps(hitX, hitY, hitW, hitH, rx, playTop, rockW, topH)) {
+        crash();
+        return;
+      }
+      const botY = gapY + gapPx;
+      const botH = playTop + playH - botY;
+      if (botH > 6 && overlaps(hitX, hitY, hitW, hitH, rx, botY, rockW, botH)) {
+        crash();
+        return;
+      }
     }
-    if (y > 0.82 || y < 0.06) crash();
+  }
+
+  function pieceFlight(p: BurstPiece, burst: Burst, now: number, tx: number, ty: number) {
+    const t = now - burst.t0;
+    const burstX = burst.ox + Math.cos(p.angle) * p.dist;
+    const burstY = burst.oy + Math.sin(p.angle) * p.dist;
+    const collectStart = BURST_MS + p.delay;
+    const collectEnd = collectStart + COLLECT_MS;
+    const rot = p.rot + p.rotSpeed * t;
+    if (t < BURST_MS) {
+      const u = easeOutCubic(t / BURST_MS);
+      return {
+        x: burst.ox + (burstX - burst.ox) * u,
+        y: burst.oy + (burstY - burst.oy) * u,
+        scale: 0.35 + u * 1.15,
+        alpha: 0.45 + u * 0.55,
+        rot,
+      };
+    }
+    if (t < collectStart) {
+      return {
+        x: burstX,
+        y: burstY + Math.sin((t - BURST_MS) * 0.02) * 3,
+        scale: 1.15,
+        alpha: 1,
+        rot,
+      };
+    }
+    if (t < collectEnd) {
+      const u = easeInOut(Math.min(1, (t - collectStart) / COLLECT_MS));
+      const cx = (burstX + tx) / 2 + (burstX - tx) * 0.12;
+      const cy = Math.min(burstY, ty) - 46;
+      const iu = 1 - u;
+      return {
+        x: iu * iu * burstX + 2 * iu * u * cx + u * u * tx,
+        y: iu * iu * burstY + 2 * iu * u * cy + u * u * ty,
+        scale: 1.15 * (1 - u * 0.7),
+        alpha: 1 - u * 0.2,
+        rot,
+      };
+    }
+    return { x: tx, y: ty, scale: 0, alpha: 0, rot };
+  }
+
+  function hudPunch(now: number) {
+    let pop = 1;
+    for (const burst of bursts) {
+      if (now >= burst.until) continue;
+      const u = Math.min(1, (now - burst.t0) / Math.max(1, burst.until - burst.t0));
+      pop = Math.max(pop, 1 + 0.38 * Math.sin(u * Math.PI));
+    }
+    return pop;
+  }
+
+  function drawBursts(
+    now: number,
+    tx: number,
+    ty: number,
+  ) {
+    if (!ctx) return;
+    bursts = bursts.filter((b) => now < b.until);
+    for (const burst of bursts) {
+      for (const s of burst.sparkles) {
+        const u = Math.min(1, (now - burst.t0) / s.life);
+        if (u >= 1) continue;
+        const e = easeOutCubic(u);
+        ctx.save();
+        ctx.globalAlpha = 1 - u;
+        ctx.fillStyle = u < 0.35 ? "#ffffff" : "#fbbf24";
+        ctx.beginPath();
+        ctx.arc(burst.ox + Math.cos(s.angle) * s.dist * e, burst.oy + Math.sin(s.angle) * s.dist * e, s.size * (1.2 - u), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      for (const p of burst.coins) {
+        const f = pieceFlight(p, burst, now, tx, ty);
+        if (f.alpha <= 0.02 || f.scale <= 0.02) continue;
+        const size = p.size * f.scale;
+        ctx.save();
+        ctx.globalAlpha = f.alpha;
+        ctx.translate(f.x, f.y);
+        ctx.rotate(f.rot);
+        drawCoinIcon(ctx, coinImage, -size / 2, -size / 2, size);
+        ctx.restore();
+      }
+      const dur = Math.max(1, burst.until - burst.t0);
+      const p = Math.min(1, (now - burst.t0) / dur);
+      const amount = `+${burst.reward}`;
+      let x = burst.ox;
+      let y = burst.oy;
+      let scale = 1;
+      let alpha = 1;
+      if (p < 0.16) {
+        scale = 0.2 + easeOutCubic(p / 0.16) * 1.7;
+        alpha = Math.min(1, p / 0.08);
+      } else if (p < 0.42) {
+        scale = 1.9 - ((p - 0.16) / 0.26) * 0.4;
+      } else if (p < 0.55) {
+        scale = 1.5;
+      } else {
+        const e = easeInOut((p - 0.55) / 0.45);
+        x = burst.ox + (tx - burst.ox) * e;
+        y = burst.oy + (ty - burst.oy) * e;
+        scale = 1.5 * (1 - e * 0.75);
+        alpha = 1 - e * 0.85;
+      }
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(scale, scale);
+      ctx.globalAlpha = alpha;
+      ctx.font = "800 22px system-ui";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(0,0,0,0.45)";
+      ctx.strokeText(amount, 0, 0);
+      ctx.fillStyle = "#fbbf24";
+      ctx.fillText(amount, 0, 0);
+      ctx.restore();
+    }
   }
 
   function draw() {
-    if (!canvas || !ctx || !container) return;
+    const host = container;
+    const gl = canvas;
+    const c2d = ctx;
+    if (!gl || !c2d || !host) return;
     const now = performance.now();
     const dt = Math.min(0.033, (now - (last || now)) / 1000);
     last = now;
     if (running) tick(dt);
-    const { w, h } = beginCanvasFrame(canvas, ctx, container);
+    if (!container || !canvas || !ctx) return;
+    const { w, h } = beginCanvasFrame(gl, c2d, host);
+    const { gH, tileW, playTop, playH } = playLayout();
     if (background?.type === "transparent") {
       drawCanvasBackground(ctx, w, h, background, bgImage);
     } else if (skyImg && skyImg.complete) {
       const sw = skyImg.naturalWidth || w;
       const ox = -((scroll * 40) % sw);
-      ctx.drawImage(skyImg, ox, CANVAS_HUD_H, sw, h - CANVAS_HUD_H);
-      ctx.drawImage(skyImg, ox + sw, CANVAS_HUD_H, sw, h - CANVAS_HUD_H);
+      ctx.drawImage(skyImg, ox, playTop, sw, h - playTop);
+      ctx.drawImage(skyImg, ox + sw, playTop, sw, h - playTop);
     } else drawCanvasBackground(ctx, w, h, background, bgImage);
     const list = rounds();
     const round = current();
-    drawCanvasHud(ctx, {
+    const endless = isEndless();
+    const hud = drawCanvasHud(ctx, {
       w,
-      roundText: `R${Math.min(roundIndex + 1, list.length)}/${list.length}`,
+      roundText: endless
+        ? "∞"
+        : list.length > 1
+          ? `R${Math.min(roundIndex + 1, list.length)}/${list.length}`
+          : `${passed}/${round.gapsToWin}`,
       coinsText: `${earned}`,
-      extraText: `${passed}/${round.gapsToWin}`,
+      extraText: endless ? `${passed}` : list.length > 1 ? `${passed}/${round.gapsToWin}` : undefined,
       coinImage,
       transparent: config.hudTransparent,
+      coinPop: hudPunch(now),
     });
-    const groundH = h * 0.12;
-    const playTop = CANVAS_HUD_H;
-    const playH = h - playTop - groundH;
-    const gapPx = round.gapSize * playH;
     for (const rock of rocks) {
       const rx = rock.x * w;
       const rw = w * 0.16;
       const gapY = playTop + rock.gapY * playH;
-      if (rockDown?.complete) ctx.drawImage(rockDown, rx, playTop, rw, gapY - playTop);
-      else {
-        ctx.fillStyle = "#4b5563";
-        ctx.fillRect(rx, playTop, rw, gapY - playTop);
+      const gapPx = rock.gapSize * playH;
+      const topH = gapY - playTop;
+      if (topH > 1) {
+        if (rockDown?.complete) ctx.drawImage(rockDown, rx, playTop, rw, topH);
+        else {
+          ctx.fillStyle = "#4b5563";
+          ctx.fillRect(rx, playTop, rw, topH);
+        }
       }
-      if (rockUp?.complete) ctx.drawImage(rockUp, rx, gapY + gapPx, rw, playTop + playH - (gapY + gapPx));
-      else {
-        ctx.fillStyle = "#4b5563";
-        ctx.fillRect(rx, gapY + gapPx, rw, playTop + playH - (gapY + gapPx));
+      const botY = gapY + gapPx;
+      const botH = h - botY;
+      if (botH > 1) {
+        if (rockUp?.complete) ctx.drawImage(rockUp, rx, botY, rw, botH);
+        else {
+          ctx.fillStyle = "#4b5563";
+          ctx.fillRect(rx, botY, rw, botH);
+        }
+      }
+      if (rock.coin && !rock.coin.taken) {
+        const { cx, cy, size } = coinWorld(rock, w, playTop, playH);
+        const bob = Math.sin(now / 180) * 3;
+        drawCoinIcon(ctx, coinImage, cx - size / 2, cy - size / 2 + bob, size);
       }
     }
     if (groundImg?.complete) {
-      const gw = groundImg.naturalWidth || w;
-      const gx = -((scroll * 80) % gw);
-      ctx.drawImage(groundImg, gx, h - groundH, gw, groundH);
-      ctx.drawImage(groundImg, gx + gw, h - groundH, gw, groundH);
+      const gx = -((scroll * 80) % tileW);
+      for (let x = gx - tileW; x < w; x += tileW) {
+        ctx.drawImage(groundImg, x, h - gH, tileW, gH);
+      }
     } else {
       ctx.fillStyle = "#65a30d";
-      ctx.fillRect(0, h - groundH, w, groundH);
+      ctx.fillRect(0, h - gH, w, gH);
     }
     const frame = Math.floor(now / 120) % 3;
     const plane = planeImgs[frame] || planeImgs[0];
-    const pw = w * 0.16;
-    const ph = pw * 0.72;
-    const px = w * 0.22;
-    const py = playTop + y * playH;
+    const { pw, ph, px, py } = planeHit(w, playTop, playH);
     if (plane?.complete) ctx.drawImage(plane, px, py - ph / 2, pw, ph);
     else {
       ctx.fillStyle = "#38bdf8";
       ctx.fillRect(px, py - ph / 2, pw, ph);
     }
+    drawBursts(now, hud.coinX, hud.coinY);
     if (
       !started &&
       config.hintHandEnabled &&
@@ -215,6 +562,7 @@ export function createTappyPlaneEngine(): Playable3DEngine {
   }
 
   function loop() {
+    if (!running || !container || !canvas || !ctx) return;
     draw();
     if (running) raf = requestAnimationFrame(loop);
   }
@@ -228,7 +576,7 @@ export function createTappyPlaneEngine(): Playable3DEngine {
     const [bg, hand, coin, p1, p2, p3, ru, rd, g, sky] = await Promise.all([
       background?.type === "image" && bgUrl ? loadImage(media(bgUrl)) : Promise.resolve(null),
       hintHandUrl ? loadImage(media(hintHandUrl)) : Promise.resolve(null),
-      config.coinImageUrl ? loadImage(media(config.coinImageUrl)) : Promise.resolve(null),
+      loadImage(media(config.coinImageUrl || "/demo-assets/coin.svg")),
       loadImage(media(TAPPY_SPRITES.plane1)),
       loadImage(media(TAPPY_SPRITES.plane2)),
       loadImage(media(TAPPY_SPRITES.plane3)),
@@ -261,7 +609,11 @@ export function createTappyPlaneEngine(): Playable3DEngine {
       assets = ctxInit.assets || {};
       if (extra.tappyPlane) config = extra.tappyPlane;
       playAllRounds = extra.playAllRounds !== false;
-      roundIndex = typeof extra.parkingRoundIndex === "number" ? extra.parkingRoundIndex : 0;
+      roundIndex = isEndless()
+        ? 0
+        : typeof extra.parkingRoundIndex === "number"
+          ? extra.parkingRoundIndex
+          : 0;
       hintHandUrl = extra.hintHandUrl || "";
       hintHandVisible = extra.hintHandVisible !== false;
       background = extra.background;
@@ -271,10 +623,18 @@ export function createTappyPlaneEngine(): Playable3DEngine {
     },
     setOptions(options) {
       const extra = options as Extra;
+      const wasEndless = isEndless();
       if (extra.tappyPlane) config = extra.tappyPlane;
       if (typeof extra.playAllRounds === "boolean") playAllRounds = extra.playAllRounds;
-      if (typeof extra.parkingRoundIndex === "number" && extra.parkingRoundIndex !== roundIndex) {
+      if (isEndless()) {
+        if (roundIndex !== 0 || wasEndless !== isEndless()) {
+          roundIndex = 0;
+          resetFlight();
+        }
+      } else if (typeof extra.parkingRoundIndex === "number" && extra.parkingRoundIndex !== roundIndex) {
         roundIndex = extra.parkingRoundIndex;
+        resetFlight();
+      } else if (wasEndless !== isEndless()) {
         resetFlight();
       }
       if (typeof extra.hintHandUrl === "string") hintHandUrl = extra.hintHandUrl;
@@ -293,7 +653,7 @@ export function createTappyPlaneEngine(): Playable3DEngine {
     },
     reset() {
       earned = 0;
-      roundIndex = playAllRounds ? 0 : roundIndex;
+      roundIndex = playAllRounds || isEndless() ? 0 : roundIndex;
       resetFlight();
     },
     destroy() {

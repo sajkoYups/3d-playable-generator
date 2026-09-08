@@ -568,6 +568,7 @@ export const TappyPlaneConfigSchema = z.object({
   hintDelayMs: z.number().int().min(500).max(15000).default(1800),
   coinImageUrl: z.string().default("/demo-assets/coin.svg"),
   hudTransparent: z.boolean().default(false),
+  endless: z.boolean().default(false),
   rounds: z.array(TappyPlaneRoundSchema).max(9).default([]),
 });
 export type TappyPlaneConfig = z.infer<typeof TappyPlaneConfigSchema>;

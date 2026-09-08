@@ -28,6 +28,11 @@ function activeRoundCount(templateId: TemplateId, data: ProjectData) {
   if (templateId === "lane-runner") return data.gameplay.laneRunner.rounds.length;
   if (templateId === "tower-defense") return data.gameplay.towerDefense.rounds.length;
   if (templateId === "stack-tower") return data.gameplay.stackTower.rounds.length;
+  if (templateId === "solitaire") return data.gameplay.solitaire.rounds.length;
+  if (templateId === "domino") return data.gameplay.domino.rounds.length;
+  if (templateId === "tappy-plane") return data.gameplay.tappyPlane.rounds.length;
+  if (templateId === "racing-lap") return data.gameplay.racingLap.rounds.length;
+  if (templateId === "top-down-shooter") return data.gameplay.topDownShooter.rounds.length;
   return 1;
 }
 

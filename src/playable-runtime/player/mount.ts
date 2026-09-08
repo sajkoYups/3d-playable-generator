@@ -221,6 +221,11 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         pieceImages: data.gameplay.pieceImages,
         match3: data.gameplay.match3,
         waterSort: data.gameplay.waterSort,
+        solitaire: data.gameplay.solitaire,
+        domino: data.gameplay.domino,
+        tappyPlane: data.gameplay.tappyPlane,
+        racingLap: data.gameplay.racingLap,
+        topDownShooter: data.gameplay.topDownShooter,
         hintHandUrl: data.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.content.imageUrl || "",
         hintHandVisible: Boolean(
           data.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.layout[orientation].visible,
@@ -436,6 +441,11 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         pieceImages: data.gameplay.pieceImages,
         match3: data.gameplay.match3,
         waterSort: data.gameplay.waterSort,
+        solitaire: data.gameplay.solitaire,
+        domino: data.gameplay.domino,
+        tappyPlane: data.gameplay.tappyPlane,
+        racingLap: data.gameplay.racingLap,
+        topDownShooter: data.gameplay.topDownShooter,
         hintHandUrl: data.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.content.imageUrl || "",
         hintHandVisible: Boolean(
           data.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.layout[orientation].visible,

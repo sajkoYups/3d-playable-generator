@@ -86,10 +86,7 @@ export async function readObjectBuffer(keyOrUrl: string): Promise<Buffer | null>
     keyOrUrl === "/coin.svg" ||
     keyOrUrl.startsWith("/demo-assets/") ||
     keyOrUrl.startsWith("/models/") ||
-    keyOrUrl.startsWith("/kenney_car-kit/") ||
-    keyOrUrl.startsWith("/kenney_food-kit/") ||
-    keyOrUrl.startsWith("/kenney_road-textures/") ||
-    keyOrUrl.startsWith("/kenney_tower-defense-kit/") ||
+    keyOrUrl.startsWith("/kenney_") ||
     keyOrUrl.startsWith("/public/")
   ) {
     const relative = decodeURIComponent(keyOrUrl.replace(/^\/public\//, "").replace(/^\//, ""));

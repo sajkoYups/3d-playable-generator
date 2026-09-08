@@ -17,6 +17,11 @@ import { defaultMatchRoundsPack } from "@/playable-runtime/engines/triple-match/
 import { defaultLaneRoundsPack } from "@/playable-runtime/engines/lane-runner/rounds";
 import { defaultTdRoundsPack } from "@/playable-runtime/engines/tower-defense/rounds";
 import { defaultStackRoundsPack } from "@/playable-runtime/engines/stack-tower/rounds";
+import { defaultSolitaireRoundsPack } from "@/playable-runtime/engines/solitaire/rounds";
+import { defaultDominoRoundsPack } from "@/playable-runtime/engines/domino/rounds";
+import { defaultTappyRoundsPack } from "@/playable-runtime/engines/tappy-plane/rounds";
+import { defaultRacingRoundsPack } from "@/playable-runtime/engines/racing-lap/rounds";
+import { defaultShooterRoundsPack } from "@/playable-runtime/engines/top-down-shooter/rounds";
 
 export const TEMPLATE_NAMES: Record<TemplateId, string> = {
   "stack-tower": "Stack Tower",
@@ -26,6 +31,11 @@ export const TEMPLATE_NAMES: Record<TemplateId, string> = {
   "tower-defense": "Tower Defense",
   "water-sort": "Water Sort",
   "match-3": "Match-3",
+  solitaire: "Solitaire",
+  domino: "Domino",
+  "tappy-plane": "Tappy Plane",
+  "racing-lap": "Racing Lap",
+  "top-down-shooter": "Top-down Shooter",
 };
 
 export const TEMPLATE_BLURBS: Record<TemplateId, string> = {
@@ -36,6 +46,11 @@ export const TEMPLATE_BLURBS: Record<TemplateId, string> = {
   "tower-defense": "Place towers, stop the dungeon monsters. Short wave defense.",
   "water-sort": "Pour matching colors into tubes. Classic 2D puzzle.",
   "match-3": "Swap gems, match three, chase a score across rounds.",
+  solitaire: "Classic Klondike. Seven columns, four foundations. A helping hand points at moves.",
+  domino: "Beat the computer — match pips, draw when stuck.",
+  "tappy-plane": "Tap to flap. Thread the rocks. Beat the gaps.",
+  "racing-lap": "Steer with the joystick. Stay on the oval. Finish the laps.",
+  "top-down-shooter": "Move with the stick. Auto-fire clears each wave.",
 };
 
 export const MATCH3_PIECE_META = [
@@ -374,6 +389,11 @@ export function stampCoinImage(data: ProjectData, url: string) {
   data.gameplay.towerDefense.coinImageUrl = url;
   data.gameplay.stackTower.coinImageUrl = url;
   data.gameplay.match3.coinImageUrl = url;
+  data.gameplay.solitaire.coinImageUrl = url;
+  data.gameplay.domino.coinImageUrl = url;
+  data.gameplay.tappyPlane.coinImageUrl = url;
+  data.gameplay.racingLap.coinImageUrl = url;
+  data.gameplay.topDownShooter.coinImageUrl = url;
 }
 
 export function createGameplayTimerOverlay(): PlayableElement {
@@ -438,6 +458,16 @@ function createStartScreen(templateId: TemplateId): ProjectData["startScreen"] {
             ? "Pour matching colors. Fill every tube."
             : templateId === "match-3"
               ? "Swap gems. Match three. Beat the rounds."
+              : templateId === "solitaire"
+                ? "Tap cards onto foundations. The hand shows a move."
+                : templateId === "domino"
+                  ? "Match the chain. Three of a kind? No — matching pips."
+                  : templateId === "tappy-plane"
+                    ? "Tap to flap. Slip between the rocks."
+                    : templateId === "racing-lap"
+                      ? "Steer the oval. Finish the laps."
+                      : templateId === "top-down-shooter"
+                        ? "Move with the stick. Survive the waves."
               : templateId === "stack-tower"
                 ? "Tap to drop blocks. Stack them. Beat the rounds."
                 : "Tap to start. One round. Install at the end.",
@@ -579,6 +609,31 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
             portrait: canvasBackground("gradient", "#12143a", "#1e2470", "#0e1028"),
             landscape: canvasBackground("gradient", "#12143a", "#1e2470", "#0e1028"),
           }
+        : templateId === "solitaire"
+          ? {
+              portrait: canvasBackground("gradient", "#14532d", "#166534", "#052e16"),
+              landscape: canvasBackground("gradient", "#14532d", "#166534", "#052e16"),
+            }
+          : templateId === "domino"
+            ? {
+                portrait: canvasBackground("gradient", "#1e293b", "#334155", "#0f172a"),
+                landscape: canvasBackground("gradient", "#1e293b", "#334155", "#0f172a"),
+              }
+            : templateId === "tappy-plane"
+              ? {
+                  portrait: canvasBackground("gradient", "#38bdf8", "#7dd3fc", "#0ea5e9"),
+                  landscape: canvasBackground("gradient", "#38bdf8", "#7dd3fc", "#0ea5e9"),
+                }
+              : templateId === "racing-lap"
+                ? {
+                    portrait: canvasBackground("gradient", "#3f6212", "#4d7c0f", "#1a2e05"),
+                    landscape: canvasBackground("gradient", "#3f6212", "#4d7c0f", "#1a2e05"),
+                  }
+                : templateId === "top-down-shooter"
+                  ? {
+                      portrait: canvasBackground("gradient", "#3f6212", "#4d7c0f", "#1a2e05"),
+                      landscape: canvasBackground("gradient", "#3f6212", "#4d7c0f", "#1a2e05"),
+                    }
         : {
             portrait: canvasBackground("gradient", "#12141a", "#1c1f2a", "#12141a"),
             landscape: canvasBackground("gradient", "#12141a", "#1c1f2a", "#12141a"),
@@ -716,6 +771,43 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       maxMoves: 40,
       colors: ["#ef4444", "#3b82f6", "#22c55e", "#eab308", "#a855f7"],
     },
+    solitaire: {
+      failEnabled: true,
+      hintHandEnabled: true,
+      hintDelayMs: 2500,
+      coinImageUrl: "/demo-assets/coin.svg",
+      hudTransparent: false,
+      rounds: defaultSolitaireRoundsPack(),
+    },
+    domino: {
+      failEnabled: true,
+      hintHandEnabled: true,
+      hintDelayMs: 2500,
+      coinImageUrl: "/demo-assets/coin.svg",
+      hudTransparent: false,
+      rounds: defaultDominoRoundsPack(),
+    },
+    tappyPlane: {
+      failEnabled: true,
+      hintHandEnabled: true,
+      hintDelayMs: 1800,
+      coinImageUrl: "/demo-assets/coin.svg",
+      hudTransparent: false,
+      rounds: defaultTappyRoundsPack(),
+    },
+    racingLap: {
+      failEnabled: true,
+      coinImageUrl: "/demo-assets/coin.svg",
+      hudTransparent: false,
+      rounds: defaultRacingRoundsPack(),
+    },
+    topDownShooter: {
+      lives: 3,
+      failEnabled: true,
+      coinImageUrl: "/demo-assets/coin.svg",
+      hudTransparent: false,
+      rounds: defaultShooterRoundsPack(),
+    },
     overlays: [
       imageEl(
         "gameplay-logo",
@@ -740,7 +832,10 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       ),
       createGameplayDisclaimerElement(),
       createGameplayTimerOverlay(),
-      ...(templateId === "match-3"
+      ...(templateId === "match-3" ||
+      templateId === "solitaire" ||
+      templateId === "domino" ||
+      templateId === "tappy-plane"
         ? [
             imageEl(
               "gameplay-hand",

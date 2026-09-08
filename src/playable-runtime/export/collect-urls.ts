@@ -1,11 +1,19 @@
 import type { ProjectData, TemplateId } from "@/types/project";
+import { is2DTemplate } from "@/types/project";
 import { getLibraryModel, resolveModelRef, TD_MODEL_URLS } from "@/lib/model-library";
+import {
+  dominoSpriteUrls,
+  racingSpriteUrls,
+  shooterSpriteUrls,
+  solitaireSpriteUrls,
+  tappySpriteUrls,
+} from "@/playable-runtime/engines/kenney-2d-assets";
 
 const FOOD_COLORMAP = "/models/kenney/food/colormap.png";
 const KENNEY_GRASS = "/kenney_road-textures/PNG/Retina/roadTexture_25.png";
 
 function is2D(templateId?: TemplateId) {
-  return templateId === "water-sort" || templateId === "match-3";
+  return Boolean(templateId && is2DTemplate(templateId));
 }
 
 function coinUrl(data: ProjectData, specific?: string, fallback = "/coin.svg") {
@@ -59,6 +67,22 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
   if (is2D(templateId)) {
     add(coinUrl(data, data.gameplay.match3.coinImageUrl, "/demo-assets/coin.svg"));
     for (const url of data.gameplay.pieceImages) add(url);
+    if (templateId === "solitaire") {
+      add(coinUrl(data, data.gameplay.solitaire.coinImageUrl, "/demo-assets/coin.svg"));
+      for (const url of solitaireSpriteUrls()) add(url);
+    } else if (templateId === "domino") {
+      add(coinUrl(data, data.gameplay.domino.coinImageUrl, "/demo-assets/coin.svg"));
+      for (const url of dominoSpriteUrls()) add(url);
+    } else if (templateId === "tappy-plane") {
+      add(coinUrl(data, data.gameplay.tappyPlane.coinImageUrl, "/demo-assets/coin.svg"));
+      for (const url of tappySpriteUrls()) add(url);
+    } else if (templateId === "racing-lap") {
+      add(coinUrl(data, data.gameplay.racingLap.coinImageUrl, "/demo-assets/coin.svg"));
+      for (const url of racingSpriteUrls()) add(url);
+    } else if (templateId === "top-down-shooter") {
+      add(coinUrl(data, data.gameplay.topDownShooter.coinImageUrl, "/demo-assets/coin.svg"));
+      for (const url of shooterSpriteUrls()) add(url);
+    }
     return [...urls];
   }
 

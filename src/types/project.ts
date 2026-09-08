@@ -11,14 +11,27 @@ export const TemplateIdSchema = z.enum([
   "tower-defense",
   "water-sort",
   "match-3",
+  "solitaire",
+  "domino",
+  "top-down-shooter",
+  "racing-lap",
+  "tappy-plane",
 ]);
 export type TemplateId = z.infer<typeof TemplateIdSchema>;
 
-export const TEMPLATE_2D_IDS = ["water-sort", "match-3"] as const;
+export const TEMPLATE_2D_IDS = [
+  "water-sort",
+  "match-3",
+  "solitaire",
+  "domino",
+  "top-down-shooter",
+  "racing-lap",
+  "tappy-plane",
+] as const;
 export type Template2DId = (typeof TEMPLATE_2D_IDS)[number];
 
 export function is2DTemplate(id: TemplateId | string): boolean {
-  return id === "water-sort" || id === "match-3";
+  return (TEMPLATE_2D_IDS as readonly string[]).includes(id);
 }
 
 export const LayoutBoxSchema = z.object({
@@ -507,6 +520,90 @@ export const WaterSortConfigSchema = z.object({
 });
 export type WaterSortConfig = z.infer<typeof WaterSortConfigSchema>;
 
+export const SolitaireRoundSchema = z.object({
+  cardsToWin: z.number().int().min(4).max(52).default(13),
+  tableauPiles: z.number().int().min(3).max(7).default(7),
+  coins: z.number().int().min(0).max(9999).default(40),
+});
+export type SolitaireRound = z.infer<typeof SolitaireRoundSchema>;
+
+export const SolitaireConfigSchema = z.object({
+  failEnabled: z.boolean().default(true),
+  hintHandEnabled: z.boolean().default(true),
+  hintDelayMs: z.number().int().min(500).max(15000).default(2500),
+  coinImageUrl: z.string().default("/demo-assets/coin.svg"),
+  hudTransparent: z.boolean().default(false),
+  rounds: z.array(SolitaireRoundSchema).max(9).default([]),
+});
+export type SolitaireConfig = z.infer<typeof SolitaireConfigSchema>;
+
+export const DominoRoundSchema = z.object({
+  handSize: z.number().int().min(3).max(10).default(7),
+  playsToWin: z.number().int().min(3).max(28).default(7),
+  coins: z.number().int().min(0).max(9999).default(40),
+});
+export type DominoRound = z.infer<typeof DominoRoundSchema>;
+
+export const DominoConfigSchema = z.object({
+  failEnabled: z.boolean().default(true),
+  hintHandEnabled: z.boolean().default(true),
+  hintDelayMs: z.number().int().min(500).max(15000).default(2500),
+  coinImageUrl: z.string().default("/demo-assets/coin.svg"),
+  hudTransparent: z.boolean().default(false),
+  rounds: z.array(DominoRoundSchema).max(9).default([]),
+});
+export type DominoConfig = z.infer<typeof DominoConfigSchema>;
+
+export const TappyPlaneRoundSchema = z.object({
+  gapsToWin: z.number().int().min(2).max(20).default(5),
+  speed: z.number().min(0.6).max(4).default(1.2),
+  gapSize: z.number().min(0.22).max(0.7).default(0.42),
+  coins: z.number().int().min(0).max(9999).default(40),
+});
+export type TappyPlaneRound = z.infer<typeof TappyPlaneRoundSchema>;
+
+export const TappyPlaneConfigSchema = z.object({
+  failEnabled: z.boolean().default(true),
+  hintHandEnabled: z.boolean().default(true),
+  hintDelayMs: z.number().int().min(500).max(15000).default(1800),
+  coinImageUrl: z.string().default("/demo-assets/coin.svg"),
+  hudTransparent: z.boolean().default(false),
+  rounds: z.array(TappyPlaneRoundSchema).max(9).default([]),
+});
+export type TappyPlaneConfig = z.infer<typeof TappyPlaneConfigSchema>;
+
+export const RacingLapRoundSchema = z.object({
+  lapsToWin: z.number().int().min(1).max(5).default(1),
+  speed: z.number().min(0.6).max(4).default(1.4),
+  coins: z.number().int().min(0).max(9999).default(40),
+});
+export type RacingLapRound = z.infer<typeof RacingLapRoundSchema>;
+
+export const RacingLapConfigSchema = z.object({
+  failEnabled: z.boolean().default(true),
+  coinImageUrl: z.string().default("/demo-assets/coin.svg"),
+  hudTransparent: z.boolean().default(false),
+  rounds: z.array(RacingLapRoundSchema).max(9).default([]),
+});
+export type RacingLapConfig = z.infer<typeof RacingLapConfigSchema>;
+
+export const TopDownShooterRoundSchema = z.object({
+  enemyCount: z.number().int().min(1).max(20).default(4),
+  hpScale: z.number().min(0.4).max(5).default(1),
+  speedScale: z.number().min(0.4).max(3).default(1),
+  coins: z.number().int().min(0).max(9999).default(40),
+});
+export type TopDownShooterRound = z.infer<typeof TopDownShooterRoundSchema>;
+
+export const TopDownShooterConfigSchema = z.object({
+  lives: z.number().int().min(1).max(9).default(3),
+  failEnabled: z.boolean().default(true),
+  coinImageUrl: z.string().default("/demo-assets/coin.svg"),
+  hudTransparent: z.boolean().default(false),
+  rounds: z.array(TopDownShooterRoundSchema).max(9).default([]),
+});
+export type TopDownShooterConfig = z.infer<typeof TopDownShooterConfigSchema>;
+
 const DefaultGameplayBackground: Background = {
   type: "gradient",
   color: "#12141a",
@@ -579,6 +676,11 @@ export const GameplaySchema = z.object({
     }),
   match3: Match3ConfigSchema.prefault({}),
   waterSort: WaterSortConfigSchema.prefault({}),
+  solitaire: SolitaireConfigSchema.prefault({}),
+  domino: DominoConfigSchema.prefault({}),
+  tappyPlane: TappyPlaneConfigSchema.prefault({}),
+  racingLap: RacingLapConfigSchema.prefault({}),
+  topDownShooter: TopDownShooterConfigSchema.prefault({}),
 });
 export type GameplayData = z.infer<typeof GameplaySchema>;
 

@@ -159,7 +159,10 @@ export function resolveRuntimeUrl(ref: string, assets: Record<string, string>) {
   // Standalone HTML has no /public files. Empty assets = editor, where Next serves them.
   if (Object.keys(assets).length > 0) return "";
   if (bundled) return bundled;
-  if (ref.startsWith("/")) return encodeURI(ref);
+  if (ref.startsWith("/")) {
+    // Paths may already include %20 (Kenney packs). encodeURI would turn that into %2520.
+    return /%[0-9A-Fa-f]{2}/.test(ref) ? ref : encodeURI(ref);
+  }
   return "";
 }
 

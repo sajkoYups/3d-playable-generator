@@ -9,6 +9,8 @@ const GAME_COVERS: Partial<Record<GlyphId, string>> = {
   "triple-match": "/game-covers/triple-stack-3d-960x480.png",
   "match-3": "/game-covers/match-3-cover-960x480.png",
   "stack-tower": "/game-covers/stack-tower-3d-960x480.png",
+  solitaire: "/game-covers/solitaire-2d-cover-960x480.png",
+  domino: "/game-covers/exec-a58448f2-c357-4614-ac24-f21b1e36a34a.png",
 };
 
 export function TemplateGlyph({ templateId }: { templateId: GlyphId }) {
@@ -87,6 +89,58 @@ export function TemplateGlyph({ templateId }: { templateId: GlyphId }) {
           <circle cx="80" cy="82" r="12" fill="#fbbf24" />
           <circle cx="112" cy="82" r="12" fill="#c084fc" />
           <circle cx="144" cy="82" r="12" fill="#f43f5e" />
+        </>
+      )}
+      {templateId === "solitaire" && (
+        <>
+          <rect x="20" y="18" width="200" height="84" rx="8" fill="#14532d" />
+          <rect x="42" y="32" width="34" height="48" rx="3" fill="#1e3a8a" />
+          <rect x="82" y="32" width="34" height="48" rx="3" fill="#f8fafc" />
+          <rect x="88" y="38" width="10" height="10" rx="1" fill="#dc2626" />
+          <rect x="124" y="32" width="34" height="48" rx="3" fill="#f8fafc" />
+          <rect x="164" y="32" width="34" height="48" rx="3" fill="#f8fafc" />
+        </>
+      )}
+      {templateId === "domino" && (
+        <>
+          <rect x="20" y="18" width="200" height="84" rx="8" fill="#1e293b" />
+          <rect x="48" y="50" width="52" height="24" rx="4" fill="#f1f5f9" />
+          <circle cx="62" cy="62" r="3" fill="#0f172a" />
+          <circle cx="86" cy="62" r="3" fill="#0f172a" />
+          <rect x="108" y="50" width="52" height="24" rx="4" fill="#e2e8f0" />
+          <circle cx="122" cy="56" r="3" fill="#0f172a" />
+          <circle cx="122" cy="68" r="3" fill="#0f172a" />
+          <circle cx="146" cy="62" r="3" fill="#0f172a" />
+          <rect x="168" y="38" width="24" height="48" rx="4" fill="#f8fafc" />
+        </>
+      )}
+      {templateId === "tappy-plane" && (
+        <>
+          <rect x="20" y="18" width="200" height="84" rx="8" fill="#7dd3fc" />
+          <rect x="20" y="84" width="200" height="18" fill="#65a30d" />
+          <path d="M54 28v56" stroke="#4b5563" strokeWidth="18" />
+          <path d="M150 18v34" stroke="#4b5563" strokeWidth="18" />
+          <ellipse cx="102" cy="58" rx="22" ry="12" fill="#38bdf8" />
+          <path d="M92 58h28" stroke="#0f172a" strokeWidth="3" />
+        </>
+      )}
+      {templateId === "racing-lap" && (
+        <>
+          <rect x="20" y="18" width="200" height="84" rx="8" fill="#4d7c0f" />
+          <ellipse cx="120" cy="60" rx="70" ry="32" fill="none" stroke="#1f2937" strokeWidth="16" />
+          <ellipse cx="120" cy="60" rx="70" ry="32" fill="none" stroke="#374151" strokeWidth="10" />
+          <rect x="108" y="24" width="14" height="22" rx="3" fill="#ef4444" transform="rotate(18 115 35)" />
+        </>
+      )}
+      {templateId === "top-down-shooter" && (
+        <>
+          <rect x="20" y="18" width="200" height="84" rx="8" fill="#3f6212" />
+          <rect x="36" y="30" width="28" height="28" fill="#4d7c0f" />
+          <rect x="176" y="64" width="28" height="28" fill="#4d7c0f" />
+          <circle cx="120" cy="60" r="10" fill="#64748b" />
+          <rect x="118" y="42" width="4" height="14" fill="#94a3b8" />
+          <circle cx="86" cy="44" r="8" fill="#65a30d" />
+          <circle cx="158" cy="78" r="8" fill="#3f6212" />
         </>
       )}
     </svg>

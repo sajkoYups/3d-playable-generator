@@ -7,6 +7,11 @@ import { createParkingJamEngine } from "@/playable-runtime/engines/parking-jam";
 import { createTowerDefenseEngine } from "@/playable-runtime/engines/tower-defense";
 import { createWaterSortEngine } from "@/playable-runtime/engines/water-sort";
 import { createMatch3Engine } from "@/playable-runtime/engines/match-3";
+import { createSolitaireEngine } from "@/playable-runtime/engines/solitaire";
+import { createDominoEngine } from "@/playable-runtime/engines/domino";
+import { createTappyPlaneEngine } from "@/playable-runtime/engines/tappy-plane";
+import { createRacingLapEngine } from "@/playable-runtime/engines/racing-lap";
+import { createTopDownShooterEngine } from "@/playable-runtime/engines/top-down-shooter";
 
 export function createEngine(templateId: TemplateId): Playable3DEngine {
   switch (templateId) {
@@ -22,6 +27,16 @@ export function createEngine(templateId: TemplateId): Playable3DEngine {
       return createWaterSortEngine();
     case "match-3":
       return createMatch3Engine();
+    case "solitaire":
+      return createSolitaireEngine();
+    case "domino":
+      return createDominoEngine();
+    case "tappy-plane":
+      return createTappyPlaneEngine();
+    case "racing-lap":
+      return createRacingLapEngine();
+    case "top-down-shooter":
+      return createTopDownShooterEngine();
     default:
       return createStackTowerEngine();
   }

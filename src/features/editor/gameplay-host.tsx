@@ -64,6 +64,17 @@ export function GameplayHost({
           ? { ...current.gameplay.match3, hintHandEnabled: false }
           : undefined,
         waterSort: current.gameplay.waterSort,
+        solitaire: current.gameplay.solitaire
+          ? { ...current.gameplay.solitaire, hintHandEnabled: false }
+          : undefined,
+        domino: current.gameplay.domino
+          ? { ...current.gameplay.domino, hintHandEnabled: false }
+          : undefined,
+        tappyPlane: current.gameplay.tappyPlane
+          ? { ...current.gameplay.tappyPlane, hintHandEnabled: false }
+          : undefined,
+        racingLap: current.gameplay.racingLap,
+        topDownShooter: current.gameplay.topDownShooter,
         hintHandUrl: "",
         hintHandVisible: false,
       } as object),
@@ -114,6 +125,17 @@ export function GameplayHost({
         ? { ...data.gameplay.match3, hintHandEnabled: false }
         : undefined,
       waterSort: data.gameplay.waterSort,
+      solitaire: data.gameplay.solitaire
+        ? { ...data.gameplay.solitaire, hintHandEnabled: false }
+        : undefined,
+      domino: data.gameplay.domino
+        ? { ...data.gameplay.domino, hintHandEnabled: false }
+        : undefined,
+      tappyPlane: data.gameplay.tappyPlane
+        ? { ...data.gameplay.tappyPlane, hintHandEnabled: false }
+        : undefined,
+      racingLap: data.gameplay.racingLap,
+      topDownShooter: data.gameplay.topDownShooter,
       hintHandUrl: "",
       hintHandVisible: false,
     });
@@ -132,6 +154,11 @@ export function GameplayHost({
     data.gameplay.pieceImages,
     data.gameplay.match3,
     data.gameplay.waterSort,
+    data.gameplay.solitaire,
+    data.gameplay.domino,
+    data.gameplay.tappyPlane,
+    data.gameplay.racingLap,
+    data.gameplay.topDownShooter,
   ]);
 
   return (

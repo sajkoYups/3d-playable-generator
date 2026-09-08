@@ -21,7 +21,15 @@ import { TemplateGlyph } from "@/features/projects/template-glyph";
 import { UPCOMING_GAMES, type UpcomingGame } from "@/features/projects/upcoming-games";
 
 const TEMPLATES_3D: TemplateId[] = ["stack-tower", "triple-match", "lane-runner", "parking-jam"];
-const TEMPLATES_2D: TemplateId[] = ["water-sort", "match-3"];
+const TEMPLATES_2D: TemplateId[] = [
+  "water-sort",
+  "match-3",
+  "solitaire",
+  "domino",
+  "tappy-plane",
+  "racing-lap",
+  "top-down-shooter",
+];
 
 function UpcomingTemplateCard({ game }: { game: UpcomingGame }) {
   return (

@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
 import { ColorField } from "@/features/editor/color-field";
+import { NumberField } from "@/features/editor/number-field";
 import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, END_POLICY_SLOT_ID, UNLOCK_COIN_SLOT_ID, UNLOCK_END_BG_SLOT_ID, UNLOCK_LINKS_SLOT_ID, UNLOCK_START_BG_SLOT_ID, is2DTemplate, isBrandSlotId, isFullBackgroundActive, isOverridableSlotId, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type StackTowerConfig, type StackTowerRound, type TowerDefenseConfig, type TowerDefenseRound, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
 import { MATCH3_PIECE_META, defaultPieceImages, stampCoinImage } from "@/lib/project-defaults";
 import { TemplateSlotUnlockControls } from "@/features/editor/template-slot-unlock-controls";
@@ -18,15 +19,11 @@ import { ensureMatchRounds, propagateMatchFoods, setMatchRoundCount, syncMatchRo
 import { ensureLaneRounds, propagateLaneWinDistance, setLaneRoundCount, syncLaneRound } from "@/playable-runtime/engines/lane-runner/rounds";
 import { ensureTdRounds, setTdRoundCount } from "@/playable-runtime/engines/tower-defense/rounds";
 import { ensureStackRounds, setStackRoundCount, syncStackRound } from "@/playable-runtime/engines/stack-tower/rounds";
-
-function clamp01(n: number) {
-  return Math.min(1, Math.max(0, n));
-}
-
-function clampInt(n: number, min: number, max: number, fallback: number) {
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(max, Math.max(min, Math.round(n)));
-}
+import { ensureSolitaireRounds, setSolitaireRoundCount } from "@/playable-runtime/engines/solitaire/rounds";
+import { ensureDominoRounds, setDominoRoundCount } from "@/playable-runtime/engines/domino/rounds";
+import { ensureTappyRounds, setTappyRoundCount } from "@/playable-runtime/engines/tappy-plane/rounds";
+import { ensureRacingRounds, setRacingRoundCount } from "@/playable-runtime/engines/racing-lap/rounds";
+import { ensureShooterRounds, setShooterRoundCount } from "@/playable-runtime/engines/top-down-shooter/rounds";
 
 function patchMatchRound(
   updateData: (updater: (draft: ProjectData) => void) => void,
@@ -103,6 +100,63 @@ function patchStackRound(
     patch(round, cfg);
     syncStackRound(cfg, i);
   });
+}
+
+function RoundLengthPicker({
+  count,
+  preview,
+  onCount,
+  onPreview,
+}: {
+  count: number;
+  preview: number;
+  onCount: (count: number, preview: number) => void;
+  onPreview: (index: number) => void;
+}) {
+  return (
+    <>
+      <Label>How many rounds</Label>
+      <p className="text-[11px] text-muted">
+        Click a number to set the playable length. 4 means rounds 1–4 play in order.
+      </p>
+      <div className="flex flex-wrap gap-1">
+        {Array.from({ length: 9 }, (_, i) => {
+          const n = i + 1;
+          const included = n <= count;
+          const selected = n === count;
+          return (
+            <Button
+              key={n}
+              size="sm"
+              variant={selected ? "default" : included ? "secondary" : "outline"}
+              aria-pressed={included}
+              onClick={() => {
+                if (n === count) return;
+                onCount(n, Math.min(preview, n - 1));
+              }}
+            >
+              {n}
+            </Button>
+          );
+        })}
+      </div>
+      <Label>Preview</Label>
+      <p className="text-[11px] text-muted">Shows this round in the canvas. Does not change how many rounds play.</p>
+      <div className="flex flex-wrap gap-1">
+        {Array.from({ length: count }, (_, i) => (
+          <Button
+            key={i}
+            size="sm"
+            variant={i === preview ? "default" : "outline"}
+            aria-current={i === preview ? "true" : undefined}
+            onClick={() => onPreview(i)}
+          >
+            {i + 1}
+          </Button>
+        ))}
+      </div>
+    </>
+  );
 }
 
 function BackgroundEditor({
@@ -205,6 +259,12 @@ function CoinIconField({ locked }: { locked?: boolean }) {
     data.gameplay.laneRunner.coinImageUrl ||
     data.gameplay.towerDefense.coinImageUrl ||
     data.gameplay.stackTower.coinImageUrl ||
+    data.gameplay.match3.coinImageUrl ||
+    data.gameplay.solitaire.coinImageUrl ||
+    data.gameplay.domino.coinImageUrl ||
+    data.gameplay.tappyPlane.coinImageUrl ||
+    data.gameplay.racingLap.coinImageUrl ||
+    data.gameplay.topDownShooter.coinImageUrl ||
     "";
 
   return (
@@ -360,49 +420,42 @@ function GameplaySettings() {
           <Separator />
           <div className="space-y-2">
             <h4 className="text-sm font-medium">Camera</h4>
-        <Label>FOV</Label>
-        <Input
-          type="number"
+        <NumberField
+          label="FOV"
+          integer
           min={CAMERA_FOV_MIN}
           max={CAMERA_FOV_MAX}
-          step={1}
           value={cam.fov}
-          onChange={(e) => {
-            const n = Number(e.target.value);
-            if (!Number.isFinite(n)) return;
+          onChange={(n) =>
             updateData((d) => {
-              d.gameplay.camera[orientation].fov = Math.min(CAMERA_FOV_MAX, Math.max(CAMERA_FOV_MIN, n));
-            });
-          }}
+              d.gameplay.camera[orientation].fov = n;
+            })
+          }
         />
         {(["x", "y", "z"] as const).map((axis) => (
           <div key={axis} className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">pos {axis}</Label>
-              <Input
-                type="number"
-                step="0.1"
-                value={cam.position[axis]}
-                onChange={(e) =>
-                  updateData((d) => {
-                    d.gameplay.camera[orientation].position[axis] = Number(e.target.value);
-                  })
-                }
-              />
-            </div>
-            <div>
-              <Label className="text-xs">look {axis}</Label>
-              <Input
-                type="number"
-                step="0.1"
-                value={cam.target[axis]}
-                onChange={(e) =>
-                  updateData((d) => {
-                    d.gameplay.camera[orientation].target[axis] = Number(e.target.value);
-                  })
-                }
-              />
-            </div>
+            <NumberField
+              label={`pos ${axis}`}
+              labelClassName="text-xs"
+              step={0.1}
+              value={cam.position[axis]}
+              onChange={(n) =>
+                updateData((d) => {
+                  d.gameplay.camera[orientation].position[axis] = n;
+                })
+              }
+            />
+            <NumberField
+              label={`look ${axis}`}
+              labelClassName="text-xs"
+              step={0.1}
+              value={cam.target[axis]}
+              onChange={(n) =>
+                updateData((d) => {
+                  d.gameplay.camera[orientation].target[axis] = n;
+                })
+              }
+            />
           </div>
         ))}
       </div>
@@ -467,15 +520,15 @@ function GameplaySettings() {
         <>
           <Separator />
           <h4 className="text-sm font-medium">Water Sort</h4>
-          <Label>Max moves</Label>
-          <Input
-            type="number"
+          <NumberField
+            label="Max moves"
+            integer
             min={8}
             max={99}
             value={data.gameplay.waterSort.maxMoves}
-            onChange={(e) =>
+            onChange={(n) =>
               updateData((d) => {
-                d.gameplay.waterSort.maxMoves = Number(e.target.value) || 40;
+                d.gameplay.waterSort.maxMoves = n;
               })
             }
           />
@@ -513,15 +566,15 @@ function GameplaySettings() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label>Moves / round</Label>
-                <Input
-                  type="number"
+                <NumberField
+                  label="Moves / round"
+                  integer
                   min={1}
                   max={99}
                   value={data.gameplay.match3.movesPerRound}
-                  onChange={(e) =>
+                  onChange={(n) =>
                     updateData((d) => {
-                      d.gameplay.match3.movesPerRound = Number(e.target.value) || 1;
+                      d.gameplay.match3.movesPerRound = n;
                     })
                   }
                 />
@@ -531,15 +584,15 @@ function GameplaySettings() {
                 </p>
               </div>
               <div className="space-y-1">
-                <Label>Score target</Label>
-                <Input
-                  type="number"
+                <NumberField
+                  label="Score target"
+                  integer
                   min={1}
                   max={9999}
                   value={data.gameplay.match3.scoreTarget}
-                  onChange={(e) =>
+                  onChange={(n) =>
                     updateData((d) => {
-                      d.gameplay.match3.scoreTarget = Number(e.target.value) || 1;
+                      d.gameplay.match3.scoreTarget = n;
                     })
                   }
                 />
@@ -550,15 +603,15 @@ function GameplaySettings() {
                 </p>
               </div>
               <div className="space-y-1">
-                <Label>Rounds to win</Label>
-                <Input
-                  type="number"
+                <NumberField
+                  label="Rounds to win"
+                  integer
                   min={1}
                   max={20}
                   value={data.gameplay.match3.roundsToWin}
-                  onChange={(e) =>
+                  onChange={(n) =>
                     updateData((d) => {
-                      d.gameplay.match3.roundsToWin = Number(e.target.value) || 1;
+                      d.gameplay.match3.roundsToWin = n;
                     })
                   }
                 />
@@ -567,15 +620,14 @@ function GameplaySettings() {
                 </p>
               </div>
               <div className="space-y-1">
-                <Label>Reward / round</Label>
-                <Input
-                  type="number"
+                <NumberField
+                  label="Reward / round"
                   min={0}
                   max={9999}
                   value={data.gameplay.match3.rewardPerRound}
-                  onChange={(e) =>
+                  onChange={(n) =>
                     updateData((d) => {
-                      d.gameplay.match3.rewardPerRound = Number(e.target.value) || 0;
+                      d.gameplay.match3.rewardPerRound = n;
                     })
                   }
                 />
@@ -596,16 +648,16 @@ function GameplaySettings() {
                 <p className="text-[11px] text-muted">Shown before the reward amount, for example $.</p>
               </div>
               <div className="space-y-1">
-                <Label>Hint delay (ms)</Label>
-                <Input
-                  type="number"
+                <NumberField
+                  label="Hint delay (ms)"
+                  integer
                   min={500}
                   max={15000}
                   step={100}
                   value={data.gameplay.match3.hintDelayMs}
-                  onChange={(e) =>
+                  onChange={(n) =>
                     updateData((d) => {
-                      d.gameplay.match3.hintDelayMs = Number(e.target.value) || 2500;
+                      d.gameplay.match3.hintDelayMs = n;
                     })
                   }
                 />
@@ -784,6 +836,184 @@ function GameplaySettings() {
         </>
       )}
 
+      {templateId === "solitaire" && (() => {
+        const cfg = data.gameplay.solitaire;
+        const rounds = cfg.rounds.length ? cfg.rounds : [{ cardsToWin: 13, tableauPiles: 7, coins: 40 }];
+        const roundIdx = Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
+        const round = rounds[roundIdx];
+        return (
+          <>
+            <Separator />
+            <h4 className="text-sm font-medium">Solitaire</h4>
+            <p className="text-[11px] text-muted">Klondike: always 7 columns and 4 foundations. Draw-1 stock. Ace through King by suit. Drag cards or tap to send an Ace up.</p>
+            <RoundLengthPicker
+              count={rounds.length}
+              preview={roundIdx}
+              onCount={(n, preview) => {
+                updateData((d) => {
+                  setSolitaireRoundCount(d.gameplay.solitaire, n);
+                });
+                setParkingRoundIndex(preview);
+              }}
+              onPreview={setParkingRoundIndex}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <NumberField label="Cards to win" integer min={4} max={52} value={round.cardsToWin} onChange={(n) => updateData((d) => { ensureSolitaireRounds(d.gameplay.solitaire); d.gameplay.solitaire.rounds[roundIdx].cardsToWin = n; })} />
+              <NumberField label="Coins" integer min={0} max={9999} value={round.coins} onChange={(n) => updateData((d) => { ensureSolitaireRounds(d.gameplay.solitaire); d.gameplay.solitaire.rounds[roundIdx].coins = n; })} />
+              <NumberField label="Hint delay (ms)" integer min={500} max={15000} step={100} value={cfg.hintDelayMs} onChange={(n) => updateData((d) => { d.gameplay.solitaire.hintDelayMs = n; })} />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <Label>Fail enabled</Label>
+              <Switch checked={cfg.failEnabled} onCheckedChange={(v) => updateData((d) => { d.gameplay.solitaire.failEnabled = v; })} />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <Label>Tutorial hand</Label>
+              <Switch checked={cfg.hintHandEnabled} onCheckedChange={(v) => updateData((d) => { d.gameplay.solitaire.hintHandEnabled = v; })} />
+            </div>
+          </>
+        );
+      })()}
+
+      {templateId === "domino" && (() => {
+        const cfg = data.gameplay.domino;
+        const rounds = cfg.rounds.length ? cfg.rounds : [{ handSize: 7, playsToWin: 7, coins: 40 }];
+        const roundIdx = Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
+        const round = rounds[roundIdx];
+        return (
+          <>
+            <Separator />
+            <h4 className="text-sm font-medium">Domino</h4>
+            <p className="text-[11px] text-muted">Play against the computer. Select a tile, then tap Left or Right. Doubles sit crosswise. Score the CPU&apos;s remaining pips.</p>
+            <RoundLengthPicker
+              count={rounds.length}
+              preview={roundIdx}
+              onCount={(n, preview) => {
+                updateData((d) => { setDominoRoundCount(d.gameplay.domino, n); });
+                setParkingRoundIndex(preview);
+              }}
+              onPreview={setParkingRoundIndex}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <NumberField label="Hand size" integer min={3} max={10} value={round.handSize} onChange={(n) => updateData((d) => { ensureDominoRounds(d.gameplay.domino); d.gameplay.domino.rounds[roundIdx].handSize = n; })} />
+              <NumberField label="Coins" integer min={0} max={9999} value={round.coins} onChange={(n) => updateData((d) => { ensureDominoRounds(d.gameplay.domino); d.gameplay.domino.rounds[roundIdx].coins = n; })} />
+              <NumberField label="Hint delay (ms)" integer min={500} max={15000} step={100} value={cfg.hintDelayMs} onChange={(n) => updateData((d) => { d.gameplay.domino.hintDelayMs = n; })} />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <Label>Fail enabled</Label>
+              <Switch checked={cfg.failEnabled} onCheckedChange={(v) => updateData((d) => { d.gameplay.domino.failEnabled = v; })} />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <Label>Tutorial hand</Label>
+              <Switch checked={cfg.hintHandEnabled} onCheckedChange={(v) => updateData((d) => { d.gameplay.domino.hintHandEnabled = v; })} />
+            </div>
+          </>
+        );
+      })()}
+
+      {templateId === "tappy-plane" && (() => {
+        const cfg = data.gameplay.tappyPlane;
+        const rounds = cfg.rounds.length ? cfg.rounds : [{ gapsToWin: 5, speed: 1.2, gapSize: 0.42, coins: 40 }];
+        const roundIdx = Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
+        const round = rounds[roundIdx];
+        return (
+          <>
+            <Separator />
+            <h4 className="text-sm font-medium">Tappy Plane</h4>
+            <p className="text-[11px] text-muted">Tap to flap through rock gaps. A hand hints the first tap.</p>
+            <RoundLengthPicker
+              count={rounds.length}
+              preview={roundIdx}
+              onCount={(n, preview) => {
+                updateData((d) => { setTappyRoundCount(d.gameplay.tappyPlane, n); });
+                setParkingRoundIndex(preview);
+              }}
+              onPreview={setParkingRoundIndex}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <NumberField label="Gaps to win" integer min={2} max={20} value={round.gapsToWin} onChange={(n) => updateData((d) => { ensureTappyRounds(d.gameplay.tappyPlane); d.gameplay.tappyPlane.rounds[roundIdx].gapsToWin = n; })} />
+              <NumberField label="Coins" integer min={0} max={9999} value={round.coins} onChange={(n) => updateData((d) => { ensureTappyRounds(d.gameplay.tappyPlane); d.gameplay.tappyPlane.rounds[roundIdx].coins = n; })} />
+              <NumberField label="Speed" min={0.6} max={4} step={0.05} value={round.speed} onChange={(n) => updateData((d) => { ensureTappyRounds(d.gameplay.tappyPlane); d.gameplay.tappyPlane.rounds[roundIdx].speed = n; })} />
+              <NumberField label="Gap size" min={0.22} max={0.7} step={0.01} value={round.gapSize} onChange={(n) => updateData((d) => { ensureTappyRounds(d.gameplay.tappyPlane); d.gameplay.tappyPlane.rounds[roundIdx].gapSize = n; })} />
+              <NumberField label="Hint delay (ms)" integer min={500} max={15000} step={100} value={cfg.hintDelayMs} onChange={(n) => updateData((d) => { d.gameplay.tappyPlane.hintDelayMs = n; })} />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <Label>Fail enabled</Label>
+              <Switch checked={cfg.failEnabled} onCheckedChange={(v) => updateData((d) => { d.gameplay.tappyPlane.failEnabled = v; })} />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <Label>Tutorial hand</Label>
+              <Switch checked={cfg.hintHandEnabled} onCheckedChange={(v) => updateData((d) => { d.gameplay.tappyPlane.hintHandEnabled = v; })} />
+            </div>
+          </>
+        );
+      })()}
+
+      {templateId === "racing-lap" && (() => {
+        const cfg = data.gameplay.racingLap;
+        const rounds = cfg.rounds.length ? cfg.rounds : [{ lapsToWin: 1, speed: 1.4, coins: 40 }];
+        const roundIdx = Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
+        const round = rounds[roundIdx];
+        return (
+          <>
+            <Separator />
+            <h4 className="text-sm font-medium">Racing Lap</h4>
+            <p className="text-[11px] text-muted">Left joystick steers. Auto-throttle. Stay on the oval.</p>
+            <RoundLengthPicker
+              count={rounds.length}
+              preview={roundIdx}
+              onCount={(n, preview) => {
+                updateData((d) => { setRacingRoundCount(d.gameplay.racingLap, n); });
+                setParkingRoundIndex(preview);
+              }}
+              onPreview={setParkingRoundIndex}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <NumberField label="Laps to win" integer min={1} max={5} value={round.lapsToWin} onChange={(n) => updateData((d) => { ensureRacingRounds(d.gameplay.racingLap); d.gameplay.racingLap.rounds[roundIdx].lapsToWin = n; })} />
+              <NumberField label="Coins" integer min={0} max={9999} value={round.coins} onChange={(n) => updateData((d) => { ensureRacingRounds(d.gameplay.racingLap); d.gameplay.racingLap.rounds[roundIdx].coins = n; })} />
+              <NumberField label="Speed" min={0.6} max={4} step={0.05} value={round.speed} onChange={(n) => updateData((d) => { ensureRacingRounds(d.gameplay.racingLap); d.gameplay.racingLap.rounds[roundIdx].speed = n; })} />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <Label>Fail if off track</Label>
+              <Switch checked={cfg.failEnabled} onCheckedChange={(v) => updateData((d) => { d.gameplay.racingLap.failEnabled = v; })} />
+            </div>
+          </>
+        );
+      })()}
+
+      {templateId === "top-down-shooter" && (() => {
+        const cfg = data.gameplay.topDownShooter;
+        const rounds = cfg.rounds.length ? cfg.rounds : [{ enemyCount: 4, hpScale: 1, speedScale: 1, coins: 40 }];
+        const roundIdx = Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
+        const round = rounds[roundIdx];
+        return (
+          <>
+            <Separator />
+            <h4 className="text-sm font-medium">Top-down Shooter</h4>
+            <p className="text-[11px] text-muted">Joystick to move. Auto-fires at the nearest enemy.</p>
+            <RoundLengthPicker
+              count={rounds.length}
+              preview={roundIdx}
+              onCount={(n, preview) => {
+                updateData((d) => { setShooterRoundCount(d.gameplay.topDownShooter, n); });
+                setParkingRoundIndex(preview);
+              }}
+              onPreview={setParkingRoundIndex}
+            />
+            <NumberField label="Lives" integer min={1} max={9} value={cfg.lives} onChange={(n) => updateData((d) => { d.gameplay.topDownShooter.lives = n; })} />
+            <div className="grid grid-cols-2 gap-2">
+              <NumberField label="Enemies" integer min={1} max={20} value={round.enemyCount} onChange={(n) => updateData((d) => { ensureShooterRounds(d.gameplay.topDownShooter); d.gameplay.topDownShooter.rounds[roundIdx].enemyCount = n; })} />
+              <NumberField label="Coins" integer min={0} max={9999} value={round.coins} onChange={(n) => updateData((d) => { ensureShooterRounds(d.gameplay.topDownShooter); d.gameplay.topDownShooter.rounds[roundIdx].coins = n; })} />
+              <NumberField label="HP scale" min={0.4} max={5} step={0.05} value={round.hpScale} onChange={(n) => updateData((d) => { ensureShooterRounds(d.gameplay.topDownShooter); d.gameplay.topDownShooter.rounds[roundIdx].hpScale = n; })} />
+              <NumberField label="Speed scale" min={0.4} max={3} step={0.05} value={round.speedScale} onChange={(n) => updateData((d) => { ensureShooterRounds(d.gameplay.topDownShooter); d.gameplay.topDownShooter.rounds[roundIdx].speedScale = n; })} />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <Label>Fail enabled</Label>
+              <Switch checked={cfg.failEnabled} onCheckedChange={(v) => updateData((d) => { d.gameplay.topDownShooter.failEnabled = v; })} />
+            </div>
+          </>
+        );
+      })()}
+
       {templateId === "stack-tower" && (
         <>
           <Separator />
@@ -850,76 +1080,66 @@ function GameplaySettings() {
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Blocks to win</Label>
-                    <Input
-                      type="number"
-                      min={3}
-                      max={40}
-                      value={round.blocksToWin}
-                      onChange={(e) =>
-                        patchStackRound(updateData, roundIdx, (r) => {
-                          r.blocksToWin = clampInt(Number(e.target.value), 3, 40, 10);
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Coins</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={9999}
-                      value={round.coins}
-                      onChange={(e) =>
-                        patchStackRound(updateData, roundIdx, (r) => {
-                          r.coins = clampInt(Number(e.target.value), 0, 9999, 40);
-                        })
-                      }
-                    />
-                  </div>
+                  <NumberField
+                    label="Blocks to win"
+                    integer
+                    min={3}
+                    max={40}
+                    value={round.blocksToWin}
+                    onChange={(n) =>
+                      patchStackRound(updateData, roundIdx, (r) => {
+                        r.blocksToWin = n;
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Coins"
+                    integer
+                    min={0}
+                    max={9999}
+                    value={round.coins}
+                    onChange={(n) =>
+                      patchStackRound(updateData, roundIdx, (r) => {
+                        r.coins = n;
+                      })
+                    }
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Speed</Label>
-                    <Input
-                      type="number"
-                      min={0.4}
-                      max={4}
-                      step={0.1}
-                      value={round.speed}
-                      onChange={(e) =>
-                        patchStackRound(updateData, roundIdx, (r) => {
-                          r.speed = Math.min(4, Math.max(0.4, Number(e.target.value) || 1.4));
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Speed ramp</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={0.4}
-                      step={0.01}
-                      value={round.speedRamp}
-                      onChange={(e) =>
-                        patchStackRound(updateData, roundIdx, (r) => {
-                          r.speedRamp = Math.min(0.4, Math.max(0, Number(e.target.value) || 0.08));
-                        })
-                      }
-                    />
-                  </div>
+                  <NumberField
+                    label="Speed"
+                    min={0.4}
+                    max={4}
+                    step={0.1}
+                    value={round.speed}
+                    onChange={(n) =>
+                      patchStackRound(updateData, roundIdx, (r) => {
+                        r.speed = n;
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Speed ramp"
+                    min={0}
+                    max={0.4}
+                    step={0.01}
+                    value={round.speedRamp}
+                    onChange={(n) =>
+                      patchStackRound(updateData, roundIdx, (r) => {
+                        r.speedRamp = n;
+                      })
+                    }
+                  />
                 </div>
-                <Label>Miss limit</Label>
-                <Input
-                  type="number"
+                <NumberField
+                  label="Miss limit"
+                  integer
                   min={1}
                   max={8}
                   value={round.missLimit}
-                  onChange={(e) =>
+                  onChange={(n) =>
                     patchStackRound(updateData, roundIdx, (r) => {
-                      r.missLimit = clampInt(Number(e.target.value), 1, 8, 3);
+                      r.missLimit = n;
                     })
                   }
                 />
@@ -1017,50 +1237,44 @@ function GameplaySettings() {
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Triples to win</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={30}
-                      value={round.triplesToWin}
-                      onChange={(e) =>
-                        patchMatchRound(updateData, roundIdx, (r) => {
-                          r.triplesToWin = clampInt(Number(e.target.value), 1, 30, 4);
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Coins</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={9999}
-                      value={round.coins}
-                      onChange={(e) =>
-                        patchMatchRound(updateData, roundIdx, (r) => {
-                          r.coins = clampInt(Number(e.target.value), 0, 9999, 50);
-                        })
-                      }
-                    />
-                  </div>
+                  <NumberField
+                    label="Triples to win"
+                    integer
+                    min={1}
+                    max={30}
+                    value={round.triplesToWin}
+                    onChange={(n) =>
+                      patchMatchRound(updateData, roundIdx, (r) => {
+                        r.triplesToWin = n;
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Coins"
+                    integer
+                    min={0}
+                    max={9999}
+                    value={round.coins}
+                    onChange={(n) =>
+                      patchMatchRound(updateData, roundIdx, (r) => {
+                        r.coins = n;
+                      })
+                    }
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Bar slots</Label>
-                    <Input
-                      type="number"
-                      min={5}
-                      max={10}
-                      value={round.barSlots}
-                      onChange={(e) =>
-                        patchMatchRound(updateData, roundIdx, (r) => {
-                          r.barSlots = clampInt(Number(e.target.value), 5, 10, 7);
-                        })
-                      }
-                    />
-                  </div>
+                  <NumberField
+                    label="Bar slots"
+                    integer
+                    min={5}
+                    max={10}
+                    value={round.barSlots}
+                    onChange={(n) =>
+                      patchMatchRound(updateData, roundIdx, (r) => {
+                        r.barSlots = n;
+                      })
+                    }
+                  />
                   <div>
                     <Label>Tray color</Label>
                     <Input
@@ -1183,94 +1397,80 @@ function GameplaySettings() {
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Win distance</Label>
-                    <Input
-                      type="number"
-                      min={40}
-                      max={800}
-                      value={round.winDistance}
-                      onChange={(e) => {
-                        const next = Math.min(800, Math.max(40, Number(e.target.value) || 180));
-                        updateData((d) => {
-                          propagateLaneWinDistance(d.gameplay.laneRunner, next);
-                        });
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Label>Coins</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={9999}
-                      value={round.coins}
-                      onChange={(e) =>
-                        patchLaneRound(updateData, roundIdx, (r) => {
-                          r.coins = clampInt(Number(e.target.value), 0, 9999, 50);
-                        })
-                      }
-                    />
-                  </div>
+                  <NumberField
+                    label="Win distance"
+                    min={40}
+                    max={800}
+                    value={round.winDistance}
+                    onChange={(n) =>
+                      updateData((d) => {
+                        propagateLaneWinDistance(d.gameplay.laneRunner, n);
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Coins"
+                    integer
+                    min={0}
+                    max={9999}
+                    value={round.coins}
+                    onChange={(n) =>
+                      patchLaneRound(updateData, roundIdx, (r) => {
+                        r.coins = n;
+                      })
+                    }
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Start speed</Label>
-                    <Input
-                      type="number"
-                      min={4}
-                      max={20}
-                      step={0.5}
-                      value={round.startSpeed}
-                      onChange={(e) =>
-                        patchLaneRound(updateData, roundIdx, (r) => {
-                          r.startSpeed = Math.min(20, Math.max(4, Number(e.target.value) || 8));
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Speed ramp</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={4}
-                      step={0.1}
-                      value={round.speedRamp}
-                      onChange={(e) =>
-                        patchLaneRound(updateData, roundIdx, (r) => {
-                          r.speedRamp = Math.min(4, Math.max(0, Number(e.target.value) || 0.6));
-                        })
-                      }
-                    />
-                  </div>
+                  <NumberField
+                    label="Start speed"
+                    min={4}
+                    max={20}
+                    step={0.5}
+                    value={round.startSpeed}
+                    onChange={(n) =>
+                      patchLaneRound(updateData, roundIdx, (r) => {
+                        r.startSpeed = n;
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Speed ramp"
+                    min={0}
+                    max={4}
+                    step={0.1}
+                    value={round.speedRamp}
+                    onChange={(n) =>
+                      patchLaneRound(updateData, roundIdx, (r) => {
+                        r.speedRamp = n;
+                      })
+                    }
+                  />
                 </div>
-                <Label>Lane switch speed</Label>
-                <p className="text-[11px] text-muted">How fast the car slides left and right when you swipe (higher = snappier).</p>
-                <Input
-                  type="number"
-                  min={4}
-                  max={24}
-                  step={1}
-                  value={runner.laneSwitchSpeed ?? 10}
-                  onChange={(e) =>
-                    updateData((d) => {
-                      d.gameplay.laneRunner.laneSwitchSpeed = Math.min(
-                        24,
-                        Math.max(4, Number(e.target.value) || 10),
-                      );
-                    })
-                  }
-                />
-                <Label>Lanes</Label>
-                <Input
-                  type="number"
+                <div>
+                  <NumberField
+                    label="Lane switch speed"
+                    min={4}
+                    max={24}
+                    step={1}
+                    value={runner.laneSwitchSpeed ?? 10}
+                    onChange={(n) =>
+                      updateData((d) => {
+                        d.gameplay.laneRunner.laneSwitchSpeed = n;
+                      })
+                    }
+                  />
+                  <p className="text-[11px] text-muted">How fast the car slides left and right when you swipe (higher = snappier).</p>
+                </div>
+                <NumberField
+                  label="Lanes"
+                  integer
                   min={3}
                   max={5}
                   value={runner.laneCount}
-                  onChange={(e) =>
+                  onChange={(n) =>
                     updateData((d) => {
-                      d.gameplay.laneRunner.laneCount = clampInt(Number(e.target.value), 3, 5, 3);
+                      d.gameplay.laneRunner.laneCount = n;
                     })
                   }
                 />
@@ -1425,66 +1625,58 @@ function GameplaySettings() {
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Moves limit</Label>
-                    <Input
-                      type="number"
-                      min={8}
-                      max={80}
-                      value={round.movesLimit}
-                      onChange={(e) =>
-                        patchParkingRound(updateData, roundIdx, (r) => {
-                          r.movesLimit = clampInt(Number(e.target.value), 8, 80, 24);
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Coins</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={9999}
-                      value={round.coins}
-                      onChange={(e) =>
-                        patchParkingRound(updateData, roundIdx, (r) => {
-                          r.coins = clampInt(Number(e.target.value), 0, 9999, 50);
-                        })
-                      }
-                    />
-                  </div>
+                  <NumberField
+                    label="Moves limit"
+                    integer
+                    min={8}
+                    max={80}
+                    value={round.movesLimit}
+                    onChange={(n) =>
+                      patchParkingRound(updateData, roundIdx, (r) => {
+                        r.movesLimit = n;
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Coins"
+                    integer
+                    min={0}
+                    max={9999}
+                    value={round.coins}
+                    onChange={(n) =>
+                      patchParkingRound(updateData, roundIdx, (r) => {
+                        r.coins = n;
+                      })
+                    }
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Grid cols</Label>
-                    <Input
-                      type="number"
-                      min={4}
-                      max={8}
-                      value={round.gridCols}
-                      onChange={(e) =>
-                        patchParkingRound(updateData, roundIdx, (r) => {
-                          r.gridCols = clampInt(Number(e.target.value), 4, 8, 6);
-                          r.cars = repairParkingCars(r.cars, r.gridCols, r.gridRows);
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Grid rows</Label>
-                    <Input
-                      type="number"
-                      min={4}
-                      max={8}
-                      value={round.gridRows}
-                      onChange={(e) =>
-                        patchParkingRound(updateData, roundIdx, (r) => {
-                          r.gridRows = clampInt(Number(e.target.value), 4, 8, 6);
-                          r.cars = repairParkingCars(r.cars, r.gridCols, r.gridRows);
-                        })
-                      }
-                    />
-                  </div>
+                  <NumberField
+                    label="Grid cols"
+                    integer
+                    min={4}
+                    max={8}
+                    value={round.gridCols}
+                    onChange={(n) =>
+                      patchParkingRound(updateData, roundIdx, (r) => {
+                        r.gridCols = n;
+                        r.cars = repairParkingCars(r.cars, r.gridCols, r.gridRows);
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Grid rows"
+                    integer
+                    min={4}
+                    max={8}
+                    value={round.gridRows}
+                    onChange={(n) =>
+                      patchParkingRound(updateData, roundIdx, (r) => {
+                        r.gridRows = n;
+                        r.cars = repairParkingCars(r.cars, r.gridCols, r.gridRows);
+                      })
+                    }
+                  />
                 </div>
               </>
             );
@@ -1589,34 +1781,30 @@ function GameplaySettings() {
             return (
               <>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Lives</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={30}
-                      value={td.lives}
-                      onChange={(e) =>
-                        updateData((d) => {
-                          d.gameplay.towerDefense.lives = clampInt(Number(e.target.value), 1, 30, 8);
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Starting gold</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={9999}
-                      value={td.startingGold}
-                      onChange={(e) =>
-                        updateData((d) => {
-                          d.gameplay.towerDefense.startingGold = clampInt(Number(e.target.value), 0, 9999, 80);
-                        })
-                      }
-                    />
-                  </div>
+                  <NumberField
+                    label="Lives"
+                    integer
+                    min={1}
+                    max={30}
+                    value={td.lives}
+                    onChange={(n) =>
+                      updateData((d) => {
+                        d.gameplay.towerDefense.lives = n;
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Starting gold"
+                    integer
+                    min={0}
+                    max={9999}
+                    value={td.startingGold}
+                    onChange={(n) =>
+                      updateData((d) => {
+                        d.gameplay.towerDefense.startingGold = n;
+                      })
+                    }
+                  />
                 </div>
                 <Label>How many rounds</Label>
                 <p className="text-[11px] text-muted">
@@ -1663,125 +1851,108 @@ function GameplaySettings() {
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Imps</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={40}
-                      value={round.impCount}
-                      onChange={(e) =>
-                        patchTdRound(updateData, roundIdx, (r) => {
-                          r.impCount = clampInt(Number(e.target.value), 0, 40, 6);
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Puglins</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={20}
-                      value={round.puglinCount}
-                      onChange={(e) =>
-                        patchTdRound(updateData, roundIdx, (r) => {
-                          r.puglinCount = clampInt(Number(e.target.value), 0, 20, 0);
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Spawn interval</Label>
-                    <Input
-                      type="number"
-                      min={0.2}
-                      max={5}
-                      step={0.05}
-                      value={round.spawnInterval}
-                      onChange={(e) =>
-                        patchTdRound(updateData, roundIdx, (r) => {
-                          r.spawnInterval = Math.min(5, Math.max(0.2, Number(e.target.value) || 1.1));
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Coins</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={9999}
-                      value={round.coins}
-                      onChange={(e) =>
-                        patchTdRound(updateData, roundIdx, (r) => {
-                          r.coins = clampInt(Number(e.target.value), 0, 9999, 50);
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>HP scale</Label>
-                    <Input
-                      type="number"
-                      min={0.4}
-                      max={5}
-                      step={0.05}
-                      value={round.hpScale}
-                      onChange={(e) =>
-                        patchTdRound(updateData, roundIdx, (r) => {
-                          r.hpScale = Math.min(5, Math.max(0.4, Number(e.target.value) || 1));
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Speed scale</Label>
-                    <Input
-                      type="number"
-                      min={0.4}
-                      max={3}
-                      step={0.05}
-                      value={round.speedScale}
-                      onChange={(e) =>
-                        patchTdRound(updateData, roundIdx, (r) => {
-                          r.speedScale = Math.min(3, Math.max(0.4, Number(e.target.value) || 1));
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Gold bonus</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={999}
-                      value={round.goldBonus}
-                      onChange={(e) =>
-                        patchTdRound(updateData, roundIdx, (r) => {
-                          r.goldBonus = clampInt(Number(e.target.value), 0, 999, 0);
-                        })
-                      }
-                    />
-                  </div>
+                  <NumberField
+                    label="Imps"
+                    integer
+                    min={0}
+                    max={40}
+                    value={round.impCount}
+                    onChange={(n) =>
+                      patchTdRound(updateData, roundIdx, (r) => {
+                        r.impCount = n;
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Puglins"
+                    integer
+                    min={0}
+                    max={20}
+                    value={round.puglinCount}
+                    onChange={(n) =>
+                      patchTdRound(updateData, roundIdx, (r) => {
+                        r.puglinCount = n;
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Spawn interval"
+                    min={0.2}
+                    max={5}
+                    step={0.05}
+                    value={round.spawnInterval}
+                    onChange={(n) =>
+                      patchTdRound(updateData, roundIdx, (r) => {
+                        r.spawnInterval = n;
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Coins"
+                    integer
+                    min={0}
+                    max={9999}
+                    value={round.coins}
+                    onChange={(n) =>
+                      patchTdRound(updateData, roundIdx, (r) => {
+                        r.coins = n;
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="HP scale"
+                    min={0.4}
+                    max={5}
+                    step={0.05}
+                    value={round.hpScale}
+                    onChange={(n) =>
+                      patchTdRound(updateData, roundIdx, (r) => {
+                        r.hpScale = n;
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Speed scale"
+                    min={0.4}
+                    max={3}
+                    step={0.05}
+                    value={round.speedScale}
+                    onChange={(n) =>
+                      patchTdRound(updateData, roundIdx, (r) => {
+                        r.speedScale = n;
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Gold bonus"
+                    integer
+                    min={0}
+                    max={999}
+                    value={round.goldBonus}
+                    onChange={(n) =>
+                      patchTdRound(updateData, roundIdx, (r) => {
+                        r.goldBonus = n;
+                      })
+                    }
+                  />
                 </div>
                 <p className="text-[11px] text-muted">Tower costs</p>
                 <div className="grid grid-cols-3 gap-2">
                   {(["arrow", "cannon", "turret"] as const).map((kind) => (
-                    <div key={kind}>
-                      <Label className="capitalize">{kind}</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={999}
-                        value={td.towers[kind].cost}
-                        onChange={(e) =>
-                          updateData((d) => {
-                            d.gameplay.towerDefense.towers[kind].cost = clampInt(Number(e.target.value), 1, 999, 50);
-                          })
-                        }
-                      />
-                    </div>
+                    <NumberField
+                      key={kind}
+                      label={kind}
+                      labelClassName="capitalize"
+                      integer
+                      min={1}
+                      max={999}
+                      value={td.towers[kind].cost}
+                      onChange={(n) =>
+                        updateData((d) => {
+                          d.gameplay.towerDefense.towers[kind].cost = n;
+                        })
+                      }
+                    />
                   ))}
                 </div>
                 <p className="text-[11px] text-muted">Sounds</p>
@@ -1924,29 +2095,30 @@ function ContentEditor({ element }: { element: PlayableElement }) {
         </>
       )}
       {element.type === "timer" && (
-        <>
-          <Label>Duration (s)</Label>
-          <Input type="number" value={element.content.durationSeconds || 30} onChange={(e) => updateElement(element.id, (el) => { el.content.durationSeconds = Number(e.target.value); })} />
-        </>
+        <NumberField
+          label="Duration (s)"
+          value={element.content.durationSeconds ?? 30}
+          onChange={(n) => updateElement(element.id, (el) => { el.content.durationSeconds = n; })}
+        />
       )}
       <div className="grid grid-cols-2 gap-2">
         {(["x", "y", "width", "height"] as const).map((key) => {
           const orientation = useEditorStore.getState().orientation;
           const box = element.layout[orientation];
           return (
-            <div key={key}>
-              <Label className="capitalize">{key}</Label>
-              <Input
-                type="number"
-                step="0.01"
-                disabled={fromBrand}
-                value={Number(box[key].toFixed(3))}
-                onChange={(e) => {
-                  const n = clamp01(Number(e.target.value));
-                  useEditorStore.getState().updateElementLayout(element.id, orientation, { [key]: n });
-                }}
-              />
-            </div>
+            <NumberField
+              key={key}
+              label={key}
+              labelClassName="capitalize"
+              min={0}
+              max={1}
+              step={0.01}
+              disabled={fromBrand}
+              value={box[key]}
+              onChange={(n) => {
+                useEditorStore.getState().updateElementLayout(element.id, orientation, { [key]: n });
+              }}
+            />
           );
         })}
       </div>

@@ -32,6 +32,11 @@ const ENGINE_FACTORY: Record<TemplateId, string> = {
   "tower-defense": "createTowerDefenseEngine",
   "water-sort": "createWaterSortEngine",
   "match-3": "createMatch3Engine",
+  solitaire: "createSolitaireEngine",
+  domino: "createDominoEngine",
+  "tappy-plane": "createTappyPlaneEngine",
+  "racing-lap": "createRacingLapEngine",
+  "top-down-shooter": "createTopDownShooterEngine",
 };
 
 const ENGINE_FILE: Record<TemplateId, string> = {
@@ -42,6 +47,11 @@ const ENGINE_FILE: Record<TemplateId, string> = {
   "tower-defense": "src/playable-runtime/engines/tower-defense/index.ts",
   "water-sort": "src/playable-runtime/engines/water-sort/index.ts",
   "match-3": "src/playable-runtime/engines/match-3/index.ts",
+  solitaire: "src/playable-runtime/engines/solitaire/index.ts",
+  domino: "src/playable-runtime/engines/domino/index.ts",
+  "tappy-plane": "src/playable-runtime/engines/tappy-plane/index.ts",
+  "racing-lap": "src/playable-runtime/engines/racing-lap/index.ts",
+  "top-down-shooter": "src/playable-runtime/engines/top-down-shooter/index.ts",
 };
 
 function mimeFromUrl(url: string): string {

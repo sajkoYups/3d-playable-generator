@@ -184,7 +184,7 @@ export function createTripleMatchEngine(): Playable3DEngine {
       new Vector3(halfW, 0.2, maxZ),
     ];
     const landscape = ctx.orientation === "landscape";
-    const fov = landscape ? 42 : 52;
+    const fov = ctx.camera.fov;
     const camera = scene.camera;
     const aspect = Math.max(camera.aspect, 0.2);
     const dir = new Vector3(0, landscape ? 0.82 : 1, 1).normalize();

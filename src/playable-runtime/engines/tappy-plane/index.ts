@@ -83,7 +83,7 @@ export function createTappyPlaneEngine(): Playable3DEngine {
     hintDelayMs: 1800,
     coinImageUrl: "",
     hudTransparent: false,
-    endless: false,
+    endless: true,
     rounds: [],
   };
   let playAllRounds = true;

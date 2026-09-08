@@ -1,7 +1,7 @@
 import type { TappyPlaneConfig, TappyPlaneRound } from "@/types/project";
 
 const GAPS = [4, 5, 6, 7, 8, 9, 10, 11, 12];
-const SPEED = [1, 1.15, 1.3, 1.45, 1.6, 1.75, 1.9, 2.1, 2.3];
+const SPEED = [1.5, 1.65, 1.8, 1.95, 2.1, 2.25, 2.4, 2.55, 2.7];
 const GAP = [0.48, 0.44, 0.42, 0.4, 0.38, 0.36, 0.34, 0.32, 0.3];
 const COINS = [40, 45, 50, 55, 60, 70, 80, 90, 100];
 const MAX = 9;
@@ -14,7 +14,7 @@ function coins(n: number | undefined) {
 export function cloneTappyRound(src: TappyPlaneRound): TappyPlaneRound {
   return {
     gapsToWin: Math.min(20, Math.max(2, Math.round(src.gapsToWin || 5))),
-    speed: Math.min(4, Math.max(0.6, src.speed || 1.2)),
+    speed: Math.min(4, Math.max(0.6, src.speed || 1.5)),
     gapSize: Math.min(0.7, Math.max(0.22, src.gapSize || 0.42)),
     coins: coins(src.coins),
   };
@@ -22,7 +22,7 @@ export function cloneTappyRound(src: TappyPlaneRound): TappyPlaneRound {
 
 export function defaultTappyRoundAt(index: number): TappyPlaneRound {
   const i = Math.max(0, Math.min(index, GAPS.length - 1));
-  return { gapsToWin: GAPS[i] ?? 5, speed: SPEED[i] ?? 1.2, gapSize: GAP[i] ?? 0.42, coins: COINS[i] ?? 40 };
+  return { gapsToWin: GAPS[i] ?? 5, speed: SPEED[i] ?? 1.5, gapSize: GAP[i] ?? 0.42, coins: COINS[i] ?? 40 };
 }
 
 export function defaultTappyRoundsPack(): TappyPlaneRound[] {

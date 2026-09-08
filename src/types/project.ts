@@ -556,7 +556,7 @@ export type DominoConfig = z.infer<typeof DominoConfigSchema>;
 
 export const TappyPlaneRoundSchema = z.object({
   gapsToWin: z.number().int().min(2).max(20).default(5),
-  speed: z.number().min(0.6).max(4).default(1.2),
+  speed: z.number().min(0.6).max(4).default(1.5),
   gapSize: z.number().min(0.22).max(0.7).default(0.42),
   coins: z.number().int().min(0).max(9999).default(40),
 });
@@ -568,7 +568,7 @@ export const TappyPlaneConfigSchema = z.object({
   hintDelayMs: z.number().int().min(500).max(15000).default(1800),
   coinImageUrl: z.string().default("/demo-assets/coin.svg"),
   hudTransparent: z.boolean().default(false),
-  endless: z.boolean().default(false),
+  endless: z.boolean().default(true),
   rounds: z.array(TappyPlaneRoundSchema).max(9).default([]),
 });
 export type TappyPlaneConfig = z.infer<typeof TappyPlaneConfigSchema>;

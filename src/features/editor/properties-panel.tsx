@@ -912,7 +912,7 @@ function GameplaySettings() {
 
       {templateId === "tappy-plane" && (() => {
         const cfg = data.gameplay.tappyPlane;
-        const rounds = cfg.rounds.length ? cfg.rounds : [{ gapsToWin: 5, speed: 1.2, gapSize: 0.42, coins: 40 }];
+        const rounds = cfg.rounds.length ? cfg.rounds : [{ gapsToWin: 5, speed: 1.5, gapSize: 0.42, coins: 40 }];
         const roundIdx = cfg.endless ? 0 : Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
         const round = rounds[roundIdx];
         return (

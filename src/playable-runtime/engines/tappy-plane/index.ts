@@ -52,6 +52,7 @@ const BURST_MS = 220;
 const COLLECT_MS = 560;
 const STAGGER_MS = 22;
 const HOLD_MS = 120;
+const FINISH_HOLD_MS = 1100;
 
 function overlaps(ax: number, ay: number, aw: number, ah: number, bx: number, by: number, bw: number, bh: number) {
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
@@ -110,6 +111,11 @@ export function createTappyPlaneEngine(): Playable3DEngine {
   let rocks: Rock[] = [];
   let started = false;
   let bursts: Burst[] = [];
+  let spawnedCount = 0;
+  let finishX: number | null = null;
+  let finishCrossed = false;
+  let finishT0 = 0;
+  let finishHoldUntil = 0;
 
   function isEndless() {
     return config.endless === true;
@@ -194,20 +200,30 @@ export function createTappyPlaneEngine(): Playable3DEngine {
     ended = false;
     rocks = [];
     bursts = [];
+    spawnedCount = 0;
+    finishX = null;
+    finishCrossed = false;
+    finishT0 = 0;
+    finishHoldUntil = 0;
     lastInputAt = performance.now();
-    spawn(isEndless() ? 0.62 : 1.15);
-    spawn(isEndless() ? 1.38 : 1.85);
+    spawn(0.62);
+    spawn(1.38);
   }
 
   function spawn(x: number) {
+    if (!isEndless() && spawnedCount >= current().gapsToWin) return;
+    spawnedCount += 1;
     const { gapSize } = flightStats();
     const margin = isEndless() ? 0.11 : 0.14;
     const lo = margin;
     const hi = Math.max(lo + 0.02, 1 - gapSize - margin);
-    const coin: RockCoin | null = isEndless()
-      ? { taken: false, offset: 0.28 + Math.random() * 0.44 }
-      : null;
-    rocks.push({ x, gapY: lo + Math.random() * (hi - lo), gapSize, passed: false, coin });
+    rocks.push({
+      x,
+      gapY: lo + Math.random() * (hi - lo),
+      gapSize,
+      passed: false,
+      coin: { taken: false, offset: 0.28 + Math.random() * 0.44 },
+    });
   }
 
   function spawnBurst(ox: number, oy: number, reward: number) {
@@ -290,12 +306,19 @@ export function createTappyPlaneEngine(): Playable3DEngine {
 
   function tick(dt: number) {
     if (!started || ended) return;
+    const now = performance.now();
+    if (finishCrossed) {
+      vy = 0;
+      if (now >= finishHoldUntil) completeRound();
+      return;
+    }
     const stats = flightStats();
     const gravity = isEndless() ? 1.42 + Math.min(0.28, passed * 0.014) : 1.35;
     vy += gravity * dt;
     y += vy * dt;
     scroll += stats.speed * 0.28 * dt;
     for (const rock of rocks) rock.x -= stats.speed * 0.32 * dt;
+    if (finishX != null) finishX -= stats.speed * 0.32 * dt;
     if (rocks.length && rocks[0].x < -0.35) {
       rocks.shift();
       const lastX = rocks.length ? rocks[rocks.length - 1].x : 1.15;
@@ -319,9 +342,9 @@ export function createTappyPlaneEngine(): Playable3DEngine {
       if (!rock.passed && rock.x + 0.08 < 0.28) {
         rock.passed = true;
         passed += 1;
-        if (!isEndless() && passed >= current().gapsToWin) {
-          completeRound();
-          return;
+        if (!isEndless() && passed >= current().gapsToWin && finishX == null) {
+          const lastX = rocks.reduce((m, r) => Math.max(m, r.x), 0.4);
+          finishX = Math.max(0.92, lastX + 0.55);
         }
       }
       if (rock.coin && !rock.coin.taken) {
@@ -346,6 +369,12 @@ export function createTappyPlaneEngine(): Playable3DEngine {
         crash();
         return;
       }
+    }
+    if (finishX != null && !finishCrossed && finishX < 0.3) {
+      finishCrossed = true;
+      finishT0 = now;
+      finishHoldUntil = now + FINISH_HOLD_MS;
+      vy = 0;
     }
   }
 
@@ -389,6 +418,85 @@ export function createTappyPlaneEngine(): Playable3DEngine {
       };
     }
     return { x: tx, y: ty, scale: 0, alpha: 0, rot };
+  }
+
+  function drawCheckeredFinish(w: number, h: number, playTop: number, playH: number, now: number) {
+    if (!ctx || finishX == null) return;
+    const poleX = finishX * w;
+    const poleW = Math.max(4, w * 0.014);
+    const tapeW = Math.max(10, w * 0.038);
+    const flagW = Math.max(36, w * 0.2);
+    const flagH = Math.max(28, playH * 0.26);
+    ctx.fillStyle = "#1c1917";
+    ctx.fillRect(poleX, playTop, poleW, h - playTop - 2);
+    const rows = 14;
+    const cols = 2;
+    const th = playH / rows;
+    const tw = tapeW / cols;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        ctx.fillStyle = (r + c) % 2 === 0 ? "#fafafa" : "#111827";
+        ctx.fillRect(poleX + poleW, playTop + r * th, tw + 0.5, th + 0.5);
+      }
+    }
+    const fRows = 6;
+    const fCols = 8;
+    const cw = flagW / fCols;
+    const ch = flagH / fRows;
+    const flagY = playTop + 6;
+    for (let r = 0; r < fRows; r++) {
+      const wave = Math.sin(now / 150 + r * 0.5) * 6;
+      for (let c = 0; c < fCols; c++) {
+        ctx.fillStyle = (r + c) % 2 === 0 ? "#fafafa" : "#111827";
+        const fx = poleX + poleW + tapeW + c * cw + wave * (c / Math.max(1, fCols - 1));
+        ctx.fillRect(fx, flagY + r * ch, cw + 1, ch + 1);
+      }
+    }
+  }
+
+  function drawRoundClearBanner(w: number, h: number, now: number) {
+    if (!ctx || !finishCrossed) return;
+    const u = Math.min(1, (now - finishT0) / FINISH_HOLD_MS);
+    let scale = 1;
+    let alpha = 1;
+    if (u < 0.18) {
+      scale = 0.4 + easeOutCubic(u / 0.18) * 0.7;
+      alpha = Math.min(1, u / 0.08);
+    } else if (u > 0.78) {
+      const e = easeInOut((u - 0.78) / 0.22);
+      scale = 1 - e * 0.1;
+      alpha = 1 - e;
+    }
+    const list = rounds();
+    const label = roundIndex >= list.length - 1 ? "FINISH" : `ROUND ${roundIndex + 1}`;
+    ctx.save();
+    ctx.translate(w / 2, h * 0.42);
+    ctx.scale(scale, scale);
+    ctx.globalAlpha = alpha;
+    const bw = Math.min(w * 0.78, 240);
+    const bh = 64;
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.fillRect(-bw / 2, -bh / 2, bw, bh);
+    const cells = 16;
+    const cw = bw / cells;
+    for (let i = 0; i < cells; i++) {
+      ctx.fillStyle = i % 2 === 0 ? "#fafafa" : "#111827";
+      ctx.fillRect(-bw / 2 + i * cw, -bh / 2, cw + 0.4, 8);
+      ctx.fillRect(-bw / 2 + i * cw, bh / 2 - 8, cw + 0.4, 8);
+    }
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "rgba(0,0,0,0.5)";
+    ctx.font = "800 13px system-ui";
+    ctx.strokeText("ROUND CLEAR", 0, -12);
+    ctx.fillStyle = "#fbbf24";
+    ctx.fillText("ROUND CLEAR", 0, -12);
+    ctx.font = "800 22px system-ui";
+    ctx.strokeText(label, 0, 12);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(label, 0, 12);
+    ctx.restore();
   }
 
   function hudPunch(now: number) {
@@ -542,6 +650,7 @@ export function createTappyPlaneEngine(): Playable3DEngine {
       ctx.fillStyle = "#65a30d";
       ctx.fillRect(0, h - gH, w, gH);
     }
+    drawCheckeredFinish(w, h, playTop, playH, now);
     const frame = Math.floor(now / 120) % 3;
     const plane = planeImgs[frame] || planeImgs[0];
     const { pw, ph, px, py } = planeHit(w, playTop, playH);
@@ -551,6 +660,7 @@ export function createTappyPlaneEngine(): Playable3DEngine {
       ctx.fillRect(px, py - ph / 2, pw, ph);
     }
     drawBursts(now, hud.coinX, hud.coinY);
+    drawRoundClearBanner(w, h, now);
     if (
       !started &&
       config.hintHandEnabled &&

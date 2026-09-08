@@ -66,9 +66,9 @@ export function racingSpriteUrls() {
 }
 
 export const TAPPY_SPRITES = {
-  plane1: `${TAPPY}/Planes/planeBlue1.png`,
-  plane2: `${TAPPY}/Planes/planeBlue2.png`,
-  plane3: `${TAPPY}/Planes/planeBlue3.png`,
+  plane1: `${TAPPY}/Planes/planeRed1.png`,
+  plane2: `${TAPPY}/Planes/planeRed2.png`,
+  plane3: `${TAPPY}/Planes/planeRed3.png`,
   rock: `${TAPPY}/rock.png`,
   rockDown: `${TAPPY}/rockDown.png`,
   ground: `${TAPPY}/groundGrass.png`,

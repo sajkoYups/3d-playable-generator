@@ -15,8 +15,16 @@ const sans = Figtree({
 });
 
 export const metadata: Metadata = {
-  title: "Forge — Playable Ads",
+  title: "ForgePlay",
   description: "Build, customize, and export HTML5 playable ads",
+  icons: {
+    icon: [
+      { url: "/forgeplay-logo/forgeplay-orange.svg", type: "image/svg+xml" },
+      { url: "/forgeplay-logo/forgeplay-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/forgeplay-logo/forgeplay-16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: [{ url: "/forgeplay-logo/forgeplay-180.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({

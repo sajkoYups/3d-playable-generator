@@ -78,7 +78,6 @@ export function InviteAcceptForm({
   return (
     <Card>
       <CardHeader>
-        <p className="text-xs uppercase tracking-[0.25em] text-accent">Forge</p>
         <CardTitle>Join {organizationName}</CardTitle>
         <CardDescription>
           You were invited as {role} ({email})

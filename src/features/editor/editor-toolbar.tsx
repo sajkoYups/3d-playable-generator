@@ -5,6 +5,7 @@ import { Undo2, Redo2, Play, Download, RotateCcw, Settings } from "lucide-react"
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ForgePlayLogo } from "@/components/forgeplay-logo";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useEditorStore } from "@/features/editor/store";
@@ -68,6 +69,8 @@ export function EditorToolbar() {
 
   return (
     <header className="flex h-14 items-center gap-3 border-b border-border bg-card px-3">
+      <ForgePlayLogo href="/projects" showWordmark={false} markClassName="h-7 w-7" />
+      <div className="h-6 w-px bg-border" />
       <Link href={backHref} className="max-w-[180px] truncate text-sm font-semibold text-muted hover:text-foreground">
         {backLabel}
       </Link>

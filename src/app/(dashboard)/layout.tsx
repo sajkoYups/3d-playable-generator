@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { requireSession } from "@/lib/session";
 import { DashboardNav } from "@/features/projects/dashboard-nav";
 import { BrandHeaderLink } from "@/features/app-brands/brand-header-link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ForgePlayLogo } from "@/components/forgeplay-logo";
 import { UserMenu } from "@/features/projects/user-menu";
 import { ensureActiveOrganization } from "@/lib/org";
 import { isPlatformAdminEmail } from "@/lib/platform";
@@ -22,9 +22,10 @@ export default async function DashboardLayout({
       <header className="border-b border-border bg-card/80 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-6">
-            <Link href={organizationId ? "/projects" : isAdmin ? "/admin" : "/pending-access"} className="font-[family-name:var(--font-display)] text-lg font-semibold tracking-tight">
-              Forge<span className="text-accent">Play</span>
-            </Link>
+            <ForgePlayLogo
+              href={organizationId ? "/projects" : isAdmin ? "/admin" : "/pending-access"}
+              wordmarkClassName="text-lg"
+            />
             {organizationId ? <DashboardNav /> : null}
           </div>
           <div className="flex items-center gap-3 text-sm text-muted">

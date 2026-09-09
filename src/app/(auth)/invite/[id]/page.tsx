@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { InviteAcceptForm } from "./invite-accept-form";
+import { ForgePlayLogo } from "@/components/forgeplay-logo";
 
 export default async function InvitePage({
   params,
@@ -50,7 +51,10 @@ function InviteShell({ children }: { children: ReactNode }) {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_color-mix(in_srgb,var(--accent)_28%,var(--background))_0%,_var(--background)_55%)]" />
-      <div className="relative w-full max-w-md">{children}</div>
+      <div className="relative flex w-full max-w-md flex-col items-center gap-6">
+        <ForgePlayLogo markClassName="h-9 w-9" wordmarkClassName="text-2xl" />
+        {children}
+      </div>
     </div>
   );
 }

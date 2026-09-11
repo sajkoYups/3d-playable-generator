@@ -226,6 +226,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         tappyPlane: data.gameplay.tappyPlane,
         racingLap: data.gameplay.racingLap,
         topDownShooter: data.gameplay.topDownShooter,
+        dressUp: data.gameplay.dressUp,
         hintHandUrl: data.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.content.imageUrl || "",
         hintHandVisible: Boolean(
           data.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.layout[orientation].visible,
@@ -446,6 +447,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         tappyPlane: data.gameplay.tappyPlane,
         racingLap: data.gameplay.racingLap,
         topDownShooter: data.gameplay.topDownShooter,
+        dressUp: data.gameplay.dressUp,
         hintHandUrl: data.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.content.imageUrl || "",
         hintHandVisible: Boolean(
           data.gameplay.overlays.find((e) => e.id === "gameplay-hand")?.layout[orientation].visible,

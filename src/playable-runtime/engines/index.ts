@@ -12,6 +12,7 @@ import { createDominoEngine } from "@/playable-runtime/engines/domino";
 import { createTappyPlaneEngine } from "@/playable-runtime/engines/tappy-plane";
 import { createRacingLapEngine } from "@/playable-runtime/engines/racing-lap";
 import { createTopDownShooterEngine } from "@/playable-runtime/engines/top-down-shooter";
+import { createDressUpEngine } from "@/playable-runtime/engines/dress-up";
 
 export function createEngine(templateId: TemplateId): Playable3DEngine {
   switch (templateId) {
@@ -37,6 +38,8 @@ export function createEngine(templateId: TemplateId): Playable3DEngine {
       return createRacingLapEngine();
     case "top-down-shooter":
       return createTopDownShooterEngine();
+    case "dress-up":
+      return createDressUpEngine();
     default:
       return createStackTowerEngine();
   }

@@ -16,6 +16,7 @@ export const TemplateIdSchema = z.enum([
   "top-down-shooter",
   "racing-lap",
   "tappy-plane",
+  "dress-up",
 ]);
 export type TemplateId = z.infer<typeof TemplateIdSchema>;
 
@@ -27,6 +28,7 @@ export const TEMPLATE_2D_IDS = [
   "top-down-shooter",
   "racing-lap",
   "tappy-plane",
+  "dress-up",
 ] as const;
 export type Template2DId = (typeof TEMPLATE_2D_IDS)[number];
 
@@ -605,6 +607,45 @@ export const TopDownShooterConfigSchema = z.object({
 });
 export type TopDownShooterConfig = z.infer<typeof TopDownShooterConfigSchema>;
 
+export const DressUpConfigSchema = z.object({
+  promptModel: z.string().default("Choose your model"),
+  promptOutfit: z.string().default("Pick a dress"),
+  promptShoes: z.string().default("Pick shoes"),
+  promptHat: z.string().default("Pick a hat"),
+  promptEyewear: z.string().default("Pick glasses"),
+  promptAccessory: z.string().default("Pick an accessory"),
+  tryOnLabel: z.string().default("Try on"),
+  resetLabel: z.string().default("Reset"),
+  revealMs: z.number().int().min(200).max(4000).default(2500),
+  includeHats: z.boolean().default(false),
+  includeEyewear: z.boolean().default(false),
+  includeAccessory: z.boolean().default(false),
+  modelIds: z
+    .array(z.string())
+    .default(["model-01"]),
+  hintHandEnabled: z.boolean().default(true),
+  hintDelayMs: z.number().int().min(500).max(15000).default(1800),
+});
+export type DressUpConfig = z.infer<typeof DressUpConfigSchema>;
+
+export const DEFAULT_DRESS_UP_CONFIG: DressUpConfig = {
+  promptModel: "Choose your model",
+  promptOutfit: "Pick a dress",
+  promptShoes: "Pick shoes",
+  promptHat: "Pick a hat",
+  promptEyewear: "Pick glasses",
+  promptAccessory: "Pick an accessory",
+  tryOnLabel: "Try on",
+  resetLabel: "Reset",
+  revealMs: 2500,
+  includeHats: false,
+  includeEyewear: false,
+  includeAccessory: false,
+  modelIds: ["model-01"],
+  hintHandEnabled: true,
+  hintDelayMs: 1800,
+};
+
 const DefaultGameplayBackground: Background = {
   type: "gradient",
   color: "#12141a",
@@ -682,6 +723,7 @@ export const GameplaySchema = z.object({
   tappyPlane: TappyPlaneConfigSchema.prefault({}),
   racingLap: RacingLapConfigSchema.prefault({}),
   topDownShooter: TopDownShooterConfigSchema.prefault({}),
+  dressUp: DressUpConfigSchema.prefault({}),
 });
 export type GameplayData = z.infer<typeof GameplaySchema>;
 

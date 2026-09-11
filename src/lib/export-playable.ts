@@ -37,6 +37,7 @@ const ENGINE_FACTORY: Record<TemplateId, string> = {
   "tappy-plane": "createTappyPlaneEngine",
   "racing-lap": "createRacingLapEngine",
   "top-down-shooter": "createTopDownShooterEngine",
+  "dress-up": "createDressUpEngine",
 };
 
 const ENGINE_FILE: Record<TemplateId, string> = {
@@ -52,6 +53,7 @@ const ENGINE_FILE: Record<TemplateId, string> = {
   "tappy-plane": "src/playable-runtime/engines/tappy-plane/index.ts",
   "racing-lap": "src/playable-runtime/engines/racing-lap/index.ts",
   "top-down-shooter": "src/playable-runtime/engines/top-down-shooter/index.ts",
+  "dress-up": "src/playable-runtime/engines/dress-up/index.ts",
 };
 
 function mimeFromUrl(url: string): string {

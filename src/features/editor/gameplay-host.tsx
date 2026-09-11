@@ -75,6 +75,9 @@ export function GameplayHost({
           : undefined,
         racingLap: current.gameplay.racingLap,
         topDownShooter: current.gameplay.topDownShooter,
+        dressUp: current.gameplay.dressUp
+          ? { ...current.gameplay.dressUp, hintHandEnabled: false }
+          : undefined,
         hintHandUrl: "",
         hintHandVisible: false,
       } as object),
@@ -136,6 +139,9 @@ export function GameplayHost({
         : undefined,
       racingLap: data.gameplay.racingLap,
       topDownShooter: data.gameplay.topDownShooter,
+      dressUp: data.gameplay.dressUp
+        ? { ...data.gameplay.dressUp, hintHandEnabled: false }
+        : undefined,
       hintHandUrl: "",
       hintHandVisible: false,
     });
@@ -159,6 +165,7 @@ export function GameplayHost({
     data.gameplay.tappyPlane,
     data.gameplay.racingLap,
     data.gameplay.topDownShooter,
+    data.gameplay.dressUp,
   ]);
 
   return (

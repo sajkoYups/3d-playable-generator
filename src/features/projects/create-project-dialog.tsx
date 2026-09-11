@@ -29,6 +29,7 @@ const TEMPLATES_2D: TemplateId[] = [
   "tappy-plane",
   "racing-lap",
   "top-down-shooter",
+  "dress-up",
 ];
 
 function UpcomingTemplateCard({ game }: { game: UpcomingGame }) {

@@ -8,6 +8,7 @@ import {
   solitaireSpriteUrls,
   tappySpriteUrls,
 } from "@/playable-runtime/engines/kenney-2d-assets";
+import { dressUpAssetUrls } from "@/playable-runtime/engines/dress-up/catalog";
 
 const FOOD_COLORMAP = "/models/kenney/food/colormap.png";
 const KENNEY_GRASS = "/kenney_road-textures/PNG/Retina/roadTexture_25.png";
@@ -82,6 +83,8 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
     } else if (templateId === "top-down-shooter") {
       add(coinUrl(data, data.gameplay.topDownShooter.coinImageUrl, "/demo-assets/coin.svg"));
       for (const url of shooterSpriteUrls()) add(url);
+    } else if (templateId === "dress-up") {
+      for (const url of dressUpAssetUrls()) add(url);
     }
     return [...urls];
   }

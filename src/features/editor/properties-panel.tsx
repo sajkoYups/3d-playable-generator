@@ -509,7 +509,7 @@ function GameplaySettings() {
         )}
       </div>
 
-      {templateId !== "water-sort" && (
+      {templateId !== "water-sort" && templateId !== "dress-up" && (
         <>
           <Separator />
           <CoinIconField />
@@ -547,6 +547,78 @@ function GameplaySettings() {
                 }
               />
             ))}
+          </div>
+        </>
+      )}
+
+      {templateId === "dress-up" && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <div>
+              <h4 className="text-sm font-medium">Fashion Dress-Up</h4>
+              <p className="text-[11px] text-muted">
+                Three rounds: dress, then shoes, then accessory. Each pick flies on and swaps to the
+                matching character image. The tray hides after the last pick.
+              </p>
+            </div>
+            <div className="space-y-2">
+              {(
+                [
+                  ["promptOutfit", "Dress prompt"],
+                  ["promptShoes", "Shoes prompt"],
+                  ["promptAccessory", "Accessory prompt"],
+                ] as const
+              ).map(([key, label]) => (
+                <div key={key} className="space-y-1">
+                  <Label>{label}</Label>
+                  <Input
+                    value={data.gameplay.dressUp[key]}
+                    onChange={(e) =>
+                      updateData((d) => {
+                        d.gameplay.dressUp[key] = e.target.value;
+                      })
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+            <NumberField
+              label="Reveal (ms)"
+              integer
+              min={200}
+              max={4000}
+              value={data.gameplay.dressUp.revealMs}
+              onChange={(n) =>
+                updateData((d) => {
+                  d.gameplay.dressUp.revealMs = n;
+                })
+              }
+            />
+            <NumberField
+              label="Hint delay (ms)"
+              integer
+              min={500}
+              max={15000}
+              step={100}
+              value={data.gameplay.dressUp.hintDelayMs}
+              onChange={(n) =>
+                updateData((d) => {
+                  d.gameplay.dressUp.hintDelayMs = n;
+                })
+              }
+            />
+            <div className="flex items-center justify-between gap-3">
+              <Label>Hint hand</Label>
+              <Switch
+                checked={data.gameplay.dressUp.hintHandEnabled}
+                onCheckedChange={(v) =>
+                  updateData((d) => {
+                    d.gameplay.dressUp.hintHandEnabled = v;
+                  })
+                }
+              />
+            </div>
           </div>
         </>
       )}

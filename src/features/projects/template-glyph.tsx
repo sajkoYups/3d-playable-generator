@@ -144,6 +144,19 @@ export function TemplateGlyph({ templateId }: { templateId: GlyphId }) {
           <circle cx="158" cy="78" r="8" fill="#3f6212" />
         </>
       )}
+      {templateId === "dress-up" && (
+        <>
+          <rect x="20" y="18" width="200" height="84" rx="8" fill="#3b1d2a" />
+          <ellipse cx="86" cy="96" rx="22" ry="6" fill="#1a1016" opacity="0.5" />
+          <rect x="74" y="38" width="24" height="58" rx="10" fill="#e8b4a2" />
+          <circle cx="86" cy="32" r="10" fill="#c48a72" />
+          <path d="M70 58h32l6 36H64z" fill="#f4c9b8" />
+          <rect x="128" y="46" width="28" height="36" rx="6" fill="#f8e7dc" />
+          <rect x="164" y="46" width="28" height="36" rx="6" fill="#f8e7dc" />
+          <rect x="134" y="54" width="16" height="20" rx="3" fill="#c45a6a" />
+          <rect x="170" y="58" width="16" height="16" rx="3" fill="#2bb5a0" />
+        </>
+      )}
     </svg>
   );
 }

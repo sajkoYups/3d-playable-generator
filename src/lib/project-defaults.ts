@@ -3,6 +3,7 @@ import {
   APP_BRAND_HORIZONTAL_LOGO_ID,
   APP_BRAND_ICON_ID,
   APP_BRAND_VERTICAL_LOGO_ID,
+  DEFAULT_DRESS_UP_CONFIG,
   DEFAULT_MATCH3_CONFIG,
   GAMEPLAY_DISCLAIMER_ID,
   START_DISCLAIMER_ID,
@@ -36,6 +37,7 @@ export const TEMPLATE_NAMES: Record<TemplateId, string> = {
   "tappy-plane": "Tappy Plane",
   "racing-lap": "Racing Lap",
   "top-down-shooter": "Top-down Shooter",
+  "dress-up": "Fashion Dress-Up",
 };
 
 export const TEMPLATE_BLURBS: Record<TemplateId, string> = {
@@ -51,6 +53,7 @@ export const TEMPLATE_BLURBS: Record<TemplateId, string> = {
   "tappy-plane": "Tap to flap. Thread the rocks. Beat the gaps.",
   "racing-lap": "Steer with the joystick. Stay on the oval. Finish the laps.",
   "top-down-shooter": "Move with the stick. Auto-fire clears each wave.",
+  "dress-up": "Pick a dress, then shoes, then an accessory.",
 };
 
 export const MATCH3_PIECE_META = [
@@ -468,6 +471,8 @@ function createStartScreen(templateId: TemplateId): ProjectData["startScreen"] {
                       ? "Steer the oval. Finish the laps."
                       : templateId === "top-down-shooter"
                         ? "Move with the stick. Survive the waves."
+                        : templateId === "dress-up"
+                          ? "Pick a dress, then shoes, then an accessory."
               : templateId === "stack-tower"
                 ? "Tap to drop blocks. Stack them. Beat the rounds."
                 : "Tap to start. One round. Install at the end.",
@@ -634,6 +639,11 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
                       portrait: canvasBackground("gradient", "#3f6212", "#4d7c0f", "#1a2e05"),
                       landscape: canvasBackground("gradient", "#3f6212", "#4d7c0f", "#1a2e05"),
                     }
+                  : templateId === "dress-up"
+                    ? {
+                        portrait: canvasBackground("gradient", "#ebe4da", "#f7f2eb", "#ddd4c8"),
+                        landscape: canvasBackground("gradient", "#ebe4da", "#f7f2eb", "#ddd4c8"),
+                      }
         : {
             portrait: canvasBackground("gradient", "#12141a", "#1c1f2a", "#12141a"),
             landscape: canvasBackground("gradient", "#12141a", "#1c1f2a", "#12141a"),
@@ -809,6 +819,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       hudTransparent: false,
       rounds: defaultShooterRoundsPack(),
     },
+    dressUp: { ...DEFAULT_DRESS_UP_CONFIG },
     overlays: [
       imageEl(
         "gameplay-logo",
@@ -836,7 +847,8 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       ...(templateId === "match-3" ||
       templateId === "solitaire" ||
       templateId === "domino" ||
-      templateId === "tappy-plane"
+      templateId === "tappy-plane" ||
+      templateId === "dress-up"
         ? [
             imageEl(
               "gameplay-hand",

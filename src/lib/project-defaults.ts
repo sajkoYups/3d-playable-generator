@@ -641,8 +641,16 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
                     }
                   : templateId === "dress-up"
                     ? {
-                        portrait: canvasBackground("gradient", "#ebe4da", "#f7f2eb", "#ddd4c8"),
-                        landscape: canvasBackground("gradient", "#ebe4da", "#f7f2eb", "#ddd4c8"),
+                        portrait: imageBackground(
+                          "/playforge-dressup-playable/runway-portrait-882x1920.png",
+                          "/playforge-dressup-playable/runway-landscape-1920x882.png",
+                          0.12,
+                        ),
+                        landscape: imageBackground(
+                          "/playforge-dressup-playable/runway-portrait-882x1920.png",
+                          "/playforge-dressup-playable/runway-landscape-1920x882.png",
+                          0.12,
+                        ),
                       }
         : {
             portrait: canvasBackground("gradient", "#12141a", "#1c1f2a", "#12141a"),

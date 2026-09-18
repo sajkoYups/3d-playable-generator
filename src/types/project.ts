@@ -258,6 +258,7 @@ export const ScreenSchema = z.preprocess((val) => {
   background: BackgroundSchema,
   videoUrl: z.string().default(""),
   startAfterVideo: z.boolean().default(false),
+  hidden: z.boolean().default(false),
   elements: z.array(PlayableElementSchema),
 }));
 export type ScreenData = z.infer<typeof ScreenSchema>;

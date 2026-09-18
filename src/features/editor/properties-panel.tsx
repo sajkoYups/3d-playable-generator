@@ -2245,6 +2245,30 @@ export function PropertiesPanel() {
   const bgLocked = isPlayableTemplateLocked(editorMode, brandId, unlockedSlotIds, bgSlotId, "asset");
   return (
     <div className="space-y-4 p-4">
+      {stage === "start" && (
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <Label htmlFor="hide-start-screen">Hide start screen</Label>
+            <p className="text-[11px] leading-snug text-muted">
+              Playables skip this card and open in gameplay for portrait and landscape.
+            </p>
+          </div>
+          <Switch
+            id="hide-start-screen"
+            checked={Boolean(data.startScreen.hidden)}
+            onCheckedChange={(checked) =>
+              updateData((d) => {
+                d.startScreen.hidden = checked;
+              })
+            }
+          />
+        </div>
+      )}
+      {stage === "start" && data.startScreen.hidden && (
+        <p className="text-xs text-muted">
+          This layout is still editable. Preview and export open in gameplay immediately.
+        </p>
+      )}
       <h3 className="font-semibold">Background</h3>
       {liveLinked && (
         <TemplateSlotUnlockControls slotId={bgSlotId} unlocked={!bgLocked} />
@@ -2274,7 +2298,7 @@ export function PropertiesPanel() {
           }
         />
       )}
-      {startVideoActive && !bgLocked && (
+      {startVideoActive && !bgLocked && !data.startScreen.hidden && (
         <div className="flex items-start justify-between gap-3">
           <div>
             <Label htmlFor="start-after-video">Start after video ends</Label>

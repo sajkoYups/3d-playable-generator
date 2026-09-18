@@ -137,7 +137,9 @@ export function EditorShell({
         <div className="justify-self-start">
           <Tabs value={stage} onValueChange={(v) => setStage(v as typeof stage)}>
             <TabsList>
-              <TabsTrigger value="start">Start</TabsTrigger>
+              <TabsTrigger value="start">
+                {data.startScreen.hidden ? "Start (hidden)" : "Start"}
+              </TabsTrigger>
               <TabsTrigger value="gameplay">{editorMode === "brand" ? "HUD" : "Gameplay"}</TabsTrigger>
               <TabsTrigger value="end">End</TabsTrigger>
             </TabsList>

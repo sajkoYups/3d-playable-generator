@@ -139,7 +139,9 @@ export function EditorToolbar() {
                 const audio = data.gameplay.audio;
                 const startVideo = screenVideoUrl(data.startScreen, orientation);
                 const videoWins =
-                  data.startScreen.background.type === "video" && Boolean(startVideo);
+                  !data.startScreen.hidden &&
+                  data.startScreen.background.type === "video" &&
+                  Boolean(startVideo);
                 if (videoWins && startVideo) {
                   startLoopMusic(startVideo);
                 } else if (audio.playFromStart && audio.musicUrl) {

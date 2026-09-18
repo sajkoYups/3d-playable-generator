@@ -507,6 +507,7 @@ function createStartScreen(templateId: TemplateId): ProjectData["startScreen"] {
     background: imageBackground(DEMO_URLS.bgStartPortrait, DEMO_URLS.bgStartLandscape, 0.28),
     videoUrl: "",
     startAfterVideo: false,
+    hidden: false,
     elements: [
       imageEl(
         "app-logo",
@@ -595,6 +596,7 @@ function createEndScreen(): ProjectData["endScreen"] {
     background: imageBackground(DEMO_URLS.bgEndPortrait, DEMO_URLS.bgEndLandscape, 0.4),
     videoUrl: "",
     startAfterVideo: false,
+    hidden: false,
     elements: [
       imageEl(
         "end-app-logo",

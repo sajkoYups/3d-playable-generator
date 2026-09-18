@@ -43,6 +43,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
   options.network.init();
   let phase: "start" | "game" | "end" = "start";
   if (options.jumpToEnd) phase = "end";
+  else if (data.startScreen.hidden) phase = "game";
   let orientation: Orientation = options.forcedOrientation || "portrait";
   let size = { w: root.clientWidth || 320, h: root.clientHeight || 568 };
   let timerLeft: number | null = null;
@@ -410,7 +411,13 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
   });
   ro.observe(root);
   options.network.onReady();
-  paintScreen();
+  if (phase === "game") {
+    paintGame();
+    startTimer();
+    bootEngine();
+  } else {
+    paintScreen();
+  }
 
   return {
     destroy() {

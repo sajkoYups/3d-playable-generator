@@ -27,8 +27,6 @@ const TEMPLATES_2D: TemplateId[] = [
   "solitaire",
   "domino",
   "tappy-plane",
-  "racing-lap",
-  "top-down-shooter",
   "dress-up",
 ];
 

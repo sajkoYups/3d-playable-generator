@@ -13,7 +13,7 @@ import { CreateProjectDialog } from "@/features/projects/create-project-dialog";
 import { TEMPLATE_NAMES } from "@/lib/project-defaults";
 import { is2DTemplate, type TemplateId } from "@/types/project";
 import { TemplateGlyph } from "@/features/projects/template-glyph";
-import { UPCOMING_GAMES, type UpcomingGame } from "@/features/projects/upcoming-games";
+import { isUpcomingGameId, UPCOMING_GAMES, type UpcomingGame } from "@/features/projects/upcoming-games";
 
 type ProjectRow = {
   id: string;
@@ -45,11 +45,11 @@ export function ProjectsDashboard({
   }, [projects, query]);
 
   const games3D = useMemo(
-    () => filtered.filter((p) => p.templateId !== "tower-defense" && !is2DTemplate(p.templateId)),
+    () => filtered.filter((p) => !isUpcomingGameId(p.templateId) && !is2DTemplate(p.templateId)),
     [filtered],
   );
   const games2D = useMemo(
-    () => filtered.filter((p) => is2DTemplate(p.templateId)),
+    () => filtered.filter((p) => is2DTemplate(p.templateId) && !isUpcomingGameId(p.templateId)),
     [filtered],
   );
 

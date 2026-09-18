@@ -9,8 +9,10 @@ import {
   PointLight,
   Quaternion,
   Raycaster,
+  TorusGeometry,
   Vector2,
   Vector3,
+  type CanvasTexture,
 } from "three";
 import type { TripleMatchConfig } from "@/types/project";
 import type { EngineInitContext, Playable3DEngine } from "@/playable-runtime/engines/types";
@@ -20,6 +22,7 @@ import { attachPointer } from "@/playable-runtime/three/input";
 import { blobShadow } from "@/playable-runtime/models/procedural";
 import {
   cloneTexturedModel,
+  createWoodGrainTexture,
   fitObjectToXZ,
   loadGltfScene,
   resolveRuntimeUrl,
@@ -55,9 +58,16 @@ type Pop = {
 const DEFAULT_ITEMS = ["apple", "donut", "taco", "burger"];
 const MAX_KINDS = 4;
 const ITEM_SIZE = 0.56;
-const TRAY_SIZE = 0.18;
+const TRAY_SIZE = 0.4;
 const TRAY_Z = 1.78;
-const SLOT_GAP = 0.28;
+const TRAY_DEPTH = 0.72;
+const SLOT_GAP = 0.46;
+const SLOT_WELL_R = 0.18;
+const SLOT_RIM_R = 0.2;
+const BOARD_WELL_R = 0.26;
+const BOARD_LIP_R = 0.28;
+const BOARD_ITEM_Y = 0.014;
+const TRAY_ITEM_LIFT = 0.055;
 const COLS = 3;
 const CELL_X = 0.78;
 const CELL_Z = 0.92;
@@ -173,15 +183,18 @@ export function createTripleMatchEngine(): Playable3DEngine {
     );
     const layout = boardLayout(rows);
     const slots = Math.max(3, barSlots.length || round?.barSlots || 7);
-    const halfW = Math.max(layout.width / 2 + 0.38, (slots * SLOT_GAP + 0.22) / 2 + 0.1);
-    const minZ = layout.farZ - 0.22;
-    const maxZ = TRAY_Z + 0.24;
-    const look = new Vector3(0, 0.04, minZ * 0.4 + maxZ * 0.6);
+    const trayHalf = (slots * SLOT_GAP + 0.28) / 2;
+    const halfW = Math.max(layout.width / 2 + 0.42, trayHalf + 0.12);
+    const minZ = layout.farZ - 0.28;
+    const maxZ = TRAY_Z + TRAY_DEPTH / 2 + 0.22;
+    const look = new Vector3(0, 0.1, minZ * 0.35 + maxZ * 0.65);
     const corners = [
-      new Vector3(-halfW, 0.5, minZ),
-      new Vector3(halfW, 0.5, minZ),
-      new Vector3(-halfW, 0.2, maxZ),
-      new Vector3(halfW, 0.2, maxZ),
+      new Vector3(-halfW, 0.88, minZ),
+      new Vector3(halfW, 0.88, minZ),
+      new Vector3(-halfW, 0.48, maxZ),
+      new Vector3(halfW, 0.48, maxZ),
+      new Vector3(-halfW, 0.02, maxZ),
+      new Vector3(halfW, 0.02, maxZ),
     ];
     const landscape = ctx.orientation === "landscape";
     const fov = ctx.camera.fov;
@@ -202,8 +215,8 @@ export function createTripleMatchEngine(): Playable3DEngine {
       return overflow;
     };
 
-    let dist = landscape ? 6.2 : 5.2;
-    const margin = landscape ? 0.05 : 0.03;
+    let dist = landscape ? 6.8 : 5.8;
+    const margin = landscape ? 0.08 : 0.1;
     for (let i = 0; i < 24; i++) {
       camera.position.copy(look).addScaledVector(dir, dist);
       camera.lookAt(look);
@@ -212,18 +225,10 @@ export function createTripleMatchEngine(): Playable3DEngine {
       if (overflow <= 0) break;
       dist *= 1 + Math.min(0.4, overflow * 0.8);
     }
-    for (let i = 0; i < 14; i++) {
-      camera.position.copy(look).addScaledVector(dir, dist);
-      camera.lookAt(look);
-      camera.updateProjectionMatrix();
-      if (fitOverflow(margin + 0.02) > 0) {
-        dist *= 1.03;
-        break;
-      }
-      dist *= 0.96;
-    }
+    dist *= 1.08;
     camera.position.copy(look).addScaledVector(dir, dist);
     camera.lookAt(look);
+    camera.far = Math.max(80, dist + 40);
     camera.updateProjectionMatrix();
   }
 
@@ -278,8 +283,23 @@ export function createTripleMatchEngine(): Playable3DEngine {
     if (!source || !host) return null;
     const model = cloneTexturedModel(source, host.tracker);
     standUpIfFlat(model);
-    fitObjectToXZ(model, maxSize, maxSize * 0.9);
+    fitObjectToXZ(model, maxSize, maxSize * 1.35);
+    polishFood(model);
     return model;
+  }
+
+  function polishFood(object: Group) {
+    object.traverse((ch) => {
+      const mesh = ch as Mesh;
+      if (!mesh.isMesh) return;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const m of mats) {
+        if (!(m instanceof MeshStandardMaterial)) continue;
+        m.envMapIntensity = 1.05;
+        m.roughness = Math.min(m.roughness, 0.48);
+        m.needsUpdate = true;
+      }
+    });
   }
 
   function standUpIfFlat(object: Group) {
@@ -293,7 +313,7 @@ export function createTripleMatchEngine(): Playable3DEngine {
   function slotWorldLocal(index: number) {
     const slot = barSlots[Math.max(0, Math.min(index, barSlots.length - 1))];
     tmp.copy(slot.position);
-    tmp.y += 0.1;
+    tmp.y += TRAY_ITEM_LIFT;
     return tmp.clone();
   }
 
@@ -400,10 +420,10 @@ export function createTripleMatchEngine(): Playable3DEngine {
 
   function tickAnims(dt: number) {
     animTime += dt;
-    const pulse = 0.22 + Math.sin(animTime * 3.2) * 0.18;
+    const pulse = 0.16 + Math.sin(animTime * 2.6) * 0.1;
     slotMats.forEach((m, i) => {
       const occupied = bar.some((it) => it.slotIndex === i);
-      m.emissive.set(occupied ? "#000000" : "#ffffff");
+      m.emissive.set(occupied ? "#000000" : "#ffe8c0");
       m.emissiveIntensity = occupied ? 0 : pulse;
     });
 
@@ -438,11 +458,18 @@ export function createTripleMatchEngine(): Playable3DEngine {
       const dest = slotWorldLocal(it.slotIndex);
       it.group.position.lerp(dest, Math.min(1, dt * 12));
     }
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.taken || it.flying) continue;
+      const wave = animTime * 1.35 + i * 0.7;
+      it.group.rotation.y = Math.sin(wave * 0.45) * 0.09;
+      it.group.position.y = BOARD_ITEM_Y + Math.sin(wave) * 0.01;
+    }
   }
 
   function boardLayout(rows: number) {
     const depth = (rows - 1) * CELL_Z;
-    const nearZ = TRAY_Z - 0.82;
+    const nearZ = TRAY_Z - 0.95;
     const farZ = nearZ - depth;
     return {
       cols: COLS,
@@ -462,13 +489,25 @@ export function createTripleMatchEngine(): Playable3DEngine {
       const row = Math.floor(i / COLS);
       const x = (col - (COLS - 1) / 2) * CELL_X;
       const z = farZ + row * CELL_Z;
-      list[i].group.position.set(x, 0.02, z);
+      list[i].group.position.set(x, BOARD_ITEM_Y, z);
       list[i].group.rotation.set(0, 0, 0);
       list[i].group.scale.setScalar(ITEM_SIZE);
     }
   }
 
-  function addBoard(color: string, rows: number) {
+  function woodMat(map: CanvasTexture, tint: Color, roughness: number, env = 0.55) {
+    const mat = new MeshStandardMaterial({
+      map,
+      color: tint,
+      roughness,
+      metalness: 0.04,
+      envMapIntensity: env,
+    });
+    host!.tracker.track(mat);
+    return mat;
+  }
+
+  function addBoard(color: string, rows: number, woodMap: CanvasTexture) {
     if (!host || !root) return;
     const layout = boardLayout(rows);
     const wood = new Color(color).multiplyScalar(0.92);
@@ -477,22 +516,11 @@ export function createTripleMatchEngine(): Playable3DEngine {
 
     const floorGeo = new BoxGeometry(floorW, 0.08, floorD);
     host.tracker.track(floorGeo);
-    const floorMat = new MeshStandardMaterial({
-      color: wood,
-      roughness: 0.86,
-      metalness: 0.03,
-    });
-    host.tracker.track(floorMat);
-    const floor = new Mesh(floorGeo, floorMat);
+    const floor = new Mesh(floorGeo, woodMat(woodMap, wood, 0.78, 0.45));
     floor.position.set(0, -0.04, layout.zCenter);
     root.add(floor);
 
-    const rimMat = new MeshStandardMaterial({
-      color: wood.clone().multiplyScalar(0.52),
-      roughness: 0.74,
-      metalness: 0.04,
-    });
-    host.tracker.track(rimMat);
+    const rimMat = woodMat(woodMap, wood.clone().multiplyScalar(0.52), 0.7, 0.35);
     const rimH = 0.12;
     const rimT = 0.08;
     const specs: Array<[number, number, number, number, number]> = [
@@ -509,93 +537,98 @@ export function createTripleMatchEngine(): Playable3DEngine {
       root.add(mesh);
     }
 
-    const padGeo = new CylinderGeometry(0.28, 0.28, 0.03, 20);
-    host.tracker.track(padGeo);
-    const padMat = new MeshStandardMaterial({
-      color: wood.clone().multiplyScalar(1.12),
-      roughness: 0.7,
-      metalness: 0.04,
-    });
-    host.tracker.track(padMat);
+    const dishGeo = new CylinderGeometry(BOARD_WELL_R, BOARD_WELL_R, 0.01, 24);
+    host.tracker.track(dishGeo);
+    const dishMat = woodMat(woodMap, wood.clone().multiplyScalar(1.14), 0.62, 0.5);
+    const lipGeo = new TorusGeometry(BOARD_LIP_R, 0.016, 7, 28);
+    host.tracker.track(lipGeo);
+    const lipMat = woodMat(woodMap, wood.clone().multiplyScalar(0.72), 0.66, 0.4);
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < COLS; col++) {
-        const pad = new Mesh(padGeo, padMat);
-        pad.position.set(
-          (col - (COLS - 1) / 2) * CELL_X,
-          0.015,
-          layout.farZ + row * CELL_Z,
-        );
-        root.add(pad);
+        const x = (col - (COLS - 1) / 2) * CELL_X;
+        const z = layout.farZ + row * CELL_Z;
+        const dish = new Mesh(dishGeo, dishMat);
+        dish.position.set(x, 0.002, z);
+        root.add(dish);
+        const lip = new Mesh(lipGeo, lipMat);
+        lip.rotation.x = -Math.PI / 2;
+        lip.position.set(x, 0.01, z);
+        root.add(lip);
       }
     }
 
-    const fill = new PointLight(0xfff2dd, 1.15, 10);
+    const fill = new PointLight(0xfff2dd, 0.55, 10);
     fill.position.set(1.2, 2.4, layout.zCenter + 1.2);
     root.add(fill);
-    const bounce = new PointLight(0xcbb6ff, 0.5, 9);
+    const bounce = new PointLight(0xcbb6ff, 0.28, 9);
     bounce.position.set(-1.3, 1.8, layout.zCenter - 0.6);
     root.add(bounce);
   }
 
-  function addTray(slots: number) {
+  function addTray(slots: number, color: string, woodMap: CanvasTexture) {
     if (!host || !root) return;
-    const width = slots * SLOT_GAP + 0.22;
-    const depth = 0.56;
-    const shelfGeo = new BoxGeometry(width, 0.22, depth);
+    const width = slots * SLOT_GAP + 0.28;
+    const depth = TRAY_DEPTH;
+    const wood = new Color(color).multiplyScalar(0.92);
+    const shelfH = 0.16;
+    const shelfY = 0.04;
+    const shelfTop = shelfY + shelfH / 2;
+
+    const shelfGeo = new BoxGeometry(width, shelfH, depth);
     host.tracker.track(shelfGeo);
-    const shelfMat = new MeshStandardMaterial({
-      color: "#3a2458",
-      roughness: 0.4,
-      metalness: 0.08,
-    });
-    host.tracker.track(shelfMat);
-    const shelf = new Mesh(shelfGeo, shelfMat);
-    shelf.position.set(0, 0.06, TRAY_Z);
+    const shelf = new Mesh(shelfGeo, woodMat(woodMap, wood, 0.76, 0.45));
+    shelf.position.set(0, shelfY, TRAY_Z);
     root.add(shelf);
 
-    const railGeo = new BoxGeometry(width + 0.04, 0.05, 0.05);
+    const railGeo = new BoxGeometry(width + 0.04, 0.045, 0.045);
     host.tracker.track(railGeo);
-    const railMat = new MeshStandardMaterial({ color: "#f2e9ff", roughness: 0.34 });
-    host.tracker.track(railMat);
+    const railMat = woodMat(woodMap, wood.clone().multiplyScalar(0.58), 0.62, 0.35);
     const front = new Mesh(railGeo, railMat);
-    front.position.set(0, 0.175, TRAY_Z + depth / 2 - 0.03);
+    front.position.set(0, shelfTop + 0.01, TRAY_Z + depth / 2 - 0.03);
     root.add(front);
     const back = new Mesh(railGeo, railMat);
-    back.position.set(0, 0.175, TRAY_Z - depth / 2 + 0.03);
+    back.position.set(0, shelfTop + 0.01, TRAY_Z - depth / 2 + 0.03);
     root.add(back);
+
+    const wellGeo = new CylinderGeometry(SLOT_WELL_R, SLOT_WELL_R, 0.04, 24);
+    host.tracker.track(wellGeo);
+    const wellMat = new MeshStandardMaterial({
+      color: "#c4a882",
+      roughness: 0.55,
+      metalness: 0.04,
+      envMapIntensity: 0.4,
+    });
+    host.tracker.track(wellMat);
+    const rimGeo = new TorusGeometry(SLOT_RIM_R, 0.014, 7, 26);
+    host.tracker.track(rimGeo);
+    const rimMat = woodMat(woodMap, wood.clone().multiplyScalar(0.7), 0.6, 0.4);
+    const padGeo = new CylinderGeometry(SLOT_WELL_R * 0.92, SLOT_WELL_R * 0.92, 0.016, 24);
+    host.tracker.track(padGeo);
 
     for (let i = 0; i < slots; i++) {
       const slot = new Group();
-      slot.position.set((i - (slots - 1) / 2) * SLOT_GAP, 0.16, TRAY_Z);
+      slot.position.set((i - (slots - 1) / 2) * SLOT_GAP, shelfTop, TRAY_Z);
 
-      const wellGeo = new CylinderGeometry(0.125, 0.125, 0.1, 22);
-      host.tracker.track(wellGeo);
-      const wellMat = new MeshStandardMaterial({ color: "#1a1028", roughness: 0.55 });
-      host.tracker.track(wellMat);
       const well = new Mesh(wellGeo, wellMat);
-      well.position.y = -0.02;
+      well.position.y = -0.01;
       slot.add(well);
 
-      const rimGeo = new CylinderGeometry(0.145, 0.145, 0.04, 22);
-      host.tracker.track(rimGeo);
-      const rimMat = new MeshStandardMaterial({ color: "#ffe27a", roughness: 0.36 });
-      host.tracker.track(rimMat);
       const rim = new Mesh(rimGeo, rimMat);
-      rim.position.y = 0.022;
+      rim.rotation.x = -Math.PI / 2;
+      rim.position.y = 0.012;
       slot.add(rim);
 
-      const padGeo = new CylinderGeometry(0.118, 0.118, 0.036, 22);
-      host.tracker.track(padGeo);
       const padMat = new MeshStandardMaterial({
-        color: "#fffaf0",
-        roughness: 0.22,
-        metalness: 0.05,
-        emissive: "#fff4cc",
-        emissiveIntensity: 0.55,
+        color: "#f3ead8",
+        roughness: 0.32,
+        metalness: 0.04,
+        envMapIntensity: 0.55,
+        emissive: "#ffe8c0",
+        emissiveIntensity: 0.28,
       });
       host.tracker.track(padMat);
       const pad = new Mesh(padGeo, padMat);
-      pad.position.y = 0.034;
+      pad.position.y = 0.01;
       slot.add(pad);
 
       root.add(slot);
@@ -667,15 +700,18 @@ export function createTripleMatchEngine(): Playable3DEngine {
       pileTriples,
     ).slice(0, cells);
 
-    addBoard(round.trayColor || "#c4a574", rows);
-    addTray(round.barSlots);
+    const woodHex = round.trayColor || "#b87914";
+    const woodMap = createWoodGrainTexture();
+    host.tracker.trackTexture(woodMap);
+    addBoard(woodHex, rows, woodMap);
+    addTray(round.barSlots, woodHex, woodMap);
 
     deck.forEach((kind, i) => {
       const inner = makeModel(kind, 1);
       if (!inner) return;
       const group = new Group();
       group.add(inner);
-      const shadow = blobShadow(host!.tracker, 0.2);
+      const shadow = blobShadow(host!.tracker, 0.32);
       shadow.position.y = 0.01;
       group.add(shadow);
       root!.add(group);
@@ -708,7 +744,7 @@ export function createTripleMatchEngine(): Playable3DEngine {
       };
       config = extra.tripleMatch ?? {
         itemSlots: DEFAULT_ITEMS,
-        trayColor: "#c4a574",
+        trayColor: "#b87914",
         barSlots: 7,
         triplesToWin: 4,
         difficulty: "medium",
@@ -720,7 +756,8 @@ export function createTripleMatchEngine(): Playable3DEngine {
       roundIndex = Math.max(0, Math.min(roundIndex, listMatchRounds(config).length - 1));
       lastEditorRoundIndex = roundIndex;
       host = new ThreeHost(init.container);
-      host.applyLighting(init.lighting);
+      host.enableStudioEnvironment();
+      host.applyParkingJamLighting(init.lighting);
       applyEditorCamera();
       root = new Group();
       host.scene.add(root);
@@ -792,6 +829,9 @@ export function createTripleMatchEngine(): Playable3DEngine {
         else syncHud();
       }
       if (ctx) applyLivePresentation(host, options, ctx);
+      if (typeof options.lighting === "string") {
+        host?.applyParkingJamLighting(options.lighting as EngineInitContext["lighting"]);
+      }
       applyEditorCamera();
     },
     resize(w, h) {

@@ -327,7 +327,7 @@ const DefaultMatchItems = ["apple", "donut", "taco", "burger"];
 
 export const TripleMatchRoundSchema = z.object({
   itemSlots: z.array(z.string()).default(DefaultMatchItems),
-  trayColor: z.string().default("#c4a574"),
+  trayColor: z.string().default("#b87914"),
   barSlots: z.number().int().min(5).max(10).default(7),
   triplesToWin: z.number().int().min(1).max(30).default(4),
   coins: z.number().int().min(0).max(9999).default(50),
@@ -336,7 +336,7 @@ export type TripleMatchRound = z.infer<typeof TripleMatchRoundSchema>;
 
 export const TripleMatchConfigSchema = z.object({
   itemSlots: z.array(z.string()).default(DefaultMatchItems),
-  trayColor: z.string().default("#c4a574"),
+  trayColor: z.string().default("#b87914"),
   barSlots: z.number().int().min(5).max(10).default(7),
   triplesToWin: z.number().int().min(1).max(30).default(4),
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),

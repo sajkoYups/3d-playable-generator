@@ -42,7 +42,7 @@ export function propagateMatchFoods(cfg: TripleMatchConfig) {
 export function cloneMatchRound(src: TripleMatchRound): TripleMatchRound {
   return {
     itemSlots: cloneSlots(src.itemSlots),
-    trayColor: src.trayColor || "#c4a574",
+    trayColor: src.trayColor || "#b87914",
     barSlots: src.barSlots,
     triplesToWin: src.triplesToWin,
     coins: roundCoins(src.coins),
@@ -53,7 +53,7 @@ export function defaultMatchRoundAt(index: number): TripleMatchRound {
   const i = Math.max(0, Math.min(index, TRIPLES.length - 1));
   return {
     itemSlots: [...FOODS],
-    trayColor: "#c4a574",
+    trayColor: "#b87914",
     barSlots: BARS[i] ?? 7,
     triplesToWin: TRIPLES[i] ?? 4,
     coins: COINS[i] ?? DEFAULT_MATCH_COINS,
@@ -67,7 +67,7 @@ export function defaultMatchRoundsPack(): TripleMatchRound[] {
 function fallbackRound(cfg: TripleMatchConfig): TripleMatchRound {
   return {
     itemSlots: cloneSlots(cfg.itemSlots),
-    trayColor: cfg.trayColor || "#c4a574",
+    trayColor: cfg.trayColor || "#b87914",
     barSlots: cfg.barSlots,
     triplesToWin: cfg.triplesToWin,
     coins: DEFAULT_MATCH_COINS,

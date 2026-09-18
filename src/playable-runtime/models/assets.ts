@@ -635,6 +635,57 @@ export function createAsphaltTexture(cols: number, rows: number, exitRow: number
   return tex;
 }
 
+/** Neutral warm grain. Tint with MeshStandardMaterial.color (trayColor). */
+export function createWoodGrainTexture(): CanvasTexture {
+  const size = 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    const fallback = new CanvasTexture(canvas);
+    fallback.colorSpace = SRGBColorSpace;
+    return fallback;
+  }
+
+  ctx.fillStyle = "#e8d5bc";
+  ctx.fillRect(0, 0, size, size);
+
+  for (let i = 0; i < 16; i++) {
+    const x = (i / 16) * size + Math.sin(i * 1.3) * 10;
+    ctx.fillStyle = `rgba(90, 50, 20, ${0.035 + (i % 3) * 0.018})`;
+    ctx.fillRect(x, 0, 4 + (i % 2) * 3, size);
+  }
+
+  for (let i = 0; i < 70; i++) {
+    const x0 = Math.random() * size;
+    ctx.beginPath();
+    ctx.strokeStyle = `rgba(110, 70, 30, ${0.06 + Math.random() * 0.1})`;
+    ctx.lineWidth = 0.8 + Math.random() * 1.8;
+    ctx.moveTo(x0, 0);
+    for (let y = 0; y <= size; y += 18) {
+      ctx.lineTo(x0 + Math.sin(y * 0.018 + i * 0.4) * 12, y);
+    }
+    ctx.stroke();
+  }
+
+  for (let i = 0; i < 1800; i++) {
+    const x = Math.random() * size;
+    const y = Math.random() * size;
+    const shade = 160 + Math.random() * 50;
+    ctx.fillStyle = `rgba(${shade}, ${shade - 30}, ${shade - 55}, 0.12)`;
+    ctx.fillRect(x, y, 1.4, 1.4);
+  }
+
+  const tex = new CanvasTexture(canvas);
+  tex.colorSpace = SRGBColorSpace;
+  tex.anisotropy = 2;
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  tex.needsUpdate = true;
+  return tex;
+}
+
 /** Exit chevrons only — alpha 0 elsewhere so a full-background image shows through. */
 export function createParkingGridTexture(cols: number, rows: number, exitRow: number, vPad = 0): CanvasTexture {
   const size = 512;

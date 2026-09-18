@@ -727,7 +727,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
     },
     tripleMatch: {
       itemSlots: ["apple", "donut", "taco", "burger"],
-      trayColor: "#c4a574",
+      trayColor: "#b87914",
       barSlots: 7,
       triplesToWin: 4,
       difficulty: "medium",

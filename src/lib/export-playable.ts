@@ -1,5 +1,6 @@
 import type { NetworkId, ProjectData, TemplateId } from "@/types/project";
 import { ProjectDataSchema } from "@/types/project";
+import { ensureTripleMatchKitchenChrome } from "@/lib/project-defaults";
 import { readObjectBuffer } from "@/lib/storage";
 import { createNetworkAdapter, META_CTA_CALL, NETWORK_LIMITS } from "@/playable-runtime/networks";
 import { collectAssetUrls } from "@/playable-runtime/export/collect-urls";
@@ -113,6 +114,7 @@ export async function exportPlayableHtml(options: {
   networkId?: NetworkId;
 }): Promise<ExportResult> {
   const data = ProjectDataSchema.parse(options.projectData);
+  if (options.templateId === "triple-match") ensureTripleMatchKitchenChrome(data);
   const networkId = options.networkId ?? "generic";
   const adapter = createNetworkAdapter(networkId);
   const warnings: string[] = [];

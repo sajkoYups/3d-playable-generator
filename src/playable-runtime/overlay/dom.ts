@@ -36,6 +36,7 @@ export function renderElement(
     const total = options.remainingSeconds ?? content.durationSeconds ?? DEFAULT_TIMER_DURATION;
     const warnAt = content.warningSeconds ?? DEFAULT_TIMER_WARNING;
     const urgent = total <= warnAt;
+    wrap.style.overflow = "visible";
     wrap.style.background = String(style.backgroundColor || "#1c1f2a");
     wrap.style.color = urgent
       ? content.warningColor || DEFAULT_TIMER_WARNING_COLOR
@@ -46,6 +47,7 @@ export function renderElement(
     wrap.style.borderRadius = `${style.borderRadius ?? 999}px`;
     wrap.style.letterSpacing = "0.5px";
     wrap.style.fontVariantNumeric = "tabular-nums";
+    if (style.shadow) wrap.style.boxShadow = style.shadow;
     wrap.textContent = formatCountdown(total);
     return wrap;
   }
@@ -98,6 +100,7 @@ export function renderElement(
   }
 
   if (element.type === "muteButton") {
+    wrap.style.overflow = "visible";
     const btn = document.createElement("button");
     btn.type = "button";
     btn.style.width = "100%";
@@ -108,6 +111,7 @@ export function renderElement(
     btn.style.color = String(style.textColor || "#fff");
     btn.style.borderRadius = `${style.borderRadius ?? 999}px`;
     btn.style.fontSize = "16px";
+    if (style.shadow) btn.style.boxShadow = style.shadow;
     btn.textContent = options.muted ? "🔇" : content.text || "🔊";
     btn.dataset.playableMute = "1";
     btn.dataset.muteOn = "🔇";

@@ -399,6 +399,80 @@ export function stampCoinImage(data: ProjectData, url: string) {
   data.gameplay.topDownShooter.coinImageUrl = url;
 }
 
+export const TRIPLE_STACK_KITCHEN_PORTRAIT = "/playforge-triple-stack/kitchen-portrait-882x1920.jpg";
+export const TRIPLE_STACK_KITCHEN_LANDSCAPE = "/playforge-triple-stack/kitchen-landscape-1920x882.jpg";
+const KITCHEN_CREAM = "#f4ead8";
+const KITCHEN_INK = "#3a2a18";
+const KITCHEN_SHADOW = "0 2px 8px rgba(58,42,24,0.18)";
+
+export function applyTripleMatchKitchenChrome(gameplay: ProjectData["gameplay"]): void {
+  gameplay.fullBackground.enabled = true;
+  gameplay.fullBackground.portraitImageUrl = TRIPLE_STACK_KITCHEN_PORTRAIT;
+  gameplay.fullBackground.landscapeImageUrl = TRIPLE_STACK_KITCHEN_LANDSCAPE;
+  gameplay.fullBackground.imageFit = "cover";
+  gameplay.stageBackground = {
+    portrait: canvasBackground("solid", "#f3ead8", "#f3ead8", "#e8dcc8"),
+    landscape: canvasBackground("solid", "#f3ead8", "#f3ead8", "#e8dcc8"),
+  };
+
+  const hide = (id: string) => {
+    const el = gameplay.overlays.find((item) => item.id === id);
+    if (!el) return;
+    el.layout.portrait.visible = false;
+    el.layout.landscape.visible = false;
+  };
+  hide("gameplay-logo");
+  hide("gameplay-label");
+
+  const timer = gameplay.overlays.find((el) => el.id === "gameplay-timer");
+  if (timer) {
+    timer.content.color = KITCHEN_INK;
+    timer.content.warningColor = "#c45a3a";
+    timer.content.fontSize = 15;
+    timer.style.backgroundColor = KITCHEN_CREAM;
+    timer.style.shadow = KITCHEN_SHADOW;
+    timer.style.borderRadius = 999;
+    timer.layout.portrait = layout({ x: 0.36, y: 0.014, width: 0.28, height: 0.048, zIndex: 23 });
+    timer.layout.landscape = layout({ x: 0.4, y: 0.035, width: 0.2, height: 0.1, zIndex: 23 });
+  }
+
+  const mute = gameplay.overlays.find((el) => el.id === "mute-button");
+  if (mute) {
+    mute.style.backgroundColor = KITCHEN_CREAM;
+    mute.style.textColor = KITCHEN_INK;
+    mute.style.shadow = KITCHEN_SHADOW;
+    mute.layout.portrait = layout({ x: 0.875, y: 0.014, width: 0.1, height: 0.048, zIndex: 22 });
+    mute.layout.landscape = layout({ x: 0.91, y: 0.035, width: 0.065, height: 0.1, zIndex: 22 });
+  }
+
+  const box = gameplay.overlays.find((el) => el.id === "gameplay-container");
+  if (box) {
+    box.layout.portrait = layout({
+      x: 0.01,
+      y: 0,
+      width: 0.98,
+      height: 1,
+      zIndex: 1,
+      locked: true,
+    });
+    box.layout.landscape = layout({
+      x: 0.02,
+      y: 0,
+      width: 0.96,
+      height: 1,
+      zIndex: 1,
+      locked: true,
+    });
+  }
+
+  gameplay.camera.portrait.fov = 48;
+  gameplay.camera.landscape.fov = 40;
+}
+
+export function ensureTripleMatchKitchenChrome(data: ProjectData): void {
+  applyTripleMatchKitchenChrome(data.gameplay);
+}
+
 export function createGameplayTimerOverlay(): PlayableElement {
   return {
     id: "gameplay-timer",
@@ -600,7 +674,7 @@ function createEndScreen(): ProjectData["endScreen"] {
 }
 
 function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"] {
-  return {
+  const gameplay: ProjectData["gameplay"] = {
     allowBackgroundReplace: true,
     fullBackground: {
       enabled: false,
@@ -664,8 +738,8 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
           }
         : templateId === "triple-match"
           ? {
-              portrait: canvasBackground("solid", "#6b3fa0", "#6b3fa0", "#3d2466"),
-              landscape: canvasBackground("solid", "#6b3fa0", "#6b3fa0", "#3d2466"),
+              portrait: canvasBackground("solid", "#f3ead8", "#f3ead8", "#e8dcc8"),
+              landscape: canvasBackground("solid", "#f3ead8", "#f3ead8", "#e8dcc8"),
             }
           : templateId === "lane-runner"
             ? {
@@ -694,7 +768,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
           }
         : templateId === "triple-match"
           ? {
-              portrait: { fov: 50, position: { x: 0, y: 7.6, z: 6.8 }, target: { x: 0, y: 0.06, z: -0.2 } },
+              portrait: { fov: 48, position: { x: 0, y: 7.6, z: 6.8 }, target: { x: 0, y: 0.06, z: -0.2 } },
               landscape: { fov: 40, position: { x: 0, y: 6.8, z: 7.6 }, target: { x: 0, y: 0.06, z: -0.2 } },
             }
           : templateId === "lane-runner"
@@ -896,6 +970,8 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       },
     ],
   };
+  if (templateId === "triple-match") applyTripleMatchKitchenChrome(gameplay);
+  return gameplay;
 }
 
 export function createDefaultProjectData(templateId: TemplateId): ProjectData {

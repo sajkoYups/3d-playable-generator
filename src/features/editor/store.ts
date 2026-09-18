@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import type { Orientation, PlayableElement, ProjectData, TemplateId } from "@/types/project";
 import { BRAND_LOGO_SLOT_IDS, END_POLICY_SLOT_ID, isBrandSlotId, isOverridableSlotId, ProjectDataSchema } from "@/types/project";
-import { createDefaultProjectData, createEndPolicyElement, ensureAppBrandLayers } from "@/lib/project-defaults";
+import { createDefaultProjectData, createEndPolicyElement, ensureAppBrandLayers, ensureTripleMatchKitchenChrome } from "@/lib/project-defaults";
 import { ensureParkingRounds, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 import { ensureMatchRounds, propagateMatchFoods, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
 import { ensureLaneRounds, syncLaneRound } from "@/playable-runtime/engines/lane-runner/rounds";
@@ -167,6 +167,7 @@ export const useEditorStore = create<EditorState>()(
           ensureMatchRounds(match);
           propagateMatchFoods(match);
           syncMatchRound(match, 0);
+          ensureTripleMatchKitchenChrome(state.data);
         }
         if (payload.templateId === "lane-runner") {
           const runner = state.data.gameplay.laneRunner;

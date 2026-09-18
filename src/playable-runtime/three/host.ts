@@ -147,6 +147,25 @@ export class ThreeHost {
     this.setEnvironmentMood("studio");
   }
 
+  /** Warm kitchen key light: cream sky, sage bounce, no washed fill. */
+  applyKitchenLighting() {
+    for (const light of this.lights) this.scene.remove(light);
+    this.lights = [];
+    this.scene.background = null;
+    const add = <T extends AmbientLight | DirectionalLight | HemisphereLight | PointLight>(light: T) => {
+      this.scene.add(light);
+      this.lights.push(light);
+      return light;
+    };
+    add(new HemisphereLight(0xfff6ea, 0x6b7a62, 0.36));
+    const key = add(new DirectionalLight(0xfff1d6, 1.28));
+    key.position.set(-6.5, 8.2, 5.2);
+    const fill = add(new DirectionalLight(0x9aaa88, 0.16));
+    fill.position.set(6.4, 3.8, -3.2);
+    this.scene.environmentIntensity = 0.42;
+    this.renderer.toneMappingExposure = 0.98;
+  }
+
   enableStudioEnvironment() {
     if (this.scene.environment) return;
     const pmrem = new PMREMGenerator(this.renderer);

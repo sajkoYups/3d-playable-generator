@@ -45,6 +45,7 @@ export function ElementView({
           borderRadius: style.borderRadius ?? 999,
           letterSpacing: 0.5,
           fontVariantNumeric: "tabular-nums",
+          boxShadow: style.shadow || "none",
         }}
       >
         {formatCountdown(total)}
@@ -103,6 +104,7 @@ export function ElementView({
           background: style.backgroundColor || "rgba(0,0,0,0.45)",
           color: style.textColor || "#fff",
           borderRadius: style.borderRadius ?? 999,
+          boxShadow: style.shadow || "none",
         }}
         onClick={handleClick}
       >

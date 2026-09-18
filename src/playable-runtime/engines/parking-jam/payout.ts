@@ -11,6 +11,9 @@ const PAYOUT_COIN_COUNT = 18;
 const PAYOUT_SPARKLE_COUNT = 14;
 const BANNER_MS = 1200;
 const HUD_H = 48;
+const KITCHEN_HUD_H = 44;
+const KITCHEN_INK = "#3a2a18";
+const KITCHEN_CREAM = "#f4ead8";
 
 type PayoutCoin = {
   angle: number;
@@ -68,7 +71,27 @@ export type PayoutHud = {
   destroy(): void;
 };
 
-export function createPayoutHud(): PayoutHud {
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  const rr = Math.min(r, h / 2, w / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+
+export function createPayoutHud(options?: { theme?: "default" | "kitchen" }): PayoutHud {
+  const theme = options?.theme ?? "default";
+  const hudH = theme === "kitchen" ? KITCHEN_HUD_H : HUD_H;
   let container: HTMLElement | null = null;
   let canvas: HTMLCanvasElement | null = null;
   let ctx: CanvasRenderingContext2D | null = null;
@@ -189,34 +212,56 @@ export function createPayoutHud(): PayoutHud {
   }
 
   function drawHud(w: number, now: number) {
-    if (!ctx) return { x: 20, y: HUD_H / 2 };
+    if (!ctx) return { x: 20, y: hudH / 2 };
     const pop = punch(now);
-    const coinSize = 24;
-    const rewardY = HUD_H / 2;
-    const label = `${Math.round(displayedEarned(now))} / ${total}`;
+    const kitchen = theme === "kitchen";
+    const { h } = viewSize();
+    const rowH = kitchen ? Math.max(20, Math.min(42, h * 0.048)) : hudH;
+    const padY = kitchen ? Math.max(4, h * 0.014) : 0;
+    const padX = kitchen ? Math.max(6, w * 0.03) : 8;
+    const coinSize = kitchen ? Math.round(rowH * 0.7) : 24;
+    const rewardY = kitchen ? padY + rowH / 2 : hudH / 2;
+    const label = kitchen
+      ? `${Math.round(displayedEarned(now))}/${total}`
+      : `${Math.round(displayedEarned(now))} / ${total}`;
+    if (kitchen) {
+      ctx.save();
+      ctx.font = `700 ${Math.max(10, Math.round(rowH * 0.42))}px system-ui, sans-serif`;
+      const textW = ctx.measureText(label).width;
+      const pillW = Math.min(w * 0.34, padX + coinSize + 8 + textW + 12);
+      ctx.shadowColor = "rgba(58,42,24,0.18)";
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetY = 1;
+      ctx.fillStyle = KITCHEN_CREAM;
+      roundRect(ctx, padX, padY, pillW, rowH, rowH / 2);
+      ctx.fill();
+      ctx.restore();
+    }
     if (payoutActive) {
       ctx.save();
       ctx.globalAlpha = Math.min(0.55, (pop - 1) * 1.4);
-      ctx.fillStyle = "#fbbf24";
+      ctx.fillStyle = kitchen ? "#d4a017" : "#fbbf24";
       ctx.beginPath();
-      ctx.arc(8 + coinSize / 2, rewardY, coinSize * 1.2 * pop, 0, Math.PI * 2);
+      ctx.arc(padX + coinSize / 2, rewardY, coinSize * 1.15 * pop, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
     ctx.save();
-    ctx.translate(8, rewardY);
+    ctx.translate(kitchen ? padX + 6 : 8, rewardY);
     ctx.scale(pop, pop);
     drawCoin(0, -coinSize / 2, coinSize);
-    ctx.shadowColor = "rgba(0,0,0,0.7)";
-    ctx.shadowBlur = 4;
+    ctx.shadowColor = kitchen ? "rgba(58,42,24,0.2)" : "rgba(0,0,0,0.7)";
+    ctx.shadowBlur = kitchen ? 2 : 4;
     ctx.shadowOffsetY = 1;
-    ctx.fillStyle = "#fbbf24";
-    ctx.font = "600 15px system-ui, sans-serif";
+    ctx.fillStyle = kitchen ? KITCHEN_INK : "#fbbf24";
+    ctx.font = kitchen
+      ? `700 ${Math.max(10, Math.round(rowH * 0.42))}px system-ui, sans-serif`
+      : "600 15px system-ui, sans-serif";
     ctx.textBaseline = "middle";
     ctx.textAlign = "left";
     ctx.fillText(label, coinSize + 6, 0);
     ctx.restore();
-    return { x: 8 + coinSize / 2, y: rewardY };
+    return { x: padX + coinSize / 2, y: rewardY };
   }
 
   function drawPayoutFx(now: number, ox: number, oy: number, tx: number, ty: number) {

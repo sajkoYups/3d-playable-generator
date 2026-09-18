@@ -5,12 +5,13 @@ import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import type { Orientation, PlayableElement, ProjectData, TemplateId } from "@/types/project";
 import { BRAND_LOGO_SLOT_IDS, END_POLICY_SLOT_ID, isBrandSlotId, isOverridableSlotId, ProjectDataSchema } from "@/types/project";
-import { createDefaultProjectData, createEndPolicyElement, ensureAppBrandLayers, ensureTripleMatchKitchenChrome } from "@/lib/project-defaults";
+import { createDefaultProjectData, createEndPolicyElement, ensureAppBrandLayers, ensureTripleMatchKitchenChrome, ensureWaterSortChrome } from "@/lib/project-defaults";
 import { ensureParkingRounds, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 import { ensureMatchRounds, propagateMatchFoods, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
 import { ensureLaneRounds, syncLaneRound } from "@/playable-runtime/engines/lane-runner/rounds";
 import { ensureTdRounds } from "@/playable-runtime/engines/tower-defense/rounds";
 import { ensureStackRounds, syncStackRound } from "@/playable-runtime/engines/stack-tower/rounds";
+import { ensureWaterSortRounds } from "@/playable-runtime/engines/water-sort/rounds";
 
 export type EditorStage = "start" | "gameplay" | "end";
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -33,6 +34,7 @@ function activeRoundCount(templateId: TemplateId, data: ProjectData) {
   if (templateId === "tappy-plane") return data.gameplay.tappyPlane.rounds.length;
   if (templateId === "racing-lap") return data.gameplay.racingLap.rounds.length;
   if (templateId === "top-down-shooter") return data.gameplay.topDownShooter.rounds.length;
+  if (templateId === "water-sort") return data.gameplay.waterSort.rounds.length || data.gameplay.waterSort.roundsToWin || 1;
   return 1;
 }
 
@@ -168,6 +170,10 @@ export const useEditorStore = create<EditorState>()(
           propagateMatchFoods(match);
           syncMatchRound(match, 0);
           ensureTripleMatchKitchenChrome(state.data);
+        }
+        if (payload.templateId === "water-sort") {
+          ensureWaterSortRounds(state.data.gameplay.waterSort);
+          ensureWaterSortChrome(state.data);
         }
         if (payload.templateId === "lane-runner") {
           const runner = state.data.gameplay.laneRunner;

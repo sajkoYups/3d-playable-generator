@@ -24,6 +24,7 @@ import { ensureDominoRounds, setDominoRoundCount } from "@/playable-runtime/engi
 import { ensureTappyRounds, setTappyRoundCount } from "@/playable-runtime/engines/tappy-plane/rounds";
 import { ensureRacingRounds, setRacingRoundCount } from "@/playable-runtime/engines/racing-lap/rounds";
 import { ensureShooterRounds, setShooterRoundCount } from "@/playable-runtime/engines/top-down-shooter/rounds";
+import { ensureWaterSortRounds, setWaterSortRoundCount } from "@/playable-runtime/engines/water-sort/rounds";
 
 function patchMatchRound(
   updateData: (updater: (draft: ProjectData) => void) => void,
@@ -260,6 +261,7 @@ function CoinIconField({ locked }: { locked?: boolean }) {
     data.gameplay.towerDefense.coinImageUrl ||
     data.gameplay.stackTower.coinImageUrl ||
     data.gameplay.match3.coinImageUrl ||
+    data.gameplay.waterSort.coinImageUrl ||
     data.gameplay.solitaire.coinImageUrl ||
     data.gameplay.domino.coinImageUrl ||
     data.gameplay.tappyPlane.coinImageUrl ||
@@ -509,29 +511,132 @@ function GameplaySettings() {
         )}
       </div>
 
-      {templateId !== "water-sort" && templateId !== "dress-up" && (
+      {templateId !== "dress-up" && (
         <>
           <Separator />
           <CoinIconField />
         </>
       )}
 
-      {templateId === "water-sort" && (
+      {templateId === "water-sort" && (() => {
+        const cfg = data.gameplay.waterSort;
+        const rounds = cfg.rounds.length
+          ? cfg.rounds
+          : [{ maxMoves: cfg.maxMoves || 40, coins: Math.round(cfg.rewardPerRound || 5), colorCount: 5 }];
+        const roundIdx = Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
+        const round = rounds[roundIdx];
+        return (
         <>
           <Separator />
           <h4 className="text-sm font-medium">Water Sort</h4>
-          <NumberField
-            label="Max moves"
-            integer
-            min={8}
-            max={99}
-            value={data.gameplay.waterSort.maxMoves}
-            onChange={(n) =>
+          <RoundLengthPicker
+            count={rounds.length}
+            preview={roundIdx}
+            onCount={(n, preview) => {
               updateData((d) => {
-                d.gameplay.waterSort.maxMoves = n;
-              })
-            }
+                setWaterSortRoundCount(d.gameplay.waterSort, n);
+              });
+              setParkingRoundIndex(preview);
+            }}
+            onPreview={setParkingRoundIndex}
           />
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField
+              label="Max moves"
+              integer
+              min={8}
+              max={99}
+              value={round.maxMoves}
+              onChange={(n) =>
+                updateData((d) => {
+                  ensureWaterSortRounds(d.gameplay.waterSort);
+                  d.gameplay.waterSort.rounds[roundIdx].maxMoves = n;
+                })
+              }
+            />
+            <NumberField
+              label="Coins"
+              integer
+              min={0}
+              max={9999}
+              value={round.coins}
+              onChange={(n) =>
+                updateData((d) => {
+                  ensureWaterSortRounds(d.gameplay.waterSort);
+                  d.gameplay.waterSort.rounds[roundIdx].coins = n;
+                })
+              }
+            />
+            <NumberField
+              label="Colors"
+              integer
+              min={2}
+              max={5}
+              value={round.colorCount}
+              onChange={(n) =>
+                updateData((d) => {
+                  ensureWaterSortRounds(d.gameplay.waterSort);
+                  d.gameplay.waterSort.rounds[roundIdx].colorCount = n;
+                })
+              }
+            />
+          </div>
+          <p className="text-[11px] text-muted">
+            Moves, coins, and how many tube colors this round uses. Preview switches the canvas to that round.
+          </p>
+          <div className="space-y-1">
+            <Label>Reward prefix</Label>
+            <Input
+              value={data.gameplay.waterSort.rewardPrefix}
+              onChange={(e) =>
+                updateData((d) => {
+                  d.gameplay.waterSort.rewardPrefix = e.target.value;
+                })
+              }
+            />
+            <p className="text-[11px] text-muted">Shown before the reward amount, for example $.</p>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <Label>Fail enabled</Label>
+              <p className="text-[11px] text-muted">
+                On = running out of moves ends the playable. Off = moves refill and you stay on the same board.
+              </p>
+            </div>
+            <Switch
+              checked={data.gameplay.waterSort.failEnabled}
+              onCheckedChange={(v) =>
+                updateData((d) => {
+                  d.gameplay.waterSort.failEnabled = v;
+                })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Show in HUD</Label>
+            <p className="text-[11px] text-muted">
+              {data.gameplay.waterSort.hudDisplay === "coins"
+                ? "Coins hides remaining moves on the board. You still have a move limit. Use both while testing."
+                : "Score shows remaining moves. Coins shows the payout. Both is easiest while testing."}
+            </p>
+            <div className="grid grid-cols-3 gap-1">
+              {(["score", "coins", "both"] as const).map((id) => (
+                <Button
+                  key={id}
+                  size="sm"
+                  variant={(data.gameplay.waterSort.hudDisplay || "both") === id ? "default" : "outline"}
+                  className="h-8 capitalize"
+                  onClick={() =>
+                    updateData((d) => {
+                      d.gameplay.waterSort.hudDisplay = id;
+                    })
+                  }
+                >
+                  {id}
+                </Button>
+              ))}
+            </div>
+          </div>
           <Label>Tube colors</Label>
           <div className="flex flex-wrap gap-1">
             {data.gameplay.waterSort.colors.map((c, i) => (
@@ -549,7 +654,8 @@ function GameplaySettings() {
             ))}
           </div>
         </>
-      )}
+        );
+      })()}
 
       {templateId === "dress-up" && (
         <>

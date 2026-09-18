@@ -515,13 +515,45 @@ export const DEFAULT_MATCH3_CONFIG: Match3Config = {
   hudTransparent: false,
 };
 
+export const WaterSortRoundSchema = z.object({
+  maxMoves: z.number().int().min(8).max(99).default(40),
+  coins: z.number().int().min(0).max(9999).default(5),
+  colorCount: z.number().int().min(2).max(5).default(5),
+});
+export type WaterSortRound = z.infer<typeof WaterSortRoundSchema>;
+
 export const WaterSortConfigSchema = z.object({
   maxMoves: z.number().int().min(8).max(99).default(40),
   colors: z
     .array(z.string())
     .default(["#ef4444", "#3b82f6", "#22c55e", "#eab308", "#a855f7"]),
+  roundsToWin: z.number().int().min(1).max(20).default(3),
+  rewardPerRound: z.number().min(0).max(9999).default(5),
+  rewardPrefix: z.string().default("$"),
+  failEnabled: z.boolean().default(true),
+  coinImageUrl: z.string().default("/demo-assets/coin.svg"),
+  rewardTextColor: z.string().default("#c48a1a"),
+  hudDisplay: z.enum(["both", "score", "coins"]).default("both"),
+  rounds: z.array(WaterSortRoundSchema).max(9).default([]),
 });
 export type WaterSortConfig = z.infer<typeof WaterSortConfigSchema>;
+
+export const DEFAULT_WATER_SORT_CONFIG: WaterSortConfig = {
+  maxMoves: 40,
+  colors: ["#e23d3d", "#2b6fdb", "#1aa35a", "#f0b429", "#9b4de0"],
+  roundsToWin: 3,
+  rewardPerRound: 5,
+  rewardPrefix: "$",
+  failEnabled: true,
+  coinImageUrl: "/demo-assets/coin.svg",
+  rewardTextColor: "#c48a1a",
+  hudDisplay: "both",
+  rounds: [
+    { maxMoves: 40, coins: 5, colorCount: 3 },
+    { maxMoves: 40, coins: 5, colorCount: 4 },
+    { maxMoves: 40, coins: 5, colorCount: 5 },
+  ],
+};
 
 export const SolitaireRoundSchema = z.object({
   cardsToWin: z.number().int().min(4).max(52).default(13),

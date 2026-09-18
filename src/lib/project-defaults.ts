@@ -5,6 +5,7 @@ import {
   APP_BRAND_VERTICAL_LOGO_ID,
   DEFAULT_DRESS_UP_CONFIG,
   DEFAULT_MATCH3_CONFIG,
+  DEFAULT_WATER_SORT_CONFIG,
   GAMEPLAY_DISCLAIMER_ID,
   START_DISCLAIMER_ID,
   layout,
@@ -392,6 +393,7 @@ export function stampCoinImage(data: ProjectData, url: string) {
   data.gameplay.towerDefense.coinImageUrl = url;
   data.gameplay.stackTower.coinImageUrl = url;
   data.gameplay.match3.coinImageUrl = url;
+  data.gameplay.waterSort.coinImageUrl = url;
   data.gameplay.solitaire.coinImageUrl = url;
   data.gameplay.domino.coinImageUrl = url;
   data.gameplay.tappyPlane.coinImageUrl = url;
@@ -471,6 +473,109 @@ export function applyTripleMatchKitchenChrome(gameplay: ProjectData["gameplay"])
 
 export function ensureTripleMatchKitchenChrome(data: ProjectData): void {
   applyTripleMatchKitchenChrome(data.gameplay);
+}
+
+const WATER_SORT_SKY = "#d7eaf7";
+const WATER_SORT_CREAM = "#f7f1e4";
+const WATER_SORT_INK = "#1f3347";
+const WATER_SORT_CHIP = "#fffaf3";
+const WATER_SORT_SHADOW = "0 2px 8px rgba(31,51,71,0.14)";
+
+export function applyWaterSortChrome(gameplay: ProjectData["gameplay"]): void {
+  gameplay.background = {
+    portrait: canvasBackground("gradient", "#eaf4fb", WATER_SORT_SKY, WATER_SORT_CREAM),
+    landscape: canvasBackground("gradient", "#eaf4fb", WATER_SORT_SKY, WATER_SORT_CREAM),
+  };
+  gameplay.stageBackground = {
+    portrait: canvasBackground("gradient", "#eaf4fb", WATER_SORT_SKY, WATER_SORT_CREAM),
+    landscape: canvasBackground("gradient", "#eaf4fb", WATER_SORT_SKY, WATER_SORT_CREAM),
+  };
+
+  const hide = (id: string) => {
+    const el = gameplay.overlays.find((item) => item.id === id);
+    if (!el) return;
+    el.layout.portrait.visible = false;
+    el.layout.landscape.visible = false;
+  };
+  hide("gameplay-logo");
+  hide("gameplay-label");
+
+  const timer = gameplay.overlays.find((el) => el.id === "gameplay-timer");
+  if (timer) {
+    const portraitVisible = timer.layout.portrait.visible;
+    const landscapeVisible = timer.layout.landscape.visible;
+    timer.content.color = WATER_SORT_INK;
+    timer.content.warningColor = "#c45a3a";
+    timer.content.fontSize = 15;
+    timer.style.backgroundColor = WATER_SORT_CHIP;
+    timer.style.shadow = WATER_SORT_SHADOW;
+    timer.style.borderRadius = 999;
+    timer.layout.portrait = layout({
+      x: 0.36,
+      y: 0.016,
+      width: 0.28,
+      height: 0.052,
+      zIndex: 23,
+      visible: portraitVisible,
+    });
+    timer.layout.landscape = layout({
+      x: 0.4,
+      y: 0.03,
+      width: 0.2,
+      height: 0.1,
+      zIndex: 23,
+      visible: landscapeVisible,
+    });
+  }
+
+  const mute = gameplay.overlays.find((el) => el.id === "mute-button");
+  if (mute) {
+    const portraitVisible = mute.layout.portrait.visible;
+    const landscapeVisible = mute.layout.landscape.visible;
+    mute.style.backgroundColor = WATER_SORT_CHIP;
+    mute.style.textColor = WATER_SORT_INK;
+    mute.style.shadow = WATER_SORT_SHADOW;
+    mute.layout.portrait = layout({
+      x: 0.86,
+      y: 0.016,
+      width: 0.11,
+      height: 0.052,
+      zIndex: 22,
+      visible: portraitVisible,
+    });
+    mute.layout.landscape = layout({
+      x: 0.92,
+      y: 0.03,
+      width: 0.06,
+      height: 0.1,
+      zIndex: 22,
+      visible: landscapeVisible,
+    });
+  }
+
+  const box = gameplay.overlays.find((el) => el.id === "gameplay-container");
+  if (box) {
+    box.layout.portrait = layout({
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+      zIndex: 1,
+      locked: true,
+    });
+    box.layout.landscape = layout({
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+      zIndex: 1,
+      locked: true,
+    });
+  }
+}
+
+export function ensureWaterSortChrome(data: ProjectData): void {
+  applyWaterSortChrome(data.gameplay);
 }
 
 export function createGameplayTimerOverlay(): PlayableElement {
@@ -728,6 +833,11 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
                           0.12,
                         ),
                       }
+                  : templateId === "water-sort"
+                    ? {
+                        portrait: canvasBackground("gradient", "#eaf4fb", "#d7eaf7", "#f7f1e4"),
+                        landscape: canvasBackground("gradient", "#eaf4fb", "#d7eaf7", "#f7f1e4"),
+                      }
         : {
             portrait: canvasBackground("gradient", "#12141a", "#1c1f2a", "#12141a"),
             landscape: canvasBackground("gradient", "#12141a", "#1c1f2a", "#12141a"),
@@ -753,6 +863,11 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
                 portrait: canvasBackground("gradient", "#12143a", "#1e2470", "#0e1028"),
                 landscape: canvasBackground("gradient", "#12143a", "#1e2470", "#0e1028"),
               }
+            : templateId === "water-sort"
+              ? {
+                  portrait: canvasBackground("gradient", "#eaf4fb", "#d7eaf7", "#f7f1e4"),
+                  landscape: canvasBackground("gradient", "#eaf4fb", "#d7eaf7", "#f7f1e4"),
+                }
             : {
                 portrait: canvasBackground("solid", "#12141a", "#12141a", "#0a0b10"),
                 landscape: canvasBackground("solid", "#12141a", "#12141a", "#0a0b10"),
@@ -861,10 +976,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
     },
     pieceImages: templateId === "match-3" ? defaultPieceImages() : ["", "", "", "", ""],
     match3: { ...DEFAULT_MATCH3_CONFIG },
-    waterSort: {
-      maxMoves: 40,
-      colors: ["#ef4444", "#3b82f6", "#22c55e", "#eab308", "#a855f7"],
-    },
+    waterSort: { ...DEFAULT_WATER_SORT_CONFIG },
     solitaire: {
       failEnabled: true,
       hintHandEnabled: true,
@@ -973,6 +1085,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
     ],
   };
   if (templateId === "triple-match") applyTripleMatchKitchenChrome(gameplay);
+  if (templateId === "water-sort") applyWaterSortChrome(gameplay);
   return gameplay;
 }
 

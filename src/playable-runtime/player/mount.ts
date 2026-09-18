@@ -270,7 +270,12 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
       .forEach((el) => {
         const wrap = document.createElement("div");
         applyStyle(wrap, layoutToStyle(el.layout[orientation], size.w, size.h));
-        wrap.style.pointerEvents = "auto";
+        const capturesPointer =
+          el.type === "muteButton" ||
+          el.type === "button" ||
+          el.type === "storeButton" ||
+          el.action.type !== "NONE";
+        wrap.style.pointerEvents = capturesPointer ? "auto" : "none";
         wrap.appendChild(
           renderElement(el, {
             interactive: true,

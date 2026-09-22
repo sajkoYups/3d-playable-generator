@@ -15,6 +15,12 @@ export type SfxPlayOptions = {
   rate?: number;
 };
 
+export type LoopPlayOptions = {
+  volume?: number;
+};
+
+const DEFAULT_LOOP_VOLUME = 0.28;
+
 const SFX_FALLBACK: Record<string, { freq: number; dur: number; type: OscillatorType; vol: number }> = {
   tap: { freq: 420, dur: 0.12, type: "triangle", vol: 0.18 },
   win: { freq: 660, dur: 0.35, type: "triangle", vol: 0.18 },
@@ -27,6 +33,9 @@ const SFX_FALLBACK: Record<string, { freq: number; dur: number; type: Oscillator
   leak: { freq: 130, dur: 0.26, type: "sawtooth", vol: 0.18 },
   place: { freq: 540, dur: 0.11, type: "triangle", vol: 0.16 },
   wave: { freq: 380, dur: 0.22, type: "sine", vol: 0.14 },
+  move: { freq: 480, dur: 0.1, type: "triangle", vol: 0.16 },
+  match: { freq: 720, dur: 0.22, type: "triangle", vol: 0.18 },
+  payout: { freq: 880, dur: 0.4, type: "sine", vol: 0.16 },
 };
 
 /**
@@ -43,6 +52,10 @@ export class AudioBus {
   private extraUrls: Record<string, string> = {};
   private lastSfxAt = new Map<string, number>();
   private musicSource: AudioBufferSourceNode | null = null;
+  private loopWanted = new Map<string, number>();
+  private loopSources = new Map<string, AudioBufferSourceNode>();
+  private loopGains = new Map<string, GainNode>();
+  private ambienceGain: GainNode | null = null;
   private muted = false;
   private unlocked = false;
 
@@ -67,6 +80,9 @@ export class AudioBus {
       this.sfxGain = this.ctx.createGain();
       this.musicGain.gain.value = 0.35;
       this.sfxGain.gain.value = 0.7;
+      this.ambienceGain = this.ctx.createGain();
+      this.ambienceGain.gain.value = 1;
+      this.ambienceGain.connect(this.master);
       this.musicGain.connect(this.master);
       this.sfxGain.connect(this.master);
       this.master.connect(this.ctx.destination);
@@ -100,6 +116,7 @@ export class AudioBus {
         }
       }),
     );
+    this.syncLoops();
   }
 
   setMuted(muted: boolean) {
@@ -126,6 +143,79 @@ export class AudioBus {
     this.playSfx(slot);
   }
 
+  playLoop(id: string, opts?: LoopPlayOptions) {
+    this.loopWanted.set(id, opts?.volume ?? this.loopWanted.get(id) ?? DEFAULT_LOOP_VOLUME);
+    this.startLoop(id, false);
+  }
+
+  restartLoop(id: string, opts?: LoopPlayOptions) {
+    this.loopWanted.set(id, opts?.volume ?? this.loopWanted.get(id) ?? DEFAULT_LOOP_VOLUME);
+    this.startLoop(id, true);
+  }
+
+  stopLoop(id?: string) {
+    if (id) {
+      this.loopWanted.delete(id);
+      this.stopLoopSource(id);
+      return;
+    }
+    for (const key of [...this.loopWanted.keys()]) {
+      this.loopWanted.delete(key);
+      this.stopLoopSource(key);
+    }
+  }
+
+  private startLoop(id: string, forceRestart: boolean) {
+    if (!this.loopWanted.has(id)) return;
+    if (!this.unlocked || !this.ctx || !this.ambienceGain) return;
+    const buf = this.buffers.get(id);
+    if (!buf) return;
+    if (!forceRestart && this.loopSources.has(id)) return;
+    this.stopLoopSource(id);
+    const gain = this.ctx.createGain();
+    gain.gain.value = this.muted ? 0 : (this.loopWanted.get(id) ?? DEFAULT_LOOP_VOLUME);
+    gain.connect(this.ambienceGain);
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    src.connect(gain);
+    src.start();
+    this.loopSources.set(id, src);
+    this.loopGains.set(id, gain);
+  }
+
+  private stopLoopSource(id: string) {
+    const src = this.loopSources.get(id);
+    if (src) {
+      try {
+        src.stop();
+      } catch {
+        /* already stopped */
+      }
+      try {
+        src.disconnect();
+      } catch {
+        /* already disconnected */
+      }
+      this.loopSources.delete(id);
+    }
+    const gain = this.loopGains.get(id);
+    if (gain) {
+      try {
+        gain.disconnect();
+      } catch {
+        /* already disconnected */
+      }
+      this.loopGains.delete(id);
+    }
+  }
+
+  private syncLoops() {
+    for (const id of this.loopWanted.keys()) {
+      if (!this.loopSources.has(id)) this.startLoop(id, false);
+    }
+  }
+
   playSfx(id: string, opts?: SfxPlayOptions) {
     if (this.muted) return;
     const minGap = opts?.throttleMs ?? 0;
@@ -148,6 +238,7 @@ export class AudioBus {
       src.start();
       return;
     }
+    if (!SFX_FALLBACK[id]) return;
     this.beep(id);
   }
 
@@ -174,9 +265,11 @@ export class AudioBus {
 
   destroy() {
     this.stopMusic();
+    this.stopLoop();
     void this.ctx?.close();
     this.ctx = null;
     this.unlocked = false;
+    this.ambienceGain = null;
     this.buffers.clear();
   }
 

@@ -16,6 +16,8 @@ import { blobShadow } from "@/playable-runtime/models/procedural";
 import { resolveRuntimeUrl } from "@/playable-runtime/models/assets";
 import { createPayoutHud, DEFAULT_COIN_URL } from "@/playable-runtime/engines/parking-jam/payout";
 import { listStackRounds, stackCoinsTotal } from "@/playable-runtime/engines/stack-tower/rounds";
+import { AudioBus } from "@/playable-runtime/audio/bus";
+import { pickSoundUrl, PLAYABLE_SOUNDS } from "@/playable-runtime/audio/defaults";
 
 type Layer = {
   mesh: Mesh;
@@ -48,6 +50,9 @@ export function createStackTowerEngine(): Playable3DEngine {
   let roundIndex = 0;
   let lastEditorRoundIndex: number | null = null;
   let earned = 0;
+  let sfx: AudioBus | null = null;
+  let sfxOwned = false;
+  let unlockEl: HTMLElement | null = null;
   const hud = createPayoutHud();
 
   const blockH = 0.42;
@@ -56,6 +61,23 @@ export function createStackTowerEngine(): Playable3DEngine {
     const rounds = listStackRounds(cfg);
     const index = Math.max(0, Math.min(roundIndex, rounds.length - 1));
     return { round: rounds[index], index, total: rounds.length };
+  }
+
+  function wireSfx(cfg: StackTowerConfig) {
+    if (!sfx) return;
+    const assets = ctx?.assets ?? {};
+    const pick = (url: string) => resolveRuntimeUrl(url, assets) || url;
+    sfx.setExtraUrls({
+      move: pick(pickSoundUrl(cfg.sounds?.moveUrl, PLAYABLE_SOUNDS.swoosh)),
+    });
+  }
+
+  function playCue(id: string, throttleMs = 0) {
+    sfx?.playSfx(id, { throttleMs });
+  }
+
+  function onSfxUnlock() {
+    void sfx?.unlock();
   }
 
   function layoutKey(cfg: StackTowerConfig, idx: number, playAll: boolean) {
@@ -242,6 +264,7 @@ export function createStackTowerEngine(): Playable3DEngine {
     addLayer(x, z, w, d, prev.y + blockH, color);
     applyStackCamera();
     speed += round.speedRamp;
+    playCue("move", 40);
     if (layers.length - 1 >= round.blocksToWin) completeRound();
     else spawnMover();
   }
@@ -271,6 +294,7 @@ export function createStackTowerEngine(): Playable3DEngine {
         stackTower?: StackTowerConfig;
         playAllRounds?: boolean;
         parkingRoundIndex?: number;
+        audioBus?: AudioBus;
       };
       config = extra.stackTower ?? ({} as StackTowerConfig);
       if (!config.palette) {
@@ -284,6 +308,7 @@ export function createStackTowerEngine(): Playable3DEngine {
           missLimit: 3,
           rounds: [],
           coinImageUrl: "",
+          sounds: { moveUrl: "" },
         };
       }
       playAllRounds = extra.playAllRounds !== false;
@@ -291,6 +316,16 @@ export function createStackTowerEngine(): Playable3DEngine {
       roundIndex = Math.max(0, Math.min(roundIndex, listStackRounds(config).length - 1));
       lastEditorRoundIndex = roundIndex;
       textureUrl = config.faceTextureUrl || "";
+      if (extra.audioBus) {
+        sfx = extra.audioBus;
+        sfxOwned = false;
+      } else {
+        sfx = new AudioBus();
+        sfxOwned = true;
+      }
+      wireSfx(config);
+      unlockEl = init.container;
+      unlockEl.addEventListener("pointerdown", onSfxUnlock, true);
       host = new ThreeHost(init.container);
       host.enableStudioEnvironment();
       applyLights(init.lighting);
@@ -308,6 +343,7 @@ export function createStackTowerEngine(): Playable3DEngine {
       syncHud();
       build();
       detach = attachPointer(host.canvas, (e) => {
+        void sfx?.unlock();
         if (e.kind === "tap") drop();
       });
     },
@@ -342,7 +378,12 @@ export function createStackTowerEngine(): Playable3DEngine {
     },
     destroy() {
       detach?.();
+      unlockEl?.removeEventListener("pointerdown", onSfxUnlock, true);
+      unlockEl = null;
       hud.destroy();
+      if (sfxOwned) sfx?.destroy();
+      else sfx?.stopLoop();
+      sfx = null;
       host?.destroy();
       host = null;
       root = null;
@@ -360,6 +401,7 @@ export function createStackTowerEngine(): Playable3DEngine {
       if (next) {
         config = next;
         textureUrl = next.faceTextureUrl || "";
+        wireSfx(next);
       }
       if (typeof options.playAllRounds === "boolean") playAllRounds = options.playAllRounds;
       if (typeof options.parkingRoundIndex === "number" && config) {
@@ -384,6 +426,7 @@ export function createStackTowerEngine(): Playable3DEngine {
       applyStackCamera();
     },
     handlePointer(e: PointerEvent3D) {
+      void sfx?.unlock();
       if (e.kind === "tap") drop();
     },
     resize(w, h) {

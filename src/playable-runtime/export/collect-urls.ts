@@ -9,6 +9,7 @@ import {
   tappySpriteUrls,
 } from "@/playable-runtime/engines/kenney-2d-assets";
 import { dressUpAssetUrls } from "@/playable-runtime/engines/dress-up/catalog";
+import { pickSoundUrl, PLAYABLE_SOUNDS } from "@/playable-runtime/audio/defaults";
 
 const FOOD_COLORMAP = "/models/kenney/food/colormap.png";
 const KENNEY_GRASS = "/kenney_road-textures/PNG/Retina/roadTexture_25.png";
@@ -92,6 +93,7 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
   if (templateId === "stack-tower") {
     add(data.gameplay.stackTower.faceTextureUrl);
     add(coinUrl(data, data.gameplay.stackTower.coinImageUrl));
+    add(pickSoundUrl(data.gameplay.stackTower.sounds?.moveUrl, PLAYABLE_SOUNDS.swoosh));
   } else if (templateId === "parking-jam") {
     add(data.gameplay.parkingJam.lotTextureUrl);
     add(data.gameplay.parkingJam.pavementTextureUrl);
@@ -103,6 +105,10 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
     if (carRef.libraryId && carRef.libraryId !== "van" && carRef.libraryId !== "truck") {
       add(getLibraryModel("van")?.url);
     }
+    const jamSounds = data.gameplay.parkingJam.sounds;
+    add(pickSoundUrl(jamSounds?.ambienceUrl, PLAYABLE_SOUNDS.trafficAmbience));
+    add(pickSoundUrl(jamSounds?.moveUrl, PLAYABLE_SOUNDS.swoosh));
+    add(pickSoundUrl(jamSounds?.payoutUrl, PLAYABLE_SOUNDS.payout));
   } else if (templateId === "triple-match") {
     add(FOOD_COLORMAP);
     add(coinUrl(data, data.gameplay.tripleMatch.coinImageUrl));
@@ -113,6 +119,11 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
     for (const slot of matchSlots) {
       add(resolveModelRef(slot).url);
     }
+    const matchSounds = data.gameplay.tripleMatch.sounds;
+    add(pickSoundUrl(matchSounds?.ambienceUrl, PLAYABLE_SOUNDS.restaurantAmbience));
+    add(pickSoundUrl(matchSounds?.moveUrl, PLAYABLE_SOUNDS.swoosh));
+    add(pickSoundUrl(matchSounds?.matchUrl, PLAYABLE_SOUNDS.matchWin));
+    add(pickSoundUrl(matchSounds?.payoutUrl, PLAYABLE_SOUNDS.payout));
   } else if (templateId === "lane-runner") {
     add(FOOD_COLORMAP);
     add(data.gameplay.laneRunner.grassTextureUrl || KENNEY_GRASS);
@@ -122,6 +133,9 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
     for (const ob of data.gameplay.laneRunner.obstacleSet) {
       add(resolveModelRef(ob).url);
     }
+    const laneSounds = data.gameplay.laneRunner.sounds;
+    add(pickSoundUrl(laneSounds?.ambienceUrl, PLAYABLE_SOUNDS.trafficAmbience));
+    add(pickSoundUrl(laneSounds?.moveUrl, PLAYABLE_SOUNDS.swoosh));
   } else if (templateId === "tower-defense") {
     for (const url of TD_MODEL_URLS) add(url);
     add(coinUrl(data, data.gameplay.towerDefense.coinImageUrl));

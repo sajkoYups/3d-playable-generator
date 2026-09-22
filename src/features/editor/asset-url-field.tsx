@@ -6,16 +6,19 @@ import { Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEditorStore } from "@/features/editor/store";
+import { FieldHint } from "@/features/editor/field-hint";
 import { uploadOwnedAsset } from "@/features/assets/upload-project-asset";
 
 export function AssetUrlField({
   label,
+  hint,
   value,
   onChange,
   accept,
   kind = "image",
 }: {
   label?: string;
+  hint?: string;
   value: string;
   onChange: (url: string) => void;
   accept: string;
@@ -53,7 +56,12 @@ export function AssetUrlField({
 
   return (
     <div className="space-y-1">
-      {label ? <Label className="text-xs">{label}</Label> : null}
+      {label ? (
+        <div className="flex items-center gap-1">
+          <Label className="text-xs">{label}</Label>
+          {hint ? <FieldHint text={hint} /> : null}
+        </div>
+      ) : null}
       <div className="flex items-center gap-2">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-elevated text-[9px] text-muted">
           {kind === "image" && value ? (

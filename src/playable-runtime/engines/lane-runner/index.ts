@@ -36,6 +36,8 @@ import {
 } from "@/playable-runtime/models/assets";
 import { createPayoutHud, DEFAULT_COIN_URL } from "@/playable-runtime/engines/parking-jam/payout";
 import { laneCoinsTotal, listLaneRounds } from "@/playable-runtime/engines/lane-runner/rounds";
+import { AudioBus } from "@/playable-runtime/audio/bus";
+import { pickSoundUrl, PLAYABLE_SOUNDS } from "@/playable-runtime/audio/defaults";
 
 type Actor = {
   group: Group;
@@ -217,6 +219,9 @@ export function createLaneRunnerEngine(): Playable3DEngine {
   let earned = 0;
   let lastEditorRoundIndex: number | null = null;
   let fullBackgroundActive = false;
+  let sfx: AudioBus | null = null;
+  let sfxOwned = false;
+  let unlockEl: HTMLElement | null = null;
   const hud = createPayoutHud();
   const templates = new Map<string, Group>();
 
@@ -224,6 +229,31 @@ export function createLaneRunnerEngine(): Playable3DEngine {
     const rounds = listLaneRounds(cfg);
     const index = Math.max(0, Math.min(roundIndex, rounds.length - 1));
     return { round: rounds[index], index, total: rounds.length };
+  }
+
+  function wireSfx(cfg: LaneRunnerConfig) {
+    if (!sfx) return;
+    const assets = ctx?.assets ?? {};
+    const s = cfg.sounds;
+    const pick = (url: string) => resolveRuntimeUrl(url, assets) || url;
+    sfx.setExtraUrls({
+      ambience: pick(pickSoundUrl(s?.ambienceUrl, PLAYABLE_SOUNDS.trafficAmbience)),
+      move: pick(pickSoundUrl(s?.moveUrl, PLAYABLE_SOUNDS.swoosh)),
+    });
+  }
+
+  function playCue(id: string, throttleMs = 0) {
+    sfx?.playSfx(id, { throttleMs });
+  }
+
+  function startAmbience(restart = false) {
+    if (restart) sfx?.restartLoop("ambience", { volume: 0.28 });
+    else sfx?.playLoop("ambience", { volume: 0.28 });
+  }
+
+  function onSfxUnlock() {
+    void sfx?.unlock();
+    startAmbience();
   }
 
   function layoutKey(cfg: LaneRunnerConfig, idx: number, playAll: boolean) {
@@ -567,6 +597,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
       const { round } = liveRound(cfg);
       const assets = ctx?.assets ?? {};
       setRuntimeAssets(assets);
+      startAmbience(true);
       const theme = THEMES[cfg.environmentTheme] ?? THEMES.city;
       const playerId =
         !cfg.characterModelUrl || cfg.characterModelUrl === "runner" ? "sedan" : cfg.characterModelUrl;
@@ -755,6 +786,7 @@ export function createLaneRunnerEngine(): Playable3DEngine {
         playAllRounds?: boolean;
         parkingRoundIndex?: number;
         fullBackgroundActive?: boolean;
+        audioBus?: AudioBus;
       };
       config = extra.laneRunner ?? {
         characterModelUrl: "sedan",
@@ -769,12 +801,23 @@ export function createLaneRunnerEngine(): Playable3DEngine {
         grassTextureUrl: "",
         coinImageUrl: "",
         rounds: [],
+        sounds: { ambienceUrl: "", moveUrl: "" },
       };
       playAllRounds = extra.playAllRounds !== false;
       fullBackgroundActive = Boolean(extra.fullBackgroundActive);
       roundIndex = typeof extra.parkingRoundIndex === "number" ? extra.parkingRoundIndex : 0;
       roundIndex = Math.max(0, Math.min(roundIndex, listLaneRounds(config).length - 1));
       lastEditorRoundIndex = roundIndex;
+      if (extra.audioBus) {
+        sfx = extra.audioBus;
+        sfxOwned = false;
+      } else {
+        sfx = new AudioBus();
+        sfxOwned = true;
+      }
+      wireSfx(config);
+      unlockEl = init.container;
+      unlockEl.addEventListener("pointerdown", onSfxUnlock, true);
       host = new ThreeHost(init.container);
       host.enableStudioEnvironment();
       host.applyParkingJamLighting(init.lighting);
@@ -785,16 +828,22 @@ export function createLaneRunnerEngine(): Playable3DEngine {
       syncHud();
       build();
       detach = attachPointer(host.canvas, (e) => {
+        void sfx?.unlock();
         if (!config || ended || hud.busy() || building) return;
         if (e.kind === "swipe" && e.swipe) {
           if (Math.abs(e.swipe.dx) > Math.abs(e.swipe.dy)) {
-            targetLane = Math.max(0, Math.min(config.laneCount - 1, targetLane + (e.swipe.dx > 0 ? 1 : -1)));
+            const nextLane = Math.max(0, Math.min(config.laneCount - 1, targetLane + (e.swipe.dx > 0 ? 1 : -1)));
+            if (nextLane !== targetLane) {
+              targetLane = nextLane;
+              playCue("move", 80);
+            }
           }
         }
       });
     },
     start() {
       started = true;
+      startAmbience();
       host?.start((dt) => {
         hud.tick(performance.now());
         if (!started || ended || !config || !player || hud.busy() || building) return;
@@ -815,7 +864,12 @@ export function createLaneRunnerEngine(): Playable3DEngine {
     destroy() {
       buildGen += 1;
       detach?.();
+      unlockEl?.removeEventListener("pointerdown", onSfxUnlock, true);
+      unlockEl = null;
       hud.destroy();
+      if (sfxOwned) sfx?.destroy();
+      else sfx?.stopLoop();
+      sfx = null;
       host?.destroy();
       host = null;
       ctx = null;
@@ -830,7 +884,10 @@ export function createLaneRunnerEngine(): Playable3DEngine {
     setOptions(options) {
       const next = options.laneRunner as LaneRunnerConfig | undefined;
       const prevKey = config ? layoutKey(config, roundIndex, playAllRounds) : "";
-      if (next) config = next;
+      if (next) {
+        config = next;
+        wireSfx(next);
+      }
       if (typeof options.playAllRounds === "boolean") playAllRounds = options.playAllRounds;
       if (typeof options.parkingRoundIndex === "number" && config) {
         const n = listLaneRounds(config).length;

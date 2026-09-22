@@ -30,6 +30,8 @@ import {
 } from "@/playable-runtime/models/assets";
 import { createPayoutHud, DEFAULT_COIN_URL } from "@/playable-runtime/engines/parking-jam/payout";
 import { listMatchRounds, matchCoinsTotal } from "@/playable-runtime/engines/triple-match/rounds";
+import { AudioBus } from "@/playable-runtime/audio/bus";
+import { pickSoundUrl, PLAYABLE_SOUNDS } from "@/playable-runtime/audio/defaults";
 
 type Item = {
   id: string;
@@ -180,11 +182,41 @@ export function createTripleMatchEngine(): Playable3DEngine {
   let building = false;
   let earned = 0;
   let lastEditorRoundIndex: number | null = null;
+  let sfx: AudioBus | null = null;
+  let sfxOwned = false;
+  let unlockEl: HTMLElement | null = null;
   const hud = createPayoutHud({ theme: "kitchen" });
   const raycaster = new Raycaster();
   const pointer = new Vector2();
   const tmp = new Vector3();
   const upQ = new Quaternion();
+
+  function wireSfx(cfg: TripleMatchConfig) {
+    if (!sfx) return;
+    const assets = ctx?.assets ?? {};
+    const s = cfg.sounds;
+    const pick = (url: string) => resolveRuntimeUrl(url, assets) || url;
+    sfx.setExtraUrls({
+      ambience: pick(pickSoundUrl(s?.ambienceUrl, PLAYABLE_SOUNDS.restaurantAmbience)),
+      move: pick(pickSoundUrl(s?.moveUrl, PLAYABLE_SOUNDS.swoosh)),
+      match: pick(pickSoundUrl(s?.matchUrl, PLAYABLE_SOUNDS.matchWin)),
+      payout: pick(pickSoundUrl(s?.payoutUrl, PLAYABLE_SOUNDS.payout)),
+    });
+  }
+
+  function playCue(id: string, throttleMs = 0) {
+    sfx?.playSfx(id, { throttleMs });
+  }
+
+  function startAmbience(restart = false) {
+    if (restart) sfx?.restartLoop("ambience", { volume: 0.28 });
+    else sfx?.playLoop("ambience", { volume: 0.28 });
+  }
+
+  function onSfxUnlock() {
+    void sfx?.unlock();
+    startAmbience();
+  }
 
   function applyEditorCamera() {
     if (!host || !ctx) return;
@@ -285,6 +317,7 @@ export function createTripleMatchEngine(): Playable3DEngine {
     earned += reward;
     const hasNext = playAllRounds && index < total - 1;
     hud.setState(earned, matchCoinsTotal(config));
+    playCue("payout");
     hud.startPayout({
       from,
       to: earned,
@@ -408,6 +441,7 @@ export function createTripleMatchEngine(): Playable3DEngine {
     for (const kind of kinds) {
       const group = bar.filter((it) => it.kind === kind && !it.flying);
       if (group.length < 3) continue;
+      playCue("match");
       const remove = group.slice(0, 3);
       bar = bar.filter((it) => !remove.includes(it));
       reindexBar();
@@ -441,6 +475,7 @@ export function createTripleMatchEngine(): Playable3DEngine {
       t: 0,
       duration: 0.26,
     });
+    playCue("move", 40);
   }
 
   function tickAnims(dt: number) {
@@ -661,6 +696,7 @@ export function createTripleMatchEngine(): Playable3DEngine {
     if (!host || !config || !root) return;
     const gen = ++buildGen;
     building = true;
+    startAmbience(true);
     try {
     const cfg = config;
     const round = liveRound(cfg).round;
@@ -757,6 +793,7 @@ export function createTripleMatchEngine(): Playable3DEngine {
         tripleMatch?: TripleMatchConfig;
         playAllRounds?: boolean;
         parkingRoundIndex?: number;
+        audioBus?: AudioBus;
       };
       config = extra.tripleMatch ?? {
         itemSlots: DEFAULT_ITEMS,
@@ -766,11 +803,22 @@ export function createTripleMatchEngine(): Playable3DEngine {
         difficulty: "medium",
         rounds: [],
         coinImageUrl: "",
+        sounds: { ambienceUrl: "", moveUrl: "", matchUrl: "", payoutUrl: "" },
       };
       playAllRounds = extra.playAllRounds !== false;
       roundIndex = typeof extra.parkingRoundIndex === "number" ? extra.parkingRoundIndex : 0;
       roundIndex = Math.max(0, Math.min(roundIndex, listMatchRounds(config).length - 1));
       lastEditorRoundIndex = roundIndex;
+      if (extra.audioBus) {
+        sfx = extra.audioBus;
+        sfxOwned = false;
+      } else {
+        sfx = new AudioBus();
+        sfxOwned = true;
+      }
+      wireSfx(config);
+      unlockEl = init.container;
+      unlockEl.addEventListener("pointerdown", onSfxUnlock, true);
       host = new ThreeHost(init.container);
       host.enableStudioEnvironment();
       host.applyKitchenLighting();
@@ -781,6 +829,7 @@ export function createTripleMatchEngine(): Playable3DEngine {
       syncHud();
       build();
       detach = attachPointer(host.canvas, (e) => {
+        void sfx?.unlock();
         if (ended || hud.busy() || building) return;
         if (e.kind === "move" || e.kind === "down") {
           const hit = pickItem(e.ndcX, e.ndcY);
@@ -793,6 +842,7 @@ export function createTripleMatchEngine(): Playable3DEngine {
     },
     start() {
       started = true;
+      startAmbience();
       host?.start((dt) => {
         tickAnims(dt);
         hud.tick(performance.now());
@@ -812,7 +862,12 @@ export function createTripleMatchEngine(): Playable3DEngine {
     destroy() {
       buildGen += 1;
       detach?.();
+      unlockEl?.removeEventListener("pointerdown", onSfxUnlock, true);
+      unlockEl = null;
       hud.destroy();
+      if (sfxOwned) sfx?.destroy();
+      else sfx?.stopLoop();
+      sfx = null;
       host?.destroy();
       host = null;
       ctx = null;
@@ -827,7 +882,10 @@ export function createTripleMatchEngine(): Playable3DEngine {
     setOptions(options) {
       const next = options.tripleMatch as TripleMatchConfig | undefined;
       const prevKey = config ? matchLayoutKey(config, roundIndex, playAllRounds) : "";
-      if (next) config = next;
+      if (next) {
+        config = next;
+        wireSfx(next);
+      }
       if (typeof options.playAllRounds === "boolean") playAllRounds = options.playAllRounds;
       if (typeof options.parkingRoundIndex === "number" && config) {
         const n = listMatchRounds(config).length;

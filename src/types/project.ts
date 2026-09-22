@@ -309,6 +309,11 @@ export const StackTowerRoundSchema = z.object({
 });
 export type StackTowerRound = z.infer<typeof StackTowerRoundSchema>;
 
+export const StackTowerSoundsSchema = z.object({
+  moveUrl: z.string().default(""),
+});
+export type StackTowerSounds = z.infer<typeof StackTowerSoundsSchema>;
+
 export const StackTowerConfigSchema = z.object({
   palette: z
     .array(z.string())
@@ -321,6 +326,7 @@ export const StackTowerConfigSchema = z.object({
   missLimit: z.number().int().min(1).max(8).default(3),
   rounds: z.array(StackTowerRoundSchema).max(9).default([]),
   coinImageUrl: z.string().default(""),
+  sounds: StackTowerSoundsSchema.prefault({}),
 });
 export type StackTowerConfig = z.infer<typeof StackTowerConfigSchema>;
 
@@ -335,6 +341,14 @@ export const TripleMatchRoundSchema = z.object({
 });
 export type TripleMatchRound = z.infer<typeof TripleMatchRoundSchema>;
 
+export const TripleMatchSoundsSchema = z.object({
+  ambienceUrl: z.string().default(""),
+  moveUrl: z.string().default(""),
+  matchUrl: z.string().default(""),
+  payoutUrl: z.string().default(""),
+});
+export type TripleMatchSounds = z.infer<typeof TripleMatchSoundsSchema>;
+
 export const TripleMatchConfigSchema = z.object({
   itemSlots: z.array(z.string()).default(DefaultMatchItems),
   trayColor: z.string().default("#b87914"),
@@ -343,6 +357,7 @@ export const TripleMatchConfigSchema = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
   rounds: z.array(TripleMatchRoundSchema).max(9).default([]),
   coinImageUrl: z.string().default(""),
+  sounds: TripleMatchSoundsSchema.prefault({}),
 });
 export type TripleMatchConfig = z.infer<typeof TripleMatchConfigSchema>;
 
@@ -353,6 +368,12 @@ export const LaneRunnerRoundSchema = z.object({
   coins: z.number().int().min(0).max(9999).default(40),
 });
 export type LaneRunnerRound = z.infer<typeof LaneRunnerRoundSchema>;
+
+export const LaneRunnerSoundsSchema = z.object({
+  ambienceUrl: z.string().default(""),
+  moveUrl: z.string().default(""),
+});
+export type LaneRunnerSounds = z.infer<typeof LaneRunnerSoundsSchema>;
 
 export const LaneRunnerConfigSchema = z.object({
   characterModelUrl: z.string().default("sedan"),
@@ -368,6 +389,7 @@ export const LaneRunnerConfigSchema = z.object({
   grassTextureUrl: z.string().default(""),
   coinImageUrl: z.string().default(""),
   rounds: z.array(LaneRunnerRoundSchema).max(9).default([]),
+  sounds: LaneRunnerSoundsSchema.prefault({}),
 });
 export type LaneRunnerConfig = z.infer<typeof LaneRunnerConfigSchema>;
 
@@ -398,6 +420,13 @@ export const ParkingRoundSchema = z.object({
 });
 export type ParkingRound = z.infer<typeof ParkingRoundSchema>;
 
+export const ParkingJamSoundsSchema = z.object({
+  ambienceUrl: z.string().default(""),
+  moveUrl: z.string().default(""),
+  payoutUrl: z.string().default(""),
+});
+export type ParkingJamSounds = z.infer<typeof ParkingJamSoundsSchema>;
+
 export const ParkingJamConfigSchema = z.object({
   lotTextureUrl: z.string().default(""),
   grassTextureUrl: z.string().default(""),
@@ -411,6 +440,7 @@ export const ParkingJamConfigSchema = z.object({
   cars: z.array(ParkingCarSchema).default(DefaultParkingCars),
   rounds: z.array(ParkingRoundSchema).max(9).default([]),
   coinImageUrl: z.string().default(""),
+  sounds: ParkingJamSoundsSchema.prefault({}),
 });
 export type ParkingJamConfig = z.infer<typeof ParkingJamConfigSchema>;
 

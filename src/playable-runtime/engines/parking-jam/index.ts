@@ -28,6 +28,8 @@ import {
   repairParkingCars,
 } from "@/playable-runtime/engines/parking-jam/layout";
 import { createPayoutHud, DEFAULT_COIN_URL } from "@/playable-runtime/engines/parking-jam/payout";
+import { AudioBus } from "@/playable-runtime/audio/bus";
+import { pickSoundUrl, PLAYABLE_SOUNDS } from "@/playable-runtime/audio/defaults";
 
 type CarActor = {
   spec: ParkingCar;
@@ -119,12 +121,41 @@ export function createParkingJamEngine(): Playable3DEngine {
   let earned = 0;
   let lastEditorRoundIndex: number | null = null;
   let fullBackgroundActive = false;
+  let sfx: AudioBus | null = null;
+  let sfxOwned = false;
+  let unlockEl: HTMLElement | null = null;
   const hud = createPayoutHud();
 
   function liveRound(cfg = config!) {
     const rounds = listParkingRounds(cfg);
     const index = Math.max(0, Math.min(roundIndex, rounds.length - 1));
     return { round: rounds[index], index, total: rounds.length };
+  }
+
+  function wireSfx(cfg: ParkingJamConfig) {
+    if (!sfx) return;
+    const assets = ctx?.assets ?? {};
+    const s = cfg.sounds;
+    const pick = (url: string) => resolveRuntimeUrl(url, assets) || url;
+    sfx.setExtraUrls({
+      ambience: pick(pickSoundUrl(s?.ambienceUrl, PLAYABLE_SOUNDS.trafficAmbience)),
+      move: pick(pickSoundUrl(s?.moveUrl, PLAYABLE_SOUNDS.swoosh)),
+      payout: pick(pickSoundUrl(s?.payoutUrl, PLAYABLE_SOUNDS.payout)),
+    });
+  }
+
+  function playCue(id: string, throttleMs = 0) {
+    sfx?.playSfx(id, { throttleMs });
+  }
+
+  function startAmbience(restart = false) {
+    if (restart) sfx?.restartLoop("ambience", { volume: 0.28 });
+    else sfx?.playLoop("ambience", { volume: 0.28 });
+  }
+
+  function onSfxUnlock() {
+    void sfx?.unlock();
+    startAmbience();
   }
 
   function parkingLayoutKey(cfg: ParkingJamConfig, idx: number, playAll: boolean) {
@@ -198,6 +229,7 @@ export function createParkingJamEngine(): Playable3DEngine {
     earned += reward;
     const hasNext = playAllRounds && index < total - 1;
     hud.setState(earned, parkingCoinsTotal(config));
+    playCue("payout");
     hud.startPayout({
       from,
       to: earned,
@@ -298,6 +330,7 @@ export function createParkingJamEngine(): Playable3DEngine {
     if (!host || !config || !root) return;
     const gen = ++buildGen;
     building = true;
+    startAmbience(true);
     try {
     const cfg = config;
     let { round } = liveRound(cfg);
@@ -496,6 +529,7 @@ export function createParkingJamEngine(): Playable3DEngine {
         playAllRounds?: boolean;
         parkingRoundIndex?: number;
         fullBackgroundActive?: boolean;
+        audioBus?: AudioBus;
       };
       config = extra.parkingJam ?? null;
       playAllRounds = extra.playAllRounds !== false;
@@ -515,10 +549,21 @@ export function createParkingJamEngine(): Playable3DEngine {
           cars: [],
           rounds: [],
           coinImageUrl: "",
+          sounds: { ambienceUrl: "", moveUrl: "", payoutUrl: "" },
         };
       }
       roundIndex = Math.max(0, Math.min(roundIndex, listParkingRounds(config).length - 1));
       lastEditorRoundIndex = roundIndex;
+      if (extra.audioBus) {
+        sfx = extra.audioBus;
+        sfxOwned = false;
+      } else {
+        sfx = new AudioBus();
+        sfxOwned = true;
+      }
+      wireSfx(config);
+      unlockEl = init.container;
+      unlockEl.addEventListener("pointerdown", onSfxUnlock, true);
       host = new ThreeHost(init.container);
       host.enableStudioEnvironment();
       host.applyParkingJamLighting(init.lighting);
@@ -529,6 +574,7 @@ export function createParkingJamEngine(): Playable3DEngine {
       syncHud();
       build();
       detach = attachPointer(host.canvas, (e) => {
+        void sfx?.unlock();
         if (!started || ended || slideAnim || hud.busy() || building) return;
         if (e.kind === "down") {
           selected = pick(e.ndcX, e.ndcY) ?? null;
@@ -556,6 +602,7 @@ export function createParkingJamEngine(): Playable3DEngine {
             }
             if (result.kind === "exit") {
               const parked = worldOf(car.col, car.row, car.length, car.axis);
+              playCue("move", 40);
               playSlide(actor, from, { x: parked.x + cell * 1.65, z: parked.z }, result.cells + 1, () => {
                 state = state.filter((c) => c.id !== car.id);
                 actor.group.visible = false;
@@ -567,6 +614,7 @@ export function createParkingJamEngine(): Playable3DEngine {
             }
             if (result.kind === "moved") {
               moves += 1;
+              playCue("move", 40);
               const to = worldOf(car.col, car.row, car.length, car.axis);
               const limit = liveRound().round.movesLimit;
               playSlide(actor, from, to, result.cells, () => {
@@ -581,6 +629,7 @@ export function createParkingJamEngine(): Playable3DEngine {
     },
     start() {
       started = true;
+      startAmbience();
       host?.start((dt) => {
         tickSlide(dt);
         hud.tick(performance.now());
@@ -599,7 +648,12 @@ export function createParkingJamEngine(): Playable3DEngine {
     },
     destroy() {
       detach?.();
+      unlockEl?.removeEventListener("pointerdown", onSfxUnlock, true);
+      unlockEl = null;
       hud.destroy();
+      if (sfxOwned) sfx?.destroy();
+      else sfx?.stopLoop();
+      sfx = null;
       host?.destroy();
       host = null;
       ctx = null;
@@ -613,7 +667,10 @@ export function createParkingJamEngine(): Playable3DEngine {
     setOptions(options) {
       const next = options.parkingJam as ParkingJamConfig | undefined;
       const prevKey = config ? parkingLayoutKey(config, roundIndex, playAllRounds) : "";
-      if (next) config = next;
+      if (next) {
+        config = next;
+        wireSfx(next);
+      }
       if (typeof options.fullBackgroundActive === "boolean") {
         fullBackgroundActive = options.fullBackgroundActive;
       }

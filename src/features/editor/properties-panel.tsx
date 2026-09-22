@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AssetUrlField } from "@/features/editor/asset-url-field";
+import { FieldHint, SoundsHintLabel } from "@/features/editor/field-hint";
 import { ColorField } from "@/features/editor/color-field";
 import { NumberField } from "@/features/editor/number-field";
 import { CAMERA_FOV_MAX, CAMERA_FOV_MIN, END_POLICY_SLOT_ID, UNLOCK_COIN_SLOT_ID, UNLOCK_END_BG_SLOT_ID, UNLOCK_LINKS_SLOT_ID, UNLOCK_START_BG_SLOT_ID, is2DTemplate, isBrandSlotId, isFullBackgroundActive, isOverridableSlotId, type Background, type LaneRunnerConfig, type LaneRunnerRound, type LightingPreset, type ParkingJamConfig, type ParkingRound, type PlayableElement, type ProjectData, type StackTowerConfig, type StackTowerRound, type TowerDefenseConfig, type TowerDefenseRound, type TripleMatchConfig, type TripleMatchRound } from "@/types/project";
@@ -484,8 +485,24 @@ function GameplaySettings() {
       )}
       <Separator />
       <div className="space-y-2">
-        <h4 className="text-sm font-medium">Audio</h4>
-        <AssetUrlField label="Music" kind="audio" accept="audio/*" value={data.gameplay.audio.musicUrl} onChange={(url) => updateData((d) => { d.gameplay.audio.musicUrl = url; })} />
+        <div className="flex items-center gap-1.5">
+          <h4 className="text-sm font-medium">Audio</h4>
+          <FieldHint
+            text={
+              ["tower-defense", "triple-match", "parking-jam", "lane-runner", "stack-tower"].includes(templateId)
+                ? "Start and end screen sounds. In-game clips are under the game section below. First tap on the canvas unlocks audio."
+                : "Start and end screen sounds. First tap on the canvas unlocks audio."
+            }
+          />
+        </div>
+        <AssetUrlField
+          label="Music"
+          hint="Background loop for the playable. Turn on Play from start to hear it on the first screen."
+          kind="audio"
+          accept="audio/*"
+          value={data.gameplay.audio.musicUrl}
+          onChange={(url) => updateData((d) => { d.gameplay.audio.musicUrl = url; })}
+        />
         <div className="flex items-start justify-between gap-3">
           <div>
             <Label htmlFor="play-from-start">Play from start screen</Label>
@@ -501,14 +518,34 @@ function GameplaySettings() {
             }
           />
         </div>
-        <AssetUrlField label="Tap" kind="audio" accept="audio/*" value={data.gameplay.audio.tapUrl} onChange={(url) => updateData((d) => { d.gameplay.audio.tapUrl = url; })} />
-        <AssetUrlField label="Win" kind="audio" accept="audio/*" value={data.gameplay.audio.winUrl} onChange={(url) => updateData((d) => { d.gameplay.audio.winUrl = url; })} />
-        <AssetUrlField label="Lose" kind="audio" accept="audio/*" value={data.gameplay.audio.loseUrl} onChange={(url) => updateData((d) => { d.gameplay.audio.loseUrl = url; })} />
-        {templateId === "tower-defense" && (
-          <p className="text-[11px] text-muted">
-            Music, tap, win, and lose play on the start/end flow. Tower fire and combat sounds are under Tower Defense below.
-          </p>
-        )}
+        <AssetUrlField
+          label="Tap"
+          hint="Click sound for buttons on the start and end screens."
+          kind="audio"
+          accept="audio/*"
+          value={data.gameplay.audio.tapUrl}
+          onChange={(url) => updateData((d) => { d.gameplay.audio.tapUrl = url; })}
+        />
+        <AssetUrlField
+          label="Win"
+          hint={
+            ["triple-match", "parking-jam"].includes(templateId)
+              ? "Final win screen after the last round. Round payouts use Round win under the game section."
+              : "Plays on the win / end screen."
+          }
+          kind="audio"
+          accept="audio/*"
+          value={data.gameplay.audio.winUrl}
+          onChange={(url) => updateData((d) => { d.gameplay.audio.winUrl = url; })}
+        />
+        <AssetUrlField
+          label="Lose"
+          hint="Plays on the fail / lose screen."
+          kind="audio"
+          accept="audio/*"
+          value={data.gameplay.audio.loseUrl}
+          onChange={(url) => updateData((d) => { d.gameplay.audio.loseUrl = url; })}
+        />
       </div>
 
       {templateId !== "dress-up" && (
@@ -1354,6 +1391,20 @@ function GameplaySettings() {
                   ))}
                 </div>
                 <AssetUrlField label="Face texture" accept="image/*" value={tower.faceTextureUrl} onChange={(url) => updateData((d) => { d.gameplay.stackTower.faceTextureUrl = url; })} />
+                <SoundsHintLabel text="In-game clips. Leave a slot empty to keep the built-in sound. First tap on the canvas unlocks audio." />
+                <AssetUrlField
+                  label="Move"
+                  hint="Plays when a slab is placed. Leave empty for the built-in swoosh."
+                  kind="audio"
+                  accept="audio/*"
+                  value={tower.sounds?.moveUrl ?? ""}
+                  onChange={(url) =>
+                    updateData((d) => {
+                      d.gameplay.stackTower.sounds ??= { moveUrl: "" };
+                      d.gameplay.stackTower.sounds.moveUrl = url;
+                    })
+                  }
+                />
               </>
             );
           })()}
@@ -1513,6 +1564,35 @@ function GameplaySettings() {
                       }
                     />
                   </div>
+                ))}
+                <SoundsHintLabel text="In-game clips. Leave a slot empty to keep the built-in sound. First tap on the canvas unlocks audio." />
+                {(
+                  [
+                    ["ambienceUrl", "Background", "Loop while the board is on screen. Leave empty for the built-in restaurant ambience."],
+                    ["moveUrl", "Move", "Plays when a piece is picked up or dropped."],
+                    ["matchUrl", "Match", "Plays when three matching items clear."],
+                    ["payoutUrl", "Round win", "Plays when a round is completed. The shared Win clip is only the final end screen."],
+                  ] as const
+                ).map(([key, label, hint]) => (
+                  <AssetUrlField
+                    key={key}
+                    label={label}
+                    hint={hint}
+                    kind="audio"
+                    accept="audio/*"
+                    value={match.sounds?.[key] ?? ""}
+                    onChange={(url) =>
+                      updateData((d) => {
+                        d.gameplay.tripleMatch.sounds ??= {
+                          ambienceUrl: "",
+                          moveUrl: "",
+                          matchUrl: "",
+                          payoutUrl: "",
+                        };
+                        d.gameplay.tripleMatch.sounds[key] = url;
+                      })
+                    }
+                  />
                 ))}
               </>
             );
@@ -1748,6 +1828,28 @@ function GameplaySettings() {
                   onChange={(url) => updateData((d) => { d.gameplay.laneRunner.grassTextureUrl = url; })}
                 />
                 <p className="text-[11px] text-muted">Leave empty to keep the Kenney defaults. Uploads replace that layer only.</p>
+                <SoundsHintLabel text="In-game clips. Leave a slot empty to keep the built-in sound. First tap on the canvas unlocks audio." />
+                {(
+                  [
+                    ["ambienceUrl", "Background", "Loop while driving. Leave empty for the built-in traffic ambience."],
+                    ["moveUrl", "Lane switch", "Plays when the car changes lanes."],
+                  ] as const
+                ).map(([key, label, hint]) => (
+                  <AssetUrlField
+                    key={key}
+                    label={label}
+                    hint={hint}
+                    kind="audio"
+                    accept="audio/*"
+                    value={runner.sounds?.[key] ?? ""}
+                    onChange={(url) =>
+                      updateData((d) => {
+                        d.gameplay.laneRunner.sounds ??= { ambienceUrl: "", moveUrl: "" };
+                        d.gameplay.laneRunner.sounds[key] = url;
+                      })
+                    }
+                  />
+                ))}
               </>
             );
           })()}
@@ -1943,6 +2045,29 @@ function GameplaySettings() {
                 }
               />
             </div>
+          ))}
+          <SoundsHintLabel text="In-game clips. Leave a slot empty to keep the built-in sound. First tap on the canvas unlocks audio." />
+          {(
+            [
+              ["ambienceUrl", "Background", "Loop while the lot is on screen. Leave empty for the built-in traffic ambience."],
+              ["moveUrl", "Move", "Plays when a car slides."],
+              ["payoutUrl", "Round win", "Plays when a round is cleared. The shared Win clip is only the final end screen."],
+            ] as const
+          ).map(([key, label, hint]) => (
+            <AssetUrlField
+              key={key}
+              label={label}
+              hint={hint}
+              kind="audio"
+              accept="audio/*"
+              value={data.gameplay.parkingJam.sounds?.[key] ?? ""}
+              onChange={(url) =>
+                updateData((d) => {
+                  d.gameplay.parkingJam.sounds ??= { ambienceUrl: "", moveUrl: "", payoutUrl: "" };
+                  d.gameplay.parkingJam.sounds[key] = url;
+                })
+              }
+            />
           ))}
         </>
       )}
@@ -2144,25 +2269,23 @@ function GameplaySettings() {
                     />
                   ))}
                 </div>
-                <p className="text-[11px] text-muted">Sounds</p>
-                <p className="text-[11px] leading-snug text-muted">
-                  Upload short clips (mp3/wav/ogg). Empty slots still play a tiny built-in cue so you can test. Turret fire is throttled so a fast tower does not stack 5 samples a second. First tap on the canvas unlocks audio.
-                </p>
+                <SoundsHintLabel text="In-game clips. Leave a slot empty to keep the tiny built-in cue. First tap on the canvas unlocks audio." />
                 {(
                   [
-                    ["arrowFireUrl", "Arrow fire"],
-                    ["cannonFireUrl", "Cannon fire"],
-                    ["turretFireUrl", "Turret fire"],
-                    ["hitUrl", "Hit"],
-                    ["deathUrl", "Enemy death"],
-                    ["leakUrl", "Leak (life lost)"],
-                    ["placeUrl", "Place tower"],
-                    ["waveUrl", "Wave start"],
+                    ["arrowFireUrl", "Arrow fire", "Plays when an arrow tower shoots."],
+                    ["cannonFireUrl", "Cannon fire", "Plays when a cannon tower shoots."],
+                    ["turretFireUrl", "Turret fire", "Plays when a turret shoots. Fire is throttled so a fast tower does not stack samples."],
+                    ["hitUrl", "Hit", "Plays when a projectile hits an enemy."],
+                    ["deathUrl", "Enemy death", "Plays when an enemy is defeated."],
+                    ["leakUrl", "Leak (life lost)", "Plays when an enemy reaches the end of the path."],
+                    ["placeUrl", "Place tower", "Plays when you place a tower."],
+                    ["waveUrl", "Wave start", "Plays at the start of each wave."],
                   ] as const
-                ).map(([key, label]) => (
+                ).map(([key, label, hint]) => (
                   <AssetUrlField
                     key={key}
                     label={label}
+                    hint={hint}
                     kind="audio"
                     accept="audio/*"
                     value={td.sounds?.[key] ?? ""}

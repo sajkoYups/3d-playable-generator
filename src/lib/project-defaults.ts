@@ -915,6 +915,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       missLimit: 3,
       rounds: defaultStackRoundsPack(),
       coinImageUrl: "",
+      sounds: { moveUrl: "" },
     },
     tripleMatch: {
       itemSlots: ["apple", "donut", "taco", "burger"],
@@ -924,6 +925,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       difficulty: "medium",
       rounds: defaultMatchRoundsPack(),
       coinImageUrl: "",
+      sounds: { ambienceUrl: "", moveUrl: "", matchUrl: "", payoutUrl: "" },
     },
     laneRunner: {
       characterModelUrl: "sedan",
@@ -938,6 +940,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       grassTextureUrl: "",
       coinImageUrl: "",
       rounds: defaultLaneRoundsPack(),
+      sounds: { ambienceUrl: "", moveUrl: "" },
     },
     parkingJam: {
       lotTextureUrl: "",
@@ -952,6 +955,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       cars: DEFAULT_PARKING_CARS.map((c) => ({ ...c })),
       rounds: defaultParkingRoundsPack(),
       coinImageUrl: "",
+      sounds: { ambienceUrl: "", moveUrl: "", payoutUrl: "" },
     },
     towerDefense: {
       lives: 8,

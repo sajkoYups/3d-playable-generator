@@ -489,7 +489,7 @@ function GameplaySettings() {
           <h4 className="text-sm font-medium">Audio</h4>
           <FieldHint
             text={
-              ["tower-defense", "triple-match", "parking-jam", "lane-runner", "stack-tower"].includes(templateId)
+              ["tower-defense", "triple-match", "parking-jam", "lane-runner", "stack-tower", "water-sort", "match-3", "solitaire", "tappy-plane", "dress-up"].includes(templateId)
                 ? "Start and end screen sounds. In-game clips are under the game section below. First tap on the canvas unlocks audio."
                 : "Start and end screen sounds. First tap on the canvas unlocks audio."
             }
@@ -529,7 +529,7 @@ function GameplaySettings() {
         <AssetUrlField
           label="Win"
           hint={
-            ["triple-match", "parking-jam"].includes(templateId)
+            ["triple-match", "parking-jam", "water-sort", "match-3", "solitaire"].includes(templateId)
               ? "Final win screen after the last round. Round payouts use Round win under the game section."
               : "Plays on the win / end screen."
           }
@@ -690,6 +690,29 @@ function GameplaySettings() {
               />
             ))}
           </div>
+          <SoundsHintLabel text="In-game clips. Leave a slot empty to keep the built-in sound. First tap on the canvas unlocks audio." />
+          {(
+            [
+              ["pourUrl", "Pour", "Plays when water pours into another tube."],
+              ["denyUrl", "Deny", "Plays on an illegal pour. Empty uses a short beep."],
+              ["payoutUrl", "Round win", "Plays when the board is solved. The shared Win clip is only the final end screen."],
+            ] as const
+          ).map(([key, label, hint]) => (
+            <AssetUrlField
+              key={key}
+              label={label}
+              hint={hint}
+              kind="audio"
+              accept="audio/*"
+              value={data.gameplay.waterSort.sounds?.[key] ?? ""}
+              onChange={(url) =>
+                updateData((d) => {
+                  d.gameplay.waterSort.sounds ??= { pourUrl: "", denyUrl: "", payoutUrl: "" };
+                  d.gameplay.waterSort.sounds[key] = url;
+                })
+              }
+            />
+          ))}
         </>
         );
       })()}
@@ -762,6 +785,29 @@ function GameplaySettings() {
                 }
               />
             </div>
+            <SoundsHintLabel text="In-game clips. Leave a slot empty to keep the built-in sound. First tap on the canvas unlocks audio." />
+            {(
+              [
+                ["selectUrl", "Select", "Plays when you tap an item in the tray."],
+                ["dressUrl", "Dress", "Plays when the item flies onto the look."],
+                ["revealUrl", "Reveal", "Wow sting when the final outfit lands. Shared Win is the end screen after that."],
+              ] as const
+            ).map(([key, label, hint]) => (
+              <AssetUrlField
+                key={key}
+                label={label}
+                hint={hint}
+                kind="audio"
+                accept="audio/*"
+                value={data.gameplay.dressUp.sounds?.[key] ?? ""}
+                onChange={(url) =>
+                  updateData((d) => {
+                    d.gameplay.dressUp.sounds ??= { selectUrl: "", dressUrl: "", revealUrl: "" };
+                    d.gameplay.dressUp.sounds[key] = url;
+                  })
+                }
+              />
+            ))}
           </div>
         </>
       )}
@@ -1048,6 +1094,30 @@ function GameplaySettings() {
               </div>
             ))}
           </div>
+          <SoundsHintLabel text="In-game clips. Leave a slot empty to keep the built-in sound. First tap on the canvas unlocks audio." />
+          {(
+            [
+              ["moveUrl", "Swap", "Plays when two adjacent gems swap."],
+              ["matchUrl", "Match", "Plays when gems clear, including cascades."],
+              ["denyUrl", "Deny", "Plays when a swap has no match and reverses. Empty uses a short beep."],
+              ["payoutUrl", "Round win", "Plays when the score target is hit. The shared Win clip is only the final end screen."],
+            ] as const
+          ).map(([key, label, hint]) => (
+            <AssetUrlField
+              key={key}
+              label={label}
+              hint={hint}
+              kind="audio"
+              accept="audio/*"
+              value={data.gameplay.match3.sounds?.[key] ?? ""}
+              onChange={(url) =>
+                updateData((d) => {
+                  d.gameplay.match3.sounds ??= { moveUrl: "", matchUrl: "", denyUrl: "", payoutUrl: "" };
+                  d.gameplay.match3.sounds[key] = url;
+                })
+              }
+            />
+          ))}
         </>
       )}
 
@@ -1085,6 +1155,30 @@ function GameplaySettings() {
               <Label>Tutorial hand</Label>
               <Switch checked={cfg.hintHandEnabled} onCheckedChange={(v) => updateData((d) => { d.gameplay.solitaire.hintHandEnabled = v; })} />
             </div>
+            <SoundsHintLabel text="In-game clips. Leave a slot empty to keep the built-in sound. First tap on the canvas unlocks audio." />
+            {(
+              [
+                ["flipUrl", "Flip", "Plays when you draw from the stock, recycle, or reveal a face-down card."],
+                ["moveUrl", "Move", "Plays when a stack lands on the tableau."],
+                ["placeUrl", "Place", "Plays when a card is placed on a foundation."],
+                ["payoutUrl", "Round win", "Plays when the round is cleared. The shared Win clip is only the final end screen."],
+              ] as const
+            ).map(([key, label, hint]) => (
+              <AssetUrlField
+                key={key}
+                label={label}
+                hint={hint}
+                kind="audio"
+                accept="audio/*"
+                value={cfg.sounds?.[key] ?? ""}
+                onChange={(url) =>
+                  updateData((d) => {
+                    d.gameplay.solitaire.sounds ??= { flipUrl: "", moveUrl: "", placeUrl: "", payoutUrl: "" };
+                    d.gameplay.solitaire.sounds[key] = url;
+                  })
+                }
+              />
+            ))}
           </>
         );
       })()}
@@ -1170,6 +1264,30 @@ function GameplaySettings() {
               <Label>Tutorial hand</Label>
               <Switch checked={cfg.hintHandEnabled} onCheckedChange={(v) => updateData((d) => { d.gameplay.tappyPlane.hintHandEnabled = v; })} />
             </div>
+            <SoundsHintLabel text="In-game clips. Leave a slot empty to keep the built-in sound. First tap on the canvas unlocks audio." />
+            {(
+              [
+                ["engineUrl", "Engine", "Quiet plane loop while flying. Starts on the first flap."],
+                ["flapUrl", "Flap", "Plays on each tap. Leave empty for the built-in swoosh."],
+                ["coinUrl", "Coin", "Plays when a gap coin is collected."],
+                ["crashUrl", "Crash", "Plays on impact. The shared Lose clip is the fail screen after that."],
+              ] as const
+            ).map(([key, label, hint]) => (
+              <AssetUrlField
+                key={key}
+                label={label}
+                hint={hint}
+                kind="audio"
+                accept="audio/*"
+                value={cfg.sounds?.[key] ?? ""}
+                onChange={(url) =>
+                  updateData((d) => {
+                    d.gameplay.tappyPlane.sounds ??= { engineUrl: "", flapUrl: "", coinUrl: "", crashUrl: "" };
+                    d.gameplay.tappyPlane.sounds[key] = url;
+                  })
+                }
+              />
+            ))}
           </>
         );
       })()}

@@ -3,6 +3,8 @@ import type { EngineInitContext, Playable3DEngine } from "@/playable-runtime/eng
 import { canvasBgUrl, drawCanvasBackground, loadImage } from "@/playable-runtime/engines/canvas";
 import { attachPlayableCanvas, beginCanvasFrame, pointerCanvasPos } from "@/playable-runtime/engines/canvas-setup";
 import { resolveRuntimeUrl } from "@/playable-runtime/models/assets";
+import { AudioBus } from "@/playable-runtime/audio/bus";
+import { pickSoundUrl, PLAYABLE_SOUNDS } from "@/playable-runtime/audio/defaults";
 import {
   DRESS_UP_ACCESSORIES,
   DRESS_UP_DRESSES,
@@ -31,6 +33,7 @@ const FALLBACK: DressUpConfig = {
   modelIds: ["model-01"],
   hintHandEnabled: true,
   hintDelayMs: 1800,
+  sounds: { selectUrl: "", dressUrl: "", revealUrl: "" },
 };
 
 const APPLY_MS = 850;
@@ -52,6 +55,7 @@ type CanvasOptions = {
   orientation?: Orientation;
   hintHandUrl?: string;
   hintHandVisible?: boolean;
+  audioBus?: AudioBus;
 };
 
 type Phase = "selecting" | "applying" | "revealed";
@@ -209,6 +213,9 @@ export function createDressUpEngine(): Playable3DEngine {
   let orientation: Orientation = "portrait";
   let config: DressUpConfig = { ...FALLBACK };
   let assets: Record<string, string> = {};
+  let sfx: AudioBus | null = null;
+  let sfxOwned = false;
+  let unlockEl: HTMLElement | null = null;
   let hintHandUrl = "";
   let hintHandVisible = true;
 
@@ -267,6 +274,28 @@ export function createDressUpEngine(): Playable3DEngine {
     finishApply(performance.now());
   }
 
+  function resolveSfx(url: string) {
+    return resolveRuntimeUrl(url, assets) || url;
+  }
+
+  function wireSfx(cfg: DressUpConfig) {
+    if (!sfx) return;
+    const s = cfg.sounds;
+    sfx.setExtraUrls({
+      select: resolveSfx(pickSoundUrl(s?.selectUrl, PLAYABLE_SOUNDS.swoosh)),
+      dress: resolveSfx(pickSoundUrl(s?.dressUrl, PLAYABLE_SOUNDS.swoosh)),
+      reveal: resolveSfx(pickSoundUrl(s?.revealUrl, PLAYABLE_SOUNDS.wow)),
+    });
+  }
+
+  function playCue(id: string, throttleMs = 0) {
+    sfx?.playSfx(id, { throttleMs });
+  }
+
+  function onSfxUnlock() {
+    void sfx?.unlock();
+  }
+
   function promptText() {
     if (session.phase === "revealed") return "Your look";
     if (session.round === "dress") return config.promptOutfit;
@@ -278,7 +307,10 @@ export function createDressUpEngine(): Playable3DEngine {
     if (!options) return;
     if (options.background) background = options.background;
     if (options.orientation) orientation = options.orientation;
-    if (options.dressUp) config = { ...FALLBACK, ...options.dressUp };
+    if (options.dressUp) {
+      config = { ...FALLBACK, ...options.dressUp };
+      wireSfx(config);
+    }
     if (typeof options.hintHandUrl === "string") hintHandUrl = options.hintHandUrl;
     if (typeof options.hintHandVisible === "boolean") hintHandVisible = options.hintHandVisible;
 
@@ -611,6 +643,7 @@ export function createDressUpEngine(): Playable3DEngine {
     if (following === "done") {
       session.phase = "revealed";
       session.holdUntil = now + config.revealMs;
+      playCue("reveal");
       return;
     }
     session.round = following;
@@ -658,6 +691,7 @@ export function createDressUpEngine(): Playable3DEngine {
     const now = performance.now();
     session.applyAt = now;
     seedSparks();
+    playCue("dress");
     if (prefersReducedMotion()) finishApply(now);
   }
 
@@ -712,6 +746,7 @@ export function createDressUpEngine(): Playable3DEngine {
     const hit = hits.find((entry) => hitRect(pos.x, pos.y, entry.rect));
     if (!hit || hit.kind !== "item") return;
     lastInputAt = performance.now();
+    playCue("select");
     void startRoundPick(hit.id);
   }
 
@@ -735,6 +770,16 @@ export function createDressUpEngine(): Playable3DEngine {
       canvas.style.inset = "0";
       orientation = ctxInit.orientation;
       config = { ...FALLBACK, ...(extra.dressUp || {}) };
+      if (extra.audioBus) {
+        sfx = extra.audioBus;
+        sfxOwned = false;
+      } else {
+        sfx = new AudioBus();
+        sfxOwned = true;
+      }
+      wireSfx(config);
+      unlockEl = ctxInit.container;
+      unlockEl.addEventListener("pointerdown", onSfxUnlock, true);
       const bag = restoreBag;
       restoreBag = null;
       if (bag && performance.now() - bag.at < 80 && !bag.session.won) {
@@ -771,6 +816,11 @@ export function createDressUpEngine(): Playable3DEngine {
       snapApplyIfNeeded();
       restoreBag = { session: { ...session }, at: performance.now() };
       canvas?.removeEventListener("pointerdown", onPointer);
+      unlockEl?.removeEventListener("pointerdown", onSfxUnlock, true);
+      unlockEl = null;
+      if (sfxOwned) sfx?.destroy();
+      else sfx?.stopLoop();
+      sfx = null;
       container = null;
       canvas = null;
       ctx = null;

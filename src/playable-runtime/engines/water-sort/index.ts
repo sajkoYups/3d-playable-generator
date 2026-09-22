@@ -33,6 +33,9 @@ import {
   type PayoutSparkle,
 } from "@/playable-runtime/engines/water-sort/payout";
 import { listWaterSortRounds } from "@/playable-runtime/engines/water-sort/rounds";
+import { AudioBus } from "@/playable-runtime/audio/bus";
+import { pickSoundUrl, PLAYABLE_SOUNDS } from "@/playable-runtime/audio/defaults";
+import { resolveRuntimeUrl } from "@/playable-runtime/models/assets";
 
 type CanvasOptions = {
   background?: Background;
@@ -40,6 +43,7 @@ type CanvasOptions = {
   orientation?: Orientation;
   playAllRounds?: boolean;
   parkingRoundIndex?: number;
+  audioBus?: AudioBus;
 };
 
 const FALLBACK: WaterSortConfig = {
@@ -57,6 +61,7 @@ const FALLBACK: WaterSortConfig = {
     { maxMoves: 40, coins: 5, colorCount: 4 },
     { maxMoves: 40, coins: 5, colorCount: 5 },
   ],
+  sounds: { pourUrl: "", denyUrl: "", payoutUrl: "" },
 };
 
 type PourAnim = {
@@ -147,6 +152,10 @@ export function createWaterSortEngine(): Playable3DEngine {
   let bgImage: HTMLImageElement | null = null;
   let coinImage: HTMLImageElement | null = null;
   let loadToken = 0;
+  let assets: Record<string, string> = {};
+  let sfx: AudioBus | null = null;
+  let sfxOwned = false;
+  let unlockEl: HTMLElement | null = null;
 
   let pour: PourAnim | null = null;
   let shake: Shake | null = null;
@@ -216,6 +225,30 @@ export function createWaterSortEngine(): Playable3DEngine {
     rewardPopUntil = payoutUntil;
   }
 
+  function resolveSfx(url: string) {
+    return resolveRuntimeUrl(url, assets) || url;
+  }
+
+  function wireSfx(cfg: WaterSortConfig) {
+    if (!sfx) return;
+    const s = cfg.sounds;
+    const urls: Record<string, string> = {
+      pour: resolveSfx(pickSoundUrl(s?.pourUrl, PLAYABLE_SOUNDS.pour)),
+      payout: resolveSfx(pickSoundUrl(s?.payoutUrl, PLAYABLE_SOUNDS.payout)),
+    };
+    const deny = s?.denyUrl?.trim();
+    if (deny) urls.deny = resolveSfx(deny);
+    sfx.setExtraUrls(urls);
+  }
+
+  function playCue(id: string, throttleMs = 0) {
+    sfx?.playSfx(id, { throttleMs });
+  }
+
+  function onSfxUnlock() {
+    void sfx?.unlock();
+  }
+
   function completeRound(origin: { x: number; y: number }) {
     const from = earned;
     const reward = roundReward();
@@ -223,6 +256,7 @@ export function createWaterSortEngine(): Playable3DEngine {
     const list = rounds();
     const last = !playAllRounds || roundIndex >= list.length - 1;
     if (!last) roundIndex += 1;
+    playCue("payout");
     spawnPayout(from, earned, last, origin);
   }
 
@@ -275,6 +309,7 @@ export function createWaterSortEngine(): Playable3DEngine {
     if (options.waterSort) {
       config = { ...FALLBACK, ...config, ...options.waterSort };
       if (config.colors?.length) colors = config.colors;
+      wireSfx(config);
     }
     if (typeof options.parkingRoundIndex === "number") {
       const list = rounds();
@@ -517,9 +552,11 @@ export function createWaterSortEngine(): Playable3DEngine {
         popped: 0,
         started: performance.now(),
       };
+      playCue("pour");
       return;
     }
     shake = { i, started: performance.now() };
+    playCue("deny");
     if (tubes[i].length) selected = i;
   }
 
@@ -557,12 +594,23 @@ export function createWaterSortEngine(): Playable3DEngine {
       viewW = Math.max(1, ctxInit.container.clientWidth);
       viewH = Math.max(1, ctxInit.container.clientHeight);
       orientation = ctxInit.orientation;
+      assets = ctxInit.assets || {};
       if (extra.waterSort) {
         config = { ...FALLBACK, ...extra.waterSort };
         if (config.colors?.length) colors = config.colors;
       }
       playAllRounds = extra.playAllRounds !== false;
       roundIndex = typeof extra.parkingRoundIndex === "number" ? extra.parkingRoundIndex : 0;
+      if (extra.audioBus) {
+        sfx = extra.audioBus;
+        sfxOwned = false;
+      } else {
+        sfx = new AudioBus();
+        sfxOwned = true;
+      }
+      wireSfx(config);
+      unlockEl = ctxInit.container;
+      unlockEl.addEventListener("pointerdown", onSfxUnlock, true);
       resetRun();
       void applyOptions(extra).then(() => {
         if (ctx) draw();
@@ -594,6 +642,11 @@ export function createWaterSortEngine(): Playable3DEngine {
       loadToken++;
       cancelAnimationFrame(raf);
       canvas?.removeEventListener("pointerdown", onPointer);
+      unlockEl?.removeEventListener("pointerdown", onSfxUnlock, true);
+      unlockEl = null;
+      if (sfxOwned) sfx?.destroy();
+      else sfx?.stopLoop();
+      sfx = null;
       container = null;
       canvas = null;
       ctx = null;

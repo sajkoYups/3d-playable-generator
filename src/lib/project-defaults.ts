@@ -988,6 +988,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       coinImageUrl: "/demo-assets/coin.svg",
       hudTransparent: false,
       rounds: defaultSolitaireRoundsPack(),
+      sounds: { flipUrl: "", moveUrl: "", placeUrl: "", payoutUrl: "" },
     },
     domino: {
       failEnabled: true,
@@ -1005,6 +1006,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       hudTransparent: false,
       endless: true,
       rounds: defaultTappyRoundsPack(),
+      sounds: { engineUrl: "", flapUrl: "", coinUrl: "", crashUrl: "" },
     },
     racingLap: {
       failEnabled: true,

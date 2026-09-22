@@ -36,6 +36,16 @@ const SFX_FALLBACK: Record<string, { freq: number; dur: number; type: Oscillator
   move: { freq: 480, dur: 0.1, type: "triangle", vol: 0.16 },
   match: { freq: 720, dur: 0.22, type: "triangle", vol: 0.18 },
   payout: { freq: 880, dur: 0.4, type: "sine", vol: 0.16 },
+  pour: { freq: 340, dur: 0.22, type: "sine", vol: 0.14 },
+  deny: { freq: 160, dur: 0.16, type: "sawtooth", vol: 0.14 },
+  flip: { freq: 620, dur: 0.08, type: "triangle", vol: 0.14 },
+  flap: { freq: 520, dur: 0.07, type: "triangle", vol: 0.12 },
+  crash: { freq: 110, dur: 0.28, type: "sawtooth", vol: 0.18 },
+  select: { freq: 500, dur: 0.08, type: "triangle", vol: 0.14 },
+  dress: { freq: 560, dur: 0.14, type: "sine", vol: 0.14 },
+  reveal: { freq: 740, dur: 0.32, type: "triangle", vol: 0.18 },
+  coin: { freq: 980, dur: 0.12, type: "square", vol: 0.12 },
+  engine: { freq: 90, dur: 0.4, type: "sawtooth", vol: 0.06 },
 };
 
 /**

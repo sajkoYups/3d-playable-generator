@@ -508,6 +508,14 @@ export type TowerDefenseConfig = z.infer<typeof TowerDefenseConfigSchema>;
 
 export const MATCH3_PIECE_COUNT = 5;
 
+export const Match3SoundsSchema = z.object({
+  moveUrl: z.string().default(""),
+  matchUrl: z.string().default(""),
+  denyUrl: z.string().default(""),
+  payoutUrl: z.string().default(""),
+});
+export type Match3Sounds = z.infer<typeof Match3SoundsSchema>;
+
 export const Match3ConfigSchema = z.object({
   movesPerRound: z.number().int().min(1).max(99).default(15),
   scoreTarget: z.number().int().min(1).max(9999).default(80),
@@ -524,6 +532,7 @@ export const Match3ConfigSchema = z.object({
   coinImageUrl: z.string().default("/demo-assets/coin.svg"),
   hudDisplay: z.enum(["both", "score", "coins"]).default("both"),
   hudTransparent: z.boolean().default(false),
+  sounds: Match3SoundsSchema.prefault({}),
 });
 export type Match3Config = z.infer<typeof Match3ConfigSchema>;
 
@@ -543,6 +552,7 @@ export const DEFAULT_MATCH3_CONFIG: Match3Config = {
   coinImageUrl: "/demo-assets/coin.svg",
   hudDisplay: "both",
   hudTransparent: false,
+  sounds: { moveUrl: "", matchUrl: "", denyUrl: "", payoutUrl: "" },
 };
 
 export const WaterSortRoundSchema = z.object({
@@ -551,6 +561,13 @@ export const WaterSortRoundSchema = z.object({
   colorCount: z.number().int().min(2).max(5).default(5),
 });
 export type WaterSortRound = z.infer<typeof WaterSortRoundSchema>;
+
+export const WaterSortSoundsSchema = z.object({
+  pourUrl: z.string().default(""),
+  denyUrl: z.string().default(""),
+  payoutUrl: z.string().default(""),
+});
+export type WaterSortSounds = z.infer<typeof WaterSortSoundsSchema>;
 
 export const WaterSortConfigSchema = z.object({
   maxMoves: z.number().int().min(8).max(99).default(40),
@@ -565,6 +582,7 @@ export const WaterSortConfigSchema = z.object({
   rewardTextColor: z.string().default("#c48a1a"),
   hudDisplay: z.enum(["both", "score", "coins"]).default("both"),
   rounds: z.array(WaterSortRoundSchema).max(9).default([]),
+  sounds: WaterSortSoundsSchema.prefault({}),
 });
 export type WaterSortConfig = z.infer<typeof WaterSortConfigSchema>;
 
@@ -583,6 +601,7 @@ export const DEFAULT_WATER_SORT_CONFIG: WaterSortConfig = {
     { maxMoves: 40, coins: 5, colorCount: 4 },
     { maxMoves: 40, coins: 5, colorCount: 5 },
   ],
+  sounds: { pourUrl: "", denyUrl: "", payoutUrl: "" },
 };
 
 export const SolitaireRoundSchema = z.object({
@@ -592,6 +611,14 @@ export const SolitaireRoundSchema = z.object({
 });
 export type SolitaireRound = z.infer<typeof SolitaireRoundSchema>;
 
+export const SolitaireSoundsSchema = z.object({
+  flipUrl: z.string().default(""),
+  moveUrl: z.string().default(""),
+  placeUrl: z.string().default(""),
+  payoutUrl: z.string().default(""),
+});
+export type SolitaireSounds = z.infer<typeof SolitaireSoundsSchema>;
+
 export const SolitaireConfigSchema = z.object({
   failEnabled: z.boolean().default(true),
   hintHandEnabled: z.boolean().default(true),
@@ -599,6 +626,7 @@ export const SolitaireConfigSchema = z.object({
   coinImageUrl: z.string().default("/demo-assets/coin.svg"),
   hudTransparent: z.boolean().default(false),
   rounds: z.array(SolitaireRoundSchema).max(9).default([]),
+  sounds: SolitaireSoundsSchema.prefault({}),
 });
 export type SolitaireConfig = z.infer<typeof SolitaireConfigSchema>;
 
@@ -627,6 +655,14 @@ export const TappyPlaneRoundSchema = z.object({
 });
 export type TappyPlaneRound = z.infer<typeof TappyPlaneRoundSchema>;
 
+export const TappyPlaneSoundsSchema = z.object({
+  engineUrl: z.string().default(""),
+  flapUrl: z.string().default(""),
+  coinUrl: z.string().default(""),
+  crashUrl: z.string().default(""),
+});
+export type TappyPlaneSounds = z.infer<typeof TappyPlaneSoundsSchema>;
+
 export const TappyPlaneConfigSchema = z.object({
   failEnabled: z.boolean().default(true),
   hintHandEnabled: z.boolean().default(true),
@@ -635,6 +671,7 @@ export const TappyPlaneConfigSchema = z.object({
   hudTransparent: z.boolean().default(false),
   endless: z.boolean().default(true),
   rounds: z.array(TappyPlaneRoundSchema).max(9).default([]),
+  sounds: TappyPlaneSoundsSchema.prefault({}),
 });
 export type TappyPlaneConfig = z.infer<typeof TappyPlaneConfigSchema>;
 
@@ -670,6 +707,13 @@ export const TopDownShooterConfigSchema = z.object({
 });
 export type TopDownShooterConfig = z.infer<typeof TopDownShooterConfigSchema>;
 
+export const DressUpSoundsSchema = z.object({
+  selectUrl: z.string().default(""),
+  dressUrl: z.string().default(""),
+  revealUrl: z.string().default(""),
+});
+export type DressUpSounds = z.infer<typeof DressUpSoundsSchema>;
+
 export const DressUpConfigSchema = z.object({
   promptModel: z.string().default("Choose your model"),
   promptOutfit: z.string().default("Pick a dress"),
@@ -688,6 +732,7 @@ export const DressUpConfigSchema = z.object({
     .default(["model-01"]),
   hintHandEnabled: z.boolean().default(true),
   hintDelayMs: z.number().int().min(500).max(15000).default(1800),
+  sounds: DressUpSoundsSchema.prefault({}),
 });
 export type DressUpConfig = z.infer<typeof DressUpConfigSchema>;
 
@@ -707,6 +752,7 @@ export const DEFAULT_DRESS_UP_CONFIG: DressUpConfig = {
   modelIds: ["model-01"],
   hintHandEnabled: true,
   hintDelayMs: 1800,
+  sounds: { selectUrl: "", dressUrl: "", revealUrl: "" },
 };
 
 const DefaultGameplayBackground: Background = {

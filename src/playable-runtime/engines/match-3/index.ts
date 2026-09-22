@@ -1,6 +1,9 @@
 import type { Background, Match3Config, Orientation } from "@/types/project";
 import type { EngineInitContext, Playable3DEngine } from "@/playable-runtime/engines/types";
 import { canvasBgUrl, drawCanvasBackground, loadImage } from "@/playable-runtime/engines/canvas";
+import { AudioBus } from "@/playable-runtime/audio/bus";
+import { pickSoundUrl, PLAYABLE_SOUNDS } from "@/playable-runtime/audio/defaults";
+import { resolveRuntimeUrl } from "@/playable-runtime/models/assets";
 
 const FALLBACK_MATCH3: Match3Config = {
   movesPerRound: 15,
@@ -18,6 +21,7 @@ const FALLBACK_MATCH3: Match3Config = {
   coinImageUrl: "/demo-assets/coin.svg",
   hudDisplay: "both",
   hudTransparent: false,
+  sounds: { moveUrl: "", matchUrl: "", denyUrl: "", payoutUrl: "" },
 };
 
 type CanvasOptions = {
@@ -27,6 +31,7 @@ type CanvasOptions = {
   orientation?: Orientation;
   hintHandUrl?: string;
   hintHandVisible?: boolean;
+  audioBus?: AudioBus;
 };
 
 const SIZE = 6;
@@ -146,6 +151,10 @@ export function createMatch3Engine(): Playable3DEngine {
   let coinImage: HTMLImageElement | null = null;
   let pieceImgs: (HTMLImageElement | null)[] = [null, null, null, null, null];
   let loadToken = 0;
+  let assets: Record<string, string> = {};
+  let sfx: AudioBus | null = null;
+  let sfxOwned = false;
+  let unlockEl: HTMLElement | null = null;
 
   function randColor() {
     return Math.floor(Math.random() * COLORS.length);
@@ -246,9 +255,35 @@ export function createMatch3Engine(): Playable3DEngine {
     rewardPopUntil = 0;
   }
 
+  function resolveSfx(url: string) {
+    return resolveRuntimeUrl(url, assets) || url;
+  }
+
+  function wireSfx(cfg: Match3Config) {
+    if (!sfx) return;
+    const s = cfg.sounds;
+    const urls: Record<string, string> = {
+      move: resolveSfx(pickSoundUrl(s?.moveUrl, PLAYABLE_SOUNDS.swoosh)),
+      match: resolveSfx(pickSoundUrl(s?.matchUrl, PLAYABLE_SOUNDS.match3Match)),
+      payout: resolveSfx(pickSoundUrl(s?.payoutUrl, PLAYABLE_SOUNDS.payout)),
+    };
+    const deny = s?.denyUrl?.trim();
+    if (deny) urls.deny = resolveSfx(deny);
+    sfx.setExtraUrls(urls);
+  }
+
+  function playCue(id: string, throttleMs = 0) {
+    sfx?.playSfx(id, { throttleMs });
+  }
+
+  function onSfxUnlock() {
+    void sfx?.unlock();
+  }
+
   function spawnPayout(from: number, to: number, willWin: boolean) {
     const t0 = performance.now();
     payoutActive = true;
+    playCue("payout");
     payoutT0 = t0;
     payoutFrom = from;
     payoutTo = to;
@@ -359,6 +394,7 @@ export function createMatch3Engine(): Playable3DEngine {
 
   function beginClear(keys: string[]) {
     score += keys.length * 2;
+    playCue("match", 80);
     anim = { kind: "clear", keys, t0: performance.now() };
   }
 
@@ -402,6 +438,7 @@ export function createMatch3Engine(): Playable3DEngine {
         } else {
           const matches = findMatches();
           if (!matches.length) {
+            playCue("deny");
             anim = {
               kind: "swap",
               a: anim.a,
@@ -437,6 +474,7 @@ export function createMatch3Engine(): Playable3DEngine {
     busy = true;
     hintPair = null;
     swapCells(a, b);
+    playCue("move");
     anim = { kind: "swap", a, b, t0: performance.now(), reverse: false };
   }
 
@@ -444,7 +482,10 @@ export function createMatch3Engine(): Playable3DEngine {
     if (!options) return;
     if (options.background) background = options.background;
     if (options.orientation) orientation = options.orientation;
-    if (options.match3) config = { ...FALLBACK_MATCH3, ...options.match3 };
+    if (options.match3) {
+      config = { ...FALLBACK_MATCH3, ...options.match3 };
+      wireSfx(config);
+    }
     if (typeof options.hintHandUrl === "string") hintHandUrl = options.hintHandUrl;
     if (typeof options.hintHandVisible === "boolean") hintHandVisible = options.hintHandVisible;
     if (options.pieceImages) {
@@ -972,7 +1013,18 @@ export function createMatch3Engine(): Playable3DEngine {
       ctxInit.container.appendChild(canvas);
       ctx = canvas.getContext("2d");
       orientation = ctxInit.orientation;
+      assets = ctxInit.assets || {};
       config = { ...FALLBACK_MATCH3, ...(extra.match3 || {}) };
+      if (extra.audioBus) {
+        sfx = extra.audioBus;
+        sfxOwned = false;
+      } else {
+        sfx = new AudioBus();
+        sfxOwned = true;
+      }
+      wireSfx(config);
+      unlockEl = ctxInit.container;
+      unlockEl.addEventListener("pointerdown", onSfxUnlock, true);
       round = 0;
       earned = 0;
       clearPayout();
@@ -1008,6 +1060,11 @@ export function createMatch3Engine(): Playable3DEngine {
       canvas?.removeEventListener("pointerdown", onPointerDown);
       canvas?.removeEventListener("pointerup", onPointerUp);
       canvas?.removeEventListener("pointercancel", onPointerUp);
+      unlockEl?.removeEventListener("pointerdown", onSfxUnlock, true);
+      unlockEl = null;
+      if (sfxOwned) sfx?.destroy();
+      else sfx?.stopLoop();
+      sfx = null;
       container = null;
       canvas = null;
       ctx = null;

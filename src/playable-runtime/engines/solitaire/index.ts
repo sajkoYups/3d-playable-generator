@@ -12,6 +12,8 @@ import {
 } from "@/playable-runtime/engines/kenney-2d-assets";
 import { resolveRuntimeUrl } from "@/playable-runtime/models/assets";
 import { listSolitaireRounds, SOLITAIRE_TABLEAU_PILES } from "@/playable-runtime/engines/solitaire/rounds";
+import { AudioBus } from "@/playable-runtime/audio/bus";
+import { pickSoundUrl, PLAYABLE_SOUNDS } from "@/playable-runtime/audio/defaults";
 
 type Card = { id: number; suit: number; rank: number; faceUp: boolean };
 type Hit =
@@ -42,6 +44,7 @@ type Extra = {
   parkingRoundIndex?: number;
   hintHandUrl?: string;
   hintHandVisible?: boolean;
+  audioBus?: AudioBus;
 };
 
 const RANK = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -95,6 +98,7 @@ export function createSolitaireEngine(): Playable3DEngine {
     coinImageUrl: "",
     hudTransparent: false,
     rounds: [],
+    sounds: { flipUrl: "", moveUrl: "", placeUrl: "", payoutUrl: "" },
   };
   let playAllRounds = true;
   let roundIndex = 0;
@@ -110,6 +114,9 @@ export function createSolitaireEngine(): Playable3DEngine {
   let backImg: HTMLImageElement | null = null;
   const faceImgs = new Map<string, HTMLImageElement | null>();
   let assets: Record<string, string> = {};
+  let sfx: AudioBus | null = null;
+  let sfxOwned = false;
+  let unlockEl: HTMLElement | null = null;
   let loadToken = 0;
   let viewW = 1;
   let viewH = 1;
@@ -182,9 +189,33 @@ export function createSolitaireEngine(): Playable3DEngine {
     return top.faceUp && red(card.suit) !== red(top.suit) && card.rank === top.rank - 1;
   }
 
+  function resolveSfx(url: string) {
+    return resolveRuntimeUrl(url, assets) || url;
+  }
+
+  function wireSfx(cfg: SolitaireConfig) {
+    if (!sfx) return;
+    const s = cfg.sounds;
+    sfx.setExtraUrls({
+      flip: resolveSfx(pickSoundUrl(s?.flipUrl, PLAYABLE_SOUNDS.cardFlip)),
+      move: resolveSfx(pickSoundUrl(s?.moveUrl, PLAYABLE_SOUNDS.swoosh)),
+      place: resolveSfx(pickSoundUrl(s?.placeUrl, PLAYABLE_SOUNDS.cardPlace)),
+      payout: resolveSfx(pickSoundUrl(s?.payoutUrl, PLAYABLE_SOUNDS.payout)),
+    });
+  }
+
+  function playCue(id: string, throttleMs = 0) {
+    sfx?.playSfx(id, { throttleMs });
+  }
+
+  function onSfxUnlock() {
+    void sfx?.unlock();
+  }
+
   function completeRound() {
     if (ended) return;
     earned += currentRound().coins;
+    playCue("payout");
     const list = rounds();
     if (playAllRounds && roundIndex < list.length - 1) {
       roundIndex += 1;
@@ -236,6 +267,7 @@ export function createSolitaireEngine(): Playable3DEngine {
       const card = stock.pop()!;
       card.faceUp = true;
       waste.push(card);
+      playCue("flip");
       return;
     }
     if (!waste.length) return;
@@ -244,6 +276,7 @@ export function createSolitaireEngine(): Playable3DEngine {
       card.faceUp = false;
       stock.push(card);
     }
+    playCue("flip");
   }
 
   function takeFrom(src: "waste" | "foundation" | number, from: number, foundationIndex?: number) {
@@ -257,7 +290,10 @@ export function createSolitaireEngine(): Playable3DEngine {
     }
     tableau[src].splice(from);
     const pile = tableau[src];
-    if (pile.length && !pile[pile.length - 1].faceUp) pile[pile.length - 1].faceUp = true;
+    if (pile.length && !pile[pile.length - 1].faceUp) {
+      pile[pile.length - 1].faceUp = true;
+      playCue("flip");
+    }
   }
 
   function tryPlace(cards: Card[], hit: Hit, src: Drag["src"], from: number, foundationIndex?: number) {
@@ -266,6 +302,7 @@ export function createSolitaireEngine(): Playable3DEngine {
       if (cards.length !== 1 || !canOnFoundation(cards[0], foundations[hit.i])) return false;
       takeFrom(src, from, foundationIndex);
       foundations[hit.i].push(cards[0]);
+      playCue("place");
       afterMove();
       return true;
     }
@@ -275,6 +312,7 @@ export function createSolitaireEngine(): Playable3DEngine {
       if (!canOnTableau(cards[0], tableau[destCol])) return false;
       takeFrom(src, from, foundationIndex);
       tableau[destCol].push(...cards);
+      playCue("move");
       afterMove();
       return true;
     }
@@ -697,6 +735,16 @@ export function createSolitaireEngine(): Playable3DEngine {
       hintHandUrl = extra.hintHandUrl || "";
       hintHandVisible = extra.hintHandVisible !== false;
       background = extra.background;
+      if (extra.audioBus) {
+        sfx = extra.audioBus;
+        sfxOwned = false;
+      } else {
+        sfx = new AudioBus();
+        sfxOwned = true;
+      }
+      wireSfx(config);
+      unlockEl = ctxInit.container;
+      unlockEl.addEventListener("pointerdown", onSfxUnlock, true);
       deal();
       void load(extra).then(() => draw());
       canvas.addEventListener("pointerdown", onDown);
@@ -706,7 +754,10 @@ export function createSolitaireEngine(): Playable3DEngine {
     },
     setOptions(options) {
       const extra = options as Extra;
-      if (extra.solitaire) config = extra.solitaire;
+      if (extra.solitaire) {
+        config = extra.solitaire;
+        wireSfx(config);
+      }
       if (typeof extra.playAllRounds === "boolean") playAllRounds = extra.playAllRounds;
       if (typeof extra.parkingRoundIndex === "number") {
         const nextIdx = extra.parkingRoundIndex;
@@ -741,6 +792,11 @@ export function createSolitaireEngine(): Playable3DEngine {
       canvas?.removeEventListener("pointermove", onMove);
       canvas?.removeEventListener("pointerup", onUp);
       canvas?.removeEventListener("pointercancel", onUp);
+      unlockEl?.removeEventListener("pointerdown", onSfxUnlock, true);
+      unlockEl = null;
+      if (sfxOwned) sfx?.destroy();
+      else sfx?.stopLoop();
+      sfx = null;
       container = null;
       canvas = null;
       ctx = null;

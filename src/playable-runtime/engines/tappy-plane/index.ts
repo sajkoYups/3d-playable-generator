@@ -7,6 +7,8 @@ import { drawHintHand } from "@/playable-runtime/engines/hint-hand";
 import { TAPPY_SPRITES } from "@/playable-runtime/engines/kenney-2d-assets";
 import { resolveRuntimeUrl } from "@/playable-runtime/models/assets";
 import { listTappyRounds } from "@/playable-runtime/engines/tappy-plane/rounds";
+import { AudioBus } from "@/playable-runtime/audio/bus";
+import { pickSoundUrl, PLAYABLE_SOUNDS } from "@/playable-runtime/audio/defaults";
 
 type Extra = {
   background?: Background;
@@ -16,6 +18,7 @@ type Extra = {
   parkingRoundIndex?: number;
   hintHandUrl?: string;
   hintHandVisible?: boolean;
+  audioBus?: AudioBus;
 };
 
 type RockCoin = { taken: boolean; offset: number };
@@ -85,6 +88,7 @@ export function createTappyPlaneEngine(): Playable3DEngine {
     hudTransparent: false,
     endless: true,
     rounds: [],
+    sounds: { engineUrl: "", flapUrl: "", coinUrl: "", crashUrl: "" },
   };
   let playAllRounds = true;
   let roundIndex = 0;
@@ -104,6 +108,9 @@ export function createTappyPlaneEngine(): Playable3DEngine {
   let groundImg: HTMLImageElement | null = null;
   let skyImg: HTMLImageElement | null = null;
   let assets: Record<string, string> = {};
+  let sfx: AudioBus | null = null;
+  let sfxOwned = false;
+  let unlockEl: HTMLElement | null = null;
   let loadToken = 0;
   let y = 0.45;
   let vy = 0;
@@ -191,6 +198,37 @@ export function createTappyPlaneEngine(): Playable3DEngine {
     };
   }
 
+  function resolveSfx(url: string) {
+    return resolveRuntimeUrl(url, assets) || url;
+  }
+
+  function wireSfx(cfg: TappyPlaneConfig) {
+    if (!sfx) return;
+    const s = cfg.sounds;
+    sfx.setExtraUrls({
+      engine: resolveSfx(pickSoundUrl(s?.engineUrl, PLAYABLE_SOUNDS.planeLoop)),
+      flap: resolveSfx(pickSoundUrl(s?.flapUrl, PLAYABLE_SOUNDS.swoosh)),
+      coin: resolveSfx(pickSoundUrl(s?.coinUrl, PLAYABLE_SOUNDS.coin)),
+      crash: resolveSfx(pickSoundUrl(s?.crashUrl, PLAYABLE_SOUNDS.crash)),
+    });
+  }
+
+  function playCue(id: string, throttleMs = 0) {
+    sfx?.playSfx(id, { throttleMs });
+  }
+
+  function onSfxUnlock() {
+    void sfx?.unlock();
+  }
+
+  function startEngine() {
+    sfx?.playLoop("engine", { volume: 0.12 });
+  }
+
+  function stopEngine() {
+    sfx?.stopLoop("engine");
+  }
+
   function resetFlight() {
     y = 0.45;
     vy = 0;
@@ -206,6 +244,7 @@ export function createTappyPlaneEngine(): Playable3DEngine {
     finishT0 = 0;
     finishHoldUntil = 0;
     lastInputAt = performance.now();
+    stopEngine();
     spawn(0.62);
     spawn(1.38);
   }
@@ -267,6 +306,7 @@ export function createTappyPlaneEngine(): Playable3DEngine {
     const reward = Math.max(5, Math.round(current().coins / 4));
     earned += reward;
     spawnBurst(cx, cy, reward);
+    playCue("coin");
   }
 
   function completeRound() {
@@ -279,6 +319,7 @@ export function createTappyPlaneEngine(): Playable3DEngine {
       return;
     }
     ended = true;
+    stopEngine();
     winCb?.();
   }
 
@@ -290,13 +331,17 @@ export function createTappyPlaneEngine(): Playable3DEngine {
       return;
     }
     ended = true;
+    playCue("crash");
+    stopEngine();
     loseCb?.();
   }
 
   function flap() {
     lastInputAt = performance.now();
+    if (!started) startEngine();
     started = true;
     vy = -0.55;
+    playCue("flap", 90);
   }
 
   function onPointer() {
@@ -727,6 +772,16 @@ export function createTappyPlaneEngine(): Playable3DEngine {
       hintHandUrl = extra.hintHandUrl || "";
       hintHandVisible = extra.hintHandVisible !== false;
       background = extra.background;
+      if (extra.audioBus) {
+        sfx = extra.audioBus;
+        sfxOwned = false;
+      } else {
+        sfx = new AudioBus();
+        sfxOwned = true;
+      }
+      wireSfx(config);
+      unlockEl = ctxInit.container;
+      unlockEl.addEventListener("pointerdown", onSfxUnlock, true);
       resetFlight();
       void load(extra).then(() => draw());
       canvas.addEventListener("pointerdown", onPointer);
@@ -734,7 +789,10 @@ export function createTappyPlaneEngine(): Playable3DEngine {
     setOptions(options) {
       const extra = options as Extra;
       const wasEndless = isEndless();
-      if (extra.tappyPlane) config = extra.tappyPlane;
+      if (extra.tappyPlane) {
+        config = extra.tappyPlane;
+        wireSfx(config);
+      }
       if (typeof extra.playAllRounds === "boolean") playAllRounds = extra.playAllRounds;
       if (isEndless()) {
         if (roundIndex !== 0 || wasEndless !== isEndless()) {
@@ -770,6 +828,12 @@ export function createTappyPlaneEngine(): Playable3DEngine {
       running = false;
       cancelAnimationFrame(raf);
       canvas?.removeEventListener("pointerdown", onPointer);
+      unlockEl?.removeEventListener("pointerdown", onSfxUnlock, true);
+      unlockEl = null;
+      stopEngine();
+      if (sfxOwned) sfx?.destroy();
+      else sfx?.stopLoop();
+      sfx = null;
       container = null;
       canvas = null;
       ctx = null;

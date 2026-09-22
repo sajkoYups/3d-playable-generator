@@ -72,12 +72,22 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
     if (templateId === "solitaire") {
       add(coinUrl(data, data.gameplay.solitaire.coinImageUrl, "/demo-assets/coin.svg"));
       for (const url of solitaireSpriteUrls()) add(url);
+      const solSounds = data.gameplay.solitaire.sounds;
+      add(pickSoundUrl(solSounds?.flipUrl, PLAYABLE_SOUNDS.cardFlip));
+      add(pickSoundUrl(solSounds?.moveUrl, PLAYABLE_SOUNDS.swoosh));
+      add(pickSoundUrl(solSounds?.placeUrl, PLAYABLE_SOUNDS.cardPlace));
+      add(pickSoundUrl(solSounds?.payoutUrl, PLAYABLE_SOUNDS.payout));
     } else if (templateId === "domino") {
       add(coinUrl(data, data.gameplay.domino.coinImageUrl, "/demo-assets/coin.svg"));
       for (const url of dominoSpriteUrls()) add(url);
     } else if (templateId === "tappy-plane") {
       add(coinUrl(data, data.gameplay.tappyPlane.coinImageUrl, "/demo-assets/coin.svg"));
       for (const url of tappySpriteUrls()) add(url);
+      const planeSounds = data.gameplay.tappyPlane.sounds;
+      add(pickSoundUrl(planeSounds?.engineUrl, PLAYABLE_SOUNDS.planeLoop));
+      add(pickSoundUrl(planeSounds?.flapUrl, PLAYABLE_SOUNDS.swoosh));
+      add(pickSoundUrl(planeSounds?.coinUrl, PLAYABLE_SOUNDS.coin));
+      add(pickSoundUrl(planeSounds?.crashUrl, PLAYABLE_SOUNDS.crash));
     } else if (templateId === "racing-lap") {
       add(coinUrl(data, data.gameplay.racingLap.coinImageUrl, "/demo-assets/coin.svg"));
       for (const url of racingSpriteUrls()) add(url);
@@ -86,6 +96,21 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
       for (const url of shooterSpriteUrls()) add(url);
     } else if (templateId === "dress-up") {
       for (const url of dressUpAssetUrls()) add(url);
+      const dressSounds = data.gameplay.dressUp.sounds;
+      add(pickSoundUrl(dressSounds?.selectUrl, PLAYABLE_SOUNDS.swoosh));
+      add(pickSoundUrl(dressSounds?.dressUrl, PLAYABLE_SOUNDS.swoosh));
+      add(pickSoundUrl(dressSounds?.revealUrl, PLAYABLE_SOUNDS.wow));
+    } else if (templateId === "water-sort") {
+      const sortSounds = data.gameplay.waterSort.sounds;
+      add(pickSoundUrl(sortSounds?.pourUrl, PLAYABLE_SOUNDS.pour));
+      add(sortSounds?.denyUrl);
+      add(pickSoundUrl(sortSounds?.payoutUrl, PLAYABLE_SOUNDS.payout));
+    } else if (templateId === "match-3") {
+      const match3Sounds = data.gameplay.match3.sounds;
+      add(pickSoundUrl(match3Sounds?.moveUrl, PLAYABLE_SOUNDS.swoosh));
+      add(pickSoundUrl(match3Sounds?.matchUrl, PLAYABLE_SOUNDS.match3Match));
+      add(match3Sounds?.denyUrl);
+      add(pickSoundUrl(match3Sounds?.payoutUrl, PLAYABLE_SOUNDS.payout));
     }
     return [...urls];
   }

@@ -254,13 +254,9 @@ export class AudioBus {
 
   private playMusic() {
     if (this.muted) return;
-    if (this.urls.musicUrl) {
-      startLoopMusic(this.urls.musicUrl, this.muted);
-      return;
-    }
-    if (this.musicSource) return;
-    if (!this.unlocked || !this.ctx) return;
-    this.hum();
+    const url = this.urls.musicUrl?.trim();
+    if (!url) return;
+    startLoopMusic(url, this.muted);
   }
 
   stopMusic() {
@@ -298,18 +294,5 @@ export class AudioBus {
     gain.connect(this.sfxGain || this.ctx.destination);
     osc.start(now);
     osc.stop(now + tone.dur + 0.05);
-  }
-
-  private hum() {
-    if (!this.ctx || this.muted) return;
-    const osc = this.ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value = 110;
-    const gain = this.ctx.createGain();
-    gain.gain.value = 0.04;
-    osc.connect(gain);
-    gain.connect(this.musicGain || this.ctx.destination);
-    osc.start();
-    this.musicSource = osc as unknown as AudioBufferSourceNode;
   }
 }

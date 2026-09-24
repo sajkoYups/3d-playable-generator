@@ -11,6 +11,9 @@ const DEMO_TEMPLATES: TemplateId[] = [
   "parking-jam",
   "water-sort",
   "match-3",
+  "solitaire",
+  "tappy-plane",
+  "dress-up",
 ];
 
 const DEMO_LOCK_NAMESPACE = 872314;

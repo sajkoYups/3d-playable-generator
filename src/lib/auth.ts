@@ -4,6 +4,7 @@ import { organization } from "better-auth/plugins";
 import { APIError } from "better-auth/api";
 import { prisma } from "@/lib/db";
 import { isPlatformAdminEmail } from "@/lib/platform";
+import { sendAuthEmail } from "@/lib/send-auth-email";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
@@ -15,6 +16,17 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
     minPasswordLength: 8,
+    sendResetPassword: async ({ user, url }) => {
+      try {
+        await sendAuthEmail({
+          to: user.email,
+          subject: "Reset your ForgePlay password",
+          text: `Reset your password with this link:\n${url}\n\nIf you didn't request this, you can ignore this email.`,
+        });
+      } catch (error) {
+        console.error("Password reset email failed", error);
+      }
+    },
   },
   trustedOrigins: [
     process.env.BETTER_AUTH_URL ?? "http://localhost:3000",

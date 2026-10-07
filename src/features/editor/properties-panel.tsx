@@ -1192,7 +1192,7 @@ function GameplaySettings() {
           <>
             <Separator />
             <h4 className="text-sm font-medium">Domino</h4>
-            <p className="text-[11px] text-muted">Play against the computer. Select a tile, then tap Left or Right. Doubles sit crosswise. Score the CPU&apos;s remaining pips.</p>
+            <p className="text-[11px] text-muted">Play against the computer. Select a tile, then tap the highlighted domino. The round ends when either side cannot play. Whoever has fewer tiles left wins the round&apos;s coins.</p>
             <RoundLengthPicker
               count={rounds.length}
               preview={roundIdx}
@@ -1206,6 +1206,42 @@ function GameplaySettings() {
               <NumberField label="Hand size" integer min={3} max={10} value={round.handSize} onChange={(n) => updateData((d) => { ensureDominoRounds(d.gameplay.domino); d.gameplay.domino.rounds[roundIdx].handSize = n; })} />
               <NumberField label="Coins" integer min={0} max={9999} value={round.coins} onChange={(n) => updateData((d) => { ensureDominoRounds(d.gameplay.domino); d.gameplay.domino.rounds[roundIdx].coins = n; })} />
               <NumberField label="Hint delay (ms)" integer min={500} max={15000} step={100} value={cfg.hintDelayMs} onChange={(n) => updateData((d) => { d.gameplay.domino.hintDelayMs = n; })} />
+            </div>
+            <div>
+              <Label>Your turn</Label>
+              <Input
+                value={cfg.yourTurnMessage ?? "Your turn — select a tile"}
+                maxLength={80}
+                onChange={(e) => updateData((d) => { d.gameplay.domino.yourTurnMessage = e.target.value; })}
+              />
+            </div>
+            <div>
+              <Label>Turn passed</Label>
+              <Input
+                value={cfg.passMessage ?? "Turn passed"}
+                maxLength={80}
+                onChange={(e) => updateData((d) => { d.gameplay.domino.passMessage = e.target.value; })}
+              />
+            </div>
+            <div>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <Label>Turn speed</Label>
+                <span className="text-[11px] text-muted">{(2 / (cfg.turnSpeed || 1)).toFixed(1)}s</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted">Slow</span>
+                <input
+                  type="range"
+                  min={0.5}
+                  max={3}
+                  step={0.1}
+                  aria-label="Turn speed"
+                  value={cfg.turnSpeed ?? 1}
+                  className="h-1.5 w-full cursor-pointer accent-amber-400"
+                  onChange={(e) => updateData((d) => { d.gameplay.domino.turnSpeed = Number(e.target.value); })}
+                />
+                <span className="text-[10px] text-muted">Fast</span>
+              </div>
             </div>
             <div className="flex items-center justify-between gap-3">
               <Label>Fail enabled</Label>

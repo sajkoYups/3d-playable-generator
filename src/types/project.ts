@@ -643,6 +643,10 @@ export const DominoConfigSchema = z.object({
   hintDelayMs: z.number().int().min(500).max(15000).default(2500),
   coinImageUrl: z.string().default("/demo-assets/coin.svg"),
   hudTransparent: z.boolean().default(false),
+  yourTurnMessage: z.string().max(80).default("Your turn — select a tile"),
+  passMessage: z.string().max(80).default("Turn passed"),
+  /** Higher is a faster opponent turn. 1 is about two seconds of thinking and two seconds with the tile showing. */
+  turnSpeed: z.number().min(0.5).max(3).default(1),
   rounds: z.array(DominoRoundSchema).max(9).default([]),
 });
 export type DominoConfig = z.infer<typeof DominoConfigSchema>;

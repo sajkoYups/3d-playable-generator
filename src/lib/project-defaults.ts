@@ -996,6 +996,9 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       hintDelayMs: 2500,
       coinImageUrl: "/demo-assets/coin.svg",
       hudTransparent: false,
+      yourTurnMessage: "Your turn — select a tile",
+      passMessage: "Turn passed",
+      turnSpeed: 1,
       rounds: defaultDominoRoundsPack(),
     },
     tappyPlane: {

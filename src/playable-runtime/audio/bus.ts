@@ -68,6 +68,7 @@ export class AudioBus {
   private ambienceGain: GainNode | null = null;
   private muted = false;
   private unlocked = false;
+  private pendingSfx: Array<{ id: string; opts?: SfxPlayOptions }> = [];
 
   setUrls(urls: AudioBusOptions) {
     this.urls = urls;
@@ -127,6 +128,7 @@ export class AudioBus {
       }),
     );
     this.syncLoops();
+    this.flushPendingSfx();
   }
 
   setMuted(muted: boolean) {
@@ -248,8 +250,19 @@ export class AudioBus {
       src.start();
       return;
     }
+    if (this.extraUrls[id]) {
+      this.pendingSfx.push({ id, opts });
+      return;
+    }
     if (!SFX_FALLBACK[id]) return;
     this.beep(id);
+  }
+
+  private flushPendingSfx() {
+    const queued = this.pendingSfx.splice(0);
+    for (const item of queued) {
+      if (this.buffers.has(item.id)) this.playSfx(item.id, item.opts);
+    }
   }
 
   private playMusic() {

@@ -80,6 +80,10 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
     } else if (templateId === "domino") {
       add(coinUrl(data, data.gameplay.domino.coinImageUrl, "/demo-assets/coin.svg"));
       for (const url of dominoSpriteUrls()) add(url);
+      add(PLAYABLE_SOUNDS.payout);
+      add(PLAYABLE_SOUNDS.dominoRefill);
+      add(PLAYABLE_SOUNDS.dominoPlace);
+      add(PLAYABLE_SOUNDS.dominoTurn);
     } else if (templateId === "tappy-plane") {
       add(coinUrl(data, data.gameplay.tappyPlane.coinImageUrl, "/demo-assets/coin.svg"));
       for (const url of tappySpriteUrls()) add(url);

@@ -7,11 +7,23 @@ import { drawHintHand } from "@/playable-runtime/engines/hint-hand";
 import { dominoUrl } from "@/playable-runtime/engines/kenney-2d-assets";
 import { resolveRuntimeUrl } from "@/playable-runtime/models/assets";
 import { listDominoRounds } from "@/playable-runtime/engines/domino/rounds";
+import { createPayoutHud } from "@/playable-runtime/engines/parking-jam/payout";
+import type { AudioBus } from "@/playable-runtime/audio/bus";
+import { PLAYABLE_SOUNDS } from "@/playable-runtime/audio/defaults";
 
 type Tile = { a: number; b: number };
 type Turn = "player" | "cpu";
-type ChainSlot = { tile: Tile; x: number; y: number; w: number; h: number; lying: boolean };
-type DropZone = { x: number; y: number; w: number; h: number; side: "left" | "right" };
+type Face = "left" | "right" | "up" | "down";
+type ChainSlot = {
+  tile: Tile;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rot: number;
+  /** Direction pip `a` points. On a single starter this is the left open end. */
+  aFace: Face;
+};
 
 type Extra = {
   background?: Background;
@@ -21,14 +33,25 @@ type Extra = {
   parkingRoundIndex?: number;
   hintHandUrl?: string;
   hintHandVisible?: boolean;
+  audioBus?: AudioBus;
 };
 
-const CPU_THINK_MS = 550;
+const CPU_THINK_MS = 2000;
+const CPU_REVEAL_MS = 2000;
+const PLACE_MS = 360;
+const REFILL_MS = 280;
+const DEFAULT_YOUR_TURN = "Your turn — select a tile";
+const DEFAULT_PASS = "Turn passed";
 const TILE_LONG_MAX = 48;
 const TILE_LONG_MIN = 30;
 const TILE_GAP = 3;
-const DROP_W = 44;
-const DROP_H = 52;
+
+const FACE_ANGLE: Record<Face, number> = {
+  up: 0,
+  right: Math.PI / 2,
+  down: Math.PI,
+  left: -Math.PI / 2,
+};
 
 function pack(): Tile[] {
   const tiles: Tile[] = [];
@@ -40,81 +63,140 @@ function pack(): Tile[] {
   return tiles;
 }
 
+function isBlank(tile: Tile) {
+  return tile.a === 0 && tile.b === 0;
+}
+
 function matches(tile: Tile, pip: number) {
-  return tile.a === pip || tile.b === pip;
+  return isBlank(tile) || tile.a === pip || tile.b === pip;
 }
 
 function isDouble(tile: Tile) {
   return tile.a === tile.b;
 }
 
-function pipSum(tiles: Tile[]) {
-  return tiles.reduce((n, t) => n + t.a + t.b, 0);
-}
 
 function orientedForEnd(tile: Tile, end: number, side: "left" | "right"): Tile {
+  if (isBlank(tile)) return { a: 0, b: 0 };
   if (side === "right") return tile.a === end ? tile : { a: tile.b, b: tile.a };
   return tile.b === end ? tile : { a: tile.b, b: tile.a };
 }
 
-function hitZone(z: DropZone | null, x: number, y: number) {
-  return Boolean(z && x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h);
+function opposite(face: Face): Face {
+  if (face === "left") return "right";
+  if (face === "right") return "left";
+  if (face === "up") return "down";
+  return "up";
 }
 
 /**
- * Centered single-row chain. Mild shrink as the chain grows; doubles sit crosswise.
- * Returns slots plus left/right drop zones flanking the row.
+ * Kenney `tile_lo_hi` is vertical with the lower pip on top.
+ * `aFace` is the direction pip `a` should point after rotation.
+ * Doubles sit crosswise: vertical on a horizontal run, horizontal on a downward turn.
  */
-function layoutCenteredChain(
-  chain: Tile[],
-  areaX: number,
-  areaY: number,
-  areaW: number,
-  areaH: number,
-): { slots: ChainSlot[]; leftDrop: DropZone; rightDrop: DropZone; long: number } {
-  const pad = 6;
-  const innerW = Math.max(40, areaW - pad * 2 - DROP_W * 2 - 8);
-  const n = Math.max(1, chain.length);
-  let units = 0;
-  for (const t of chain) units += isDouble(t) ? 0.5 : 1;
-  if (!chain.length) units = 1;
-  const gaps = Math.max(0, chain.length - 1) * TILE_GAP;
-  const long = Math.min(TILE_LONG_MAX, Math.max(TILE_LONG_MIN, (innerW - gaps) / Math.max(units, 1)));
+function spriteRotation(tile: Tile, aFace: Face) {
+  if (isDouble(tile)) return aFace === "up" || aFace === "down" ? Math.PI / 2 : 0;
+  const lo = Math.min(tile.a, tile.b);
+  const faceAngle = FACE_ANGLE[aFace];
+  return tile.a === lo ? faceAngle : faceAngle + Math.PI;
+}
+
+function tileSize(tile: Tile, aFace: Face, long: number) {
   const short = long * 0.5;
+  const pipAxisHorizontal = aFace === "left" || aFace === "right";
+  const wide = isDouble(tile) ? !pipAxisHorizontal : pipAxisHorizontal;
+  return {
+    w: wide ? long : short,
+    h: wide ? short : long,
+    rot: spriteRotation(tile, aFace),
+  };
+}
 
-  let totalW = 0;
-  for (let i = 0; i < chain.length; i++) {
-    totalW += (isDouble(chain[i]) ? short : long) + (i > 0 ? TILE_GAP : 0);
+function slotBounds(slots: ChainSlot[]) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const s of slots) {
+    minX = Math.min(minX, s.x);
+    minY = Math.min(minY, s.y);
+    maxX = Math.max(maxX, s.x + s.w);
+    maxY = Math.max(maxY, s.y + s.h);
   }
-  const cy = areaY + areaH / 2;
-  let x = areaX + (areaW - totalW) / 2;
+  return { minX, minY, w: maxX - minX, h: maxY - minY };
+}
+
+/**
+ * Snake inside a width. The first row runs right. A tile that would leave the
+ * row turns down off the outer end, then the next row runs the other way.
+ * Coordinates are uncentered and may start above y=0 when a double is crosswise.
+ */
+function layoutSnakePass(chain: Tile[], areaW: number, long: number): ChainSlot[] {
+  if (!chain.length) return [];
+  const short = long * 0.5;
   const slots: ChainSlot[] = [];
-  for (const tile of chain) {
-    const dbl = isDouble(tile);
-    const w = dbl ? short : long;
-    const h = dbl ? long : short;
-    slots.push({ tile, x, y: cy - h / 2, w, h, lying: !dbl });
-    x += w + TILE_GAP;
-  }
+  let dir: 1 | -1 = 1;
+  let cursor = 0;
+  let rowTop = 0;
 
-  const rowLeft = slots.length ? slots[0].x : areaX + areaW / 2 - long / 2;
-  const rowRight = slots.length ? slots[slots.length - 1].x + slots[slots.length - 1].w : areaX + areaW / 2 + long / 2;
-  const dropY = cy - DROP_H / 2;
-  const leftDrop: DropZone = {
-    x: Math.max(areaX + 2, rowLeft - DROP_W - 6),
-    y: dropY,
-    w: DROP_W,
-    h: DROP_H,
-    side: "left",
-  };
-  const rightDrop: DropZone = {
-    x: Math.min(areaX + areaW - DROP_W - 2, rowRight + 6),
-    y: dropY,
-    w: DROP_W,
-    h: DROP_H,
-    side: "right",
-  };
-  return { slots, leftDrop, rightDrop, long };
+  for (let i = 0; i < chain.length; i++) {
+    const tile = chain[i];
+    let aFace: Face = dir === 1 ? "left" : "right";
+    let size = tileSize(tile, aFace, long);
+    const fits = dir === 1 ? cursor + size.w <= areaW + 0.01 : cursor - size.w >= -0.01;
+    const prev = slots[slots.length - 1];
+    const prevIsCorner = Boolean(prev && (prev.aFace === "up" || prev.aFace === "down"));
+
+    if (!fits && prev && i > 0 && !prevIsCorner) {
+      aFace = "up";
+      size = tileSize(tile, aFace, long);
+      let x = dir === 1 ? prev.x + prev.w - size.w : prev.x;
+      x = Math.max(0, Math.min(x, areaW - size.w));
+      const y = prev.y + prev.h + TILE_GAP;
+      slots.push({ tile, x, y, w: size.w, h: size.h, rot: size.rot, aFace });
+      dir = dir === 1 ? -1 : 1;
+      rowTop = y + size.h - short;
+      cursor = dir === 1 ? x + size.w + TILE_GAP : x - TILE_GAP;
+      continue;
+    }
+
+    const y = rowTop + short / 2 - size.h / 2;
+    const rawX = dir === 1 ? cursor : cursor - size.w;
+    const x = Math.max(0, Math.min(rawX, Math.max(0, areaW - size.w)));
+    slots.push({ tile, x, y, w: size.w, h: size.h, rot: size.rot, aFace });
+    cursor = dir === 1 ? x + size.w + TILE_GAP : x - TILE_GAP;
+  }
+  return slots;
+}
+
+/** Centered snake. Shrinks until the chain fits the play area height. */
+function layoutSnake(chain: Tile[], areaX: number, areaY: number, areaW: number, areaH: number): ChainSlot[] {
+  if (!chain.length) return [];
+  const pad = 4;
+  const innerW = Math.max(TILE_LONG_MIN, areaW - pad * 2);
+  let slots = layoutSnakePass(chain, innerW, TILE_LONG_MIN);
+  for (let long = TILE_LONG_MAX; long >= TILE_LONG_MIN; long -= 2) {
+    const laid = layoutSnakePass(chain, innerW, long);
+    const box = slotBounds(laid);
+    slots = laid;
+    if (box.h <= areaH) break;
+  }
+  const box = slotBounds(slots);
+  const dx = areaX + (areaW - box.w) / 2 - box.minX;
+  const dy = areaY + Math.max(0, (areaH - box.h) / 2) - box.minY;
+  return slots.map((s) => ({ ...s, x: s.x + dx, y: s.y + dy }));
+}
+
+function pointIn(x: number, y: number, r: { x: number; y: number; w: number; h: number }) {
+  return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+}
+
+function halfRect(slot: ChainSlot, face: Face) {
+  const { x, y, w, h } = slot;
+  if (face === "left") return { x, y, w: w / 2, h };
+  if (face === "right") return { x: x + w / 2, y, w: w / 2, h };
+  if (face === "up") return { x, y, w, h: h / 2 };
+  return { x, y: y + h / 2, w, h: h / 2 };
 }
 
 export function createDominoEngine(): Playable3DEngine {
@@ -132,8 +214,15 @@ export function createDominoEngine(): Playable3DEngine {
     hintDelayMs: 2500,
     coinImageUrl: "",
     hudTransparent: false,
+    yourTurnMessage: DEFAULT_YOUR_TURN,
+    passMessage: DEFAULT_PASS,
+    turnSpeed: 1,
     rounds: [],
   };
+  let holding = false;
+  let paying = false;
+  let sfx: AudioBus | null = null;
+  const hud = createPayoutHud();
   let playAllRounds = true;
   let roundIndex = 0;
   let earned = 0;
@@ -162,9 +251,19 @@ export function createDominoEngine(): Playable3DEngine {
   let status = "";
   let cpuTimer = 0;
   let handLayout: { x: number; y: number; w: number; h: number }[] = [];
-  let drawBtn: { x: number; y: number; w: number; h: number } | null = null;
-  let leftDrop: DropZone | null = null;
-  let rightDrop: DropZone | null = null;
+  let chainSlots: ChainSlot[] = [];
+  let intake: { index: number; t0: number; onDone: () => void } | null = null;
+  let flight: {
+    index: number;
+    fromX: number;
+    fromY: number;
+    fromW: number;
+    fromH: number;
+    /** 0 starts face-down (opponent). 1 is already face-up (player). */
+    face: number;
+    t0: number;
+    onDone: () => void;
+  } | null = null;
 
   function rounds() {
     return listDominoRounds(config);
@@ -179,9 +278,65 @@ export function createDominoEngine(): Playable3DEngine {
       window.clearTimeout(cpuTimer);
       cpuTimer = 0;
     }
+    holding = false;
+  }
+
+  function yourTurnText() {
+    const text = config.yourTurnMessage?.trim();
+    return text || DEFAULT_YOUR_TURN;
+  }
+
+  function passText() {
+    const text = config.passMessage?.trim();
+    return text || DEFAULT_PASS;
+  }
+
+  function paceMs(base: number) {
+    const speed = config.turnSpeed > 0 ? config.turnSpeed : 1;
+    return Math.round(base / speed);
+  }
+
+  function coinTotal() {
+    return rounds().reduce((sum, round) => sum + round.coins, 0);
+  }
+
+  function syncHud() {
+    const url = resolveRuntimeUrl(config.coinImageUrl || "/demo-assets/coin.svg", assets);
+    hud.setCoinUrl(url || "/demo-assets/coin.svg");
+    hud.setState(earned, coinTotal());
+  }
+
+  function wireSfx() {
+    if (!sfx) return;
+    const pick = (url: string) => resolveRuntimeUrl(url, assets) || url;
+    sfx.setExtraUrls({
+      payout: pick(PLAYABLE_SOUNDS.payout),
+      refill: pick(PLAYABLE_SOUNDS.dominoRefill),
+      place: pick(PLAYABLE_SOUNDS.dominoPlace),
+      turn: pick(PLAYABLE_SOUNDS.dominoTurn),
+    });
+  }
+
+  function playCue(id: string) {
+    void sfx?.unlock();
+    sfx?.playSfx(id);
+  }
+
+  function holdThen(fn: () => void) {
+    clearCpuTimer();
+    holding = true;
+    cpuTimer = window.setTimeout(() => {
+      cpuTimer = 0;
+      holding = false;
+      fn();
+    }, paceMs(CPU_REVEAL_MS));
   }
 
   function deal() {
+    hud.cancel();
+    paying = false;
+    flight = null;
+    intake = null;
     clearCpuTimer();
     const round = current();
     const tiles = pack();
@@ -196,10 +351,10 @@ export function createDominoEngine(): Playable3DEngine {
     selected = -1;
     ended = false;
     turn = "player";
-    status = "Your turn — select a tile";
+    status = yourTurnText();
     lastInputAt = performance.now();
-    if (playableIn(playerHand).length === 0 && boneyard.length === 0) settleBlocked();
-    else if (playableIn(playerHand).length === 0) status = "Draw until you can play";
+    if (playableIn(playerHand).length === 0) refillPlayer();
+    else playCue("turn");
   }
 
   function playableIn(hand: Tile[]) {
@@ -208,16 +363,64 @@ export function createDominoEngine(): Playable3DEngine {
       .filter(({ tile }) => matches(tile, left) || matches(tile, right));
   }
 
-  function place(tile: Tile, prefer: "left" | "right" | "auto" = "auto") {
+  function easeOut(t: number) {
+    const x = Math.min(1, Math.max(0, t));
+    return 1 - (1 - x) ** 3;
+  }
+
+  function lerpAngle(a: number, b: number, t: number) {
+    let d = b - a;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return a + d * t;
+  }
+
+  function cpuBackRect(index: number, count: number) {
+    const cpuMax = turn === "cpu" ? 42 : 26;
+    const tw = Math.min(cpuMax, (viewW - 20) / Math.max(count, 1) - 4);
+    const th = tw * 1.7;
+    const y = CANVAS_HUD_H + 8;
+    const x = (viewW - count * (tw + 4) + 4) / 2 + index * (tw + 4);
+    return { x, y, w: tw, h: th };
+  }
+
+  function beginFlight(
+    index: number,
+    from: { x: number; y: number; w: number; h: number },
+    face: number,
+    onDone: () => void,
+  ) {
+    flight = {
+      index,
+      fromX: from.x,
+      fromY: from.y,
+      fromW: from.w,
+      fromH: from.h,
+      face,
+      t0: performance.now(),
+      onDone,
+    };
+    playCue("place");
+  }
+
+  function tickFlight() {
+    if (!flight) return;
+    if (performance.now() - flight.t0 < PLACE_MS) return;
+    const done = flight.onDone;
+    flight = null;
+    done();
+  }
+
+  function place(tile: Tile, prefer: "left" | "right" | "auto" = "auto"): "left" | "right" | null {
     const canL = matches(tile, left);
     const canR = matches(tile, right);
-    if (!canL && !canR) return false;
+    if (!canL && !canR) return null;
     let side: "left" | "right";
     if (prefer === "left") {
-      if (!canL) return false;
+      if (!canL) return null;
       side = "left";
     } else if (prefer === "right") {
-      if (!canR) return false;
+      if (!canR) return null;
       side = "right";
     } else if (canL && canR) side = "right";
     else side = canR ? "right" : "left";
@@ -228,29 +431,40 @@ export function createDominoEngine(): Playable3DEngine {
       chain.unshift(orientedForEnd(tile, left, "left"));
       left = chain[0].a;
     }
-    return true;
-  }
-
-  function scoreWin() {
-    const pips = pipSum(cpuHand);
-    earned += pips > 0 ? pips : current().coins;
+    return side;
   }
 
   function completeRound(won: boolean) {
-    if (ended) return;
+    if (ended || paying) return;
     clearCpuTimer();
-    ended = true;
     if (won) {
-      scoreWin();
+      paying = true;
+      ended = true;
+      const reward = current().coins;
+      const from = earned;
+      earned += reward;
       const list = rounds();
-      if (playAllRounds && roundIndex < list.length - 1) {
-        roundIndex += 1;
-        deal();
-        return;
-      }
-      winCb?.();
+      const hasNext = playAllRounds && roundIndex < list.length - 1;
+      syncHud();
+      playCue("payout");
+      hud.startPayout({
+        from,
+        to: earned,
+        reward,
+        nextRound: hasNext ? roundIndex + 2 : null,
+        onDone: () => {
+          paying = false;
+          if (hasNext) {
+            roundIndex += 1;
+            deal();
+            return;
+          }
+          winCb?.();
+        },
+      });
       return;
     }
+    ended = true;
     if (config.failEnabled) loseCb?.();
     else {
       const list = rounds();
@@ -261,36 +475,92 @@ export function createDominoEngine(): Playable3DEngine {
     }
   }
 
-  function settleBlocked() {
-    const p = pipSum(playerHand);
-    const c = pipSum(cpuHand);
-    status = p <= c ? "Blocked — you win" : "Blocked — CPU wins";
-    completeRound(p <= c);
+  function advanceWithoutScore() {
+    if (ended) return;
+    clearCpuTimer();
+    ended = true;
+    const list = rounds();
+    if (playAllRounds && roundIndex < list.length - 1) {
+      roundIndex += 1;
+      deal();
+      return;
+    }
+    winCb?.();
   }
 
-  function bothBlocked() {
-    return (
-      playableIn(playerHand).length === 0 &&
-      playableIn(cpuHand).length === 0 &&
-      boneyard.length === 0
-    );
+  function settleByTileCount() {
+    if (ended) return;
+    const playerTiles = playerHand.length;
+    const cpuTiles = cpuHand.length;
+    if (playerTiles < cpuTiles) {
+      turn = "player";
+      status = "You win";
+      completeRound(true);
+      return;
+    }
+    if (cpuTiles < playerTiles) {
+      status = "Opponent wins";
+      completeRound(false);
+      return;
+    }
+    status = "Tie";
+    advanceWithoutScore();
   }
 
   function givePlayerTurn() {
     turn = "player";
     selected = -1;
     lastInputAt = performance.now();
-    if (bothBlocked()) {
-      settleBlocked();
+    if (playableIn(playerHand).length === 0) {
+      refillPlayer();
       return;
     }
-    if (playableIn(playerHand).length === 0 && boneyard.length === 0) {
-      status = "No moves — passed";
-      turn = "cpu";
-      scheduleCpu();
+    status = yourTurnText();
+    playCue("turn");
+  }
+
+  function refillPlayer() {
+    if (ended || turn !== "player" || intake) return;
+    if (playableIn(playerHand).length > 0) {
+      status = yourTurnText();
       return;
     }
-    status = playableIn(playerHand).length === 0 ? "Draw until you can play" : "Your turn — select a tile";
+    if (!boneyard.length) {
+      status = passText();
+      holdThen(() => settleByTileCount());
+      return;
+    }
+    status = "";
+    playCue("refill");
+    pullOne();
+  }
+
+  function pullOne() {
+    if (playableIn(playerHand).length > 0 || !boneyard.length) {
+      if (playableIn(playerHand).length > 0) {
+        status = yourTurnText();
+        playCue("turn");
+      }
+      else {
+        status = passText();
+        holdThen(() => settleByTileCount());
+      }
+      return;
+    }
+    playerHand.push(boneyard.pop()!);
+    intake = {
+      index: playerHand.length - 1,
+      t0: performance.now(),
+      onDone: () => pullOne(),
+    };
+  }
+
+  function tickIntake() {
+    if (!intake) return;
+    if (performance.now() - intake.t0 < REFILL_MS) return;
+    const done = intake.onDone;
+    intake = null;
+    done();
   }
 
   function scheduleCpu() {
@@ -300,7 +570,7 @@ export function createDominoEngine(): Playable3DEngine {
     cpuTimer = window.setTimeout(() => {
       cpuTimer = 0;
       runCpuTurn();
-    }, CPU_THINK_MS);
+    }, paceMs(CPU_THINK_MS));
   }
 
   function runCpuTurn() {
@@ -314,14 +584,15 @@ export function createDominoEngine(): Playable3DEngine {
         return y.tile.a + y.tile.b - (x.tile.a + x.tile.b);
       });
       const pick = moves[0];
-      place(pick.tile, "auto");
+      const from = cpuBackRect(pick.i, cpuHand.length);
+      const side = place(pick.tile, "auto");
+      if (!side) return;
       cpuHand.splice(pick.i, 1);
-      status = `CPU played ${pick.tile.a}|${pick.tile.b}`;
-      if (!cpuHand.length) {
-        completeRound(false);
-        return;
-      }
-      givePlayerTurn();
+      status = `Opponent played ${pick.tile.a}|${pick.tile.b}`;
+      beginFlight(side === "left" ? 0 : chain.length - 1, from, 0, () => {
+        if (!cpuHand.length) settleByTileCount();
+        else givePlayerTurn();
+      });
       return;
     }
     if (boneyard.length) {
@@ -336,53 +607,43 @@ export function createDominoEngine(): Playable3DEngine {
         return;
       }
     }
-    status = "CPU passed";
-    givePlayerTurn();
+    status = passText();
+    holdThen(() => settleByTileCount());
   }
 
   function endPlayerAction() {
     selected = -1;
     if (!playerHand.length) {
-      completeRound(true);
-      return;
-    }
-    if (bothBlocked()) {
-      settleBlocked();
+      settleByTileCount();
       return;
     }
     turn = "cpu";
     scheduleCpu();
   }
 
-  function drawForPlayer() {
-    if (ended || turn !== "player" || !boneyard.length) return false;
-    if (playableIn(playerHand).length > 0) return false;
-    let drew = 0;
-    while (boneyard.length && playableIn(playerHand).length === 0) {
-      playerHand.push(boneyard.pop()!);
-      drew += 1;
-    }
-    selected = -1;
-    if (playableIn(playerHand).length > 0) {
-      status = drew === 1 ? "Drew a playable tile — select it" : `Drew ${drew} — select a tile`;
-      return true;
-    }
-    status = "Boneyard empty — passed";
-    endPlayerAction();
-    return true;
-  }
-
   function tryPlaceSelected(side: "left" | "right") {
     if (selected < 0 || selected >= playerHand.length) return false;
     const tile = playerHand[selected];
-    if (!place(tile, side)) {
-      status = side === "left" ? "Can't play on Left" : "Can't play on Right";
+    const from = handLayout[selected] ?? { x: viewW / 2 - 22, y: viewH - 100, w: 44, h: 88 };
+    const placed = place(tile, side);
+    if (!placed) {
+      status = "Can't play there";
       return false;
     }
     playerHand.splice(selected, 1);
     selected = -1;
-    endPlayerAction();
+    status = "";
+    beginFlight(placed === "left" ? 0 : chain.length - 1, from, 1, () => endPlayerAction());
     return true;
+  }
+
+  function endTarget(side: "left" | "right", can: boolean) {
+    if (!can || !chainSlots.length) return null;
+    if (chainSlots.length === 1) {
+      const slot = chainSlots[0];
+      return halfRect(slot, side === "left" ? slot.aFace : opposite(slot.aFace));
+    }
+    return side === "left" ? chainSlots[0] : chainSlots[chainSlots.length - 1];
   }
 
   function posFromEvent(e: PointerEvent) {
@@ -390,77 +651,85 @@ export function createDominoEngine(): Playable3DEngine {
   }
 
   function onPointer(e: PointerEvent) {
-    if (!running || ended || !canvas || turn !== "player") return;
+    void sfx?.unlock();
+    if (!running || ended || holding || paying || flight || intake || !canvas || turn !== "player") return;
     e.preventDefault();
     e.stopPropagation();
     lastInputAt = performance.now();
     const { x, y } = posFromEvent(e);
 
-    if (drawBtn && x >= drawBtn.x && x <= drawBtn.x + drawBtn.w && y >= drawBtn.y && y <= drawBtn.y + drawBtn.h) {
-      drawForPlayer();
-      return;
-    }
-
-    // Second tap: place on Left / Right when a tile is selected.
+    const sel = selected >= 0 ? playerHand[selected] : null;
+    const canL = Boolean(sel && matches(sel, left));
+    const canR = Boolean(sel && matches(sel, right));
     if (selected >= 0) {
-      if (hitZone(leftDrop, x, y)) {
-        tryPlaceSelected("left");
+      const rightEnd = endTarget("right", canR);
+      const leftEnd = endTarget("left", canL);
+      if (rightEnd && pointIn(x, y, rightEnd)) {
+        tryPlaceSelected("right");
         return;
       }
-      if (hitZone(rightDrop, x, y)) {
-        tryPlaceSelected("right");
+      if (leftEnd && pointIn(x, y, leftEnd)) {
+        tryPlaceSelected("left");
         return;
       }
     }
 
     const i = handLayout.findIndex((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
     if (i < 0) {
-      if (playableIn(playerHand).length === 0 && boneyard.length) drawForPlayer();
-      else if (selected >= 0) status = "Tap Left or Right to place";
+      if (selected >= 0) status = "Tap the highlighted domino";
       return;
     }
 
     const tile = playerHand[i];
-    const canL = matches(tile, left);
-    const canR = matches(tile, right);
-    if (!canL && !canR) {
+    const tileL = matches(tile, left);
+    const tileR = matches(tile, right);
+    if (!tileL && !tileR) {
       status = "Doesn't match either end";
       return;
     }
     if (selected === i) {
       selected = -1;
-      status = "Your turn — select a tile";
+      status = yourTurnText();
       return;
     }
     selected = i;
-    if (canL && canR) status = "Tap Left or Right to place";
-    else if (canL) status = "Tap Left to place";
-    else status = "Tap Right to place";
+    status = "Tap the highlighted domino";
   }
 
-  function drawTile(tile: Tile, x: number, y: number, w: number, h: number, lying = false, hl = false) {
+  function drawTile(tile: Tile, x: number, y: number, w: number, h: number, rot = 0, hl = false) {
     if (!ctx) return;
     const url = dominoUrl(tile.a, tile.b);
     const img = imgs.get(url);
+    const nativeW = Math.min(w, h);
+    const nativeH = Math.max(w, h);
     ctx.save();
     ctx.translate(x + w / 2, y + h / 2);
-    if (lying) ctx.rotate(Math.PI / 2);
-    const dw = lying ? h : w;
-    const dh = lying ? w : h;
+    ctx.rotate(rot);
     if (hl) {
       ctx.strokeStyle = "#fbbf24";
       ctx.lineWidth = 3;
-      ctx.strokeRect(-dw / 2 - 2, -dh / 2 - 2, dw + 4, dh + 4);
+      ctx.strokeRect(-nativeW / 2 - 2, -nativeH / 2 - 2, nativeW + 4, nativeH + 4);
     }
-    if (img && img.complete && img.naturalWidth) ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+    if (img && img.complete && img.naturalWidth) ctx.drawImage(img, -nativeW / 2, -nativeH / 2, nativeW, nativeH);
     else {
       ctx.fillStyle = "#f8fafc";
-      ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
+      ctx.fillRect(-nativeW / 2, -nativeH / 2, nativeW, nativeH);
       ctx.fillStyle = "#0f172a";
       ctx.font = "11px system-ui";
       ctx.textAlign = "center";
       ctx.fillText(`${tile.a}|${tile.b}`, 0, 4);
     }
+    ctx.restore();
+  }
+
+  function highlightRect(r: { x: number; y: number; w: number; h: number }) {
+    if (!ctx) return;
+    ctx.save();
+    ctx.fillStyle = "rgba(251, 191, 36, 0.35)";
+    ctx.strokeStyle = "#fbbf24";
+    ctx.lineWidth = 3;
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.strokeRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
     ctx.restore();
   }
 
@@ -477,34 +746,36 @@ export function createDominoEngine(): Playable3DEngine {
     ctx.restore();
   }
 
-  function drawDropZone(z: DropZone, pip: number, active: boolean) {
-    if (!ctx) return;
-    ctx.save();
-    if (active) {
-      ctx.fillStyle = "rgba(251, 191, 36, 0.28)";
-      ctx.strokeStyle = "#fbbf24";
-      ctx.lineWidth = 2.5;
-    } else {
-      ctx.fillStyle = "rgba(148, 163, 184, 0.12)";
-      ctx.strokeStyle = "rgba(148, 163, 184, 0.45)";
-      ctx.lineWidth = 1.5;
+  function drawFlightTile(slot: ChainSlot) {
+    if (!flight || !ctx) return;
+    const e = easeOut((performance.now() - flight.t0) / PLACE_MS);
+    const fromLong = Math.max(flight.fromW, flight.fromH);
+    const toLong = Math.max(slot.w, slot.h);
+    const long = fromLong + (toLong - fromLong) * e;
+    const short = long * 0.5;
+    const cx = flight.fromX + flight.fromW / 2 + (slot.x + slot.w / 2 - (flight.fromX + flight.fromW / 2)) * e;
+    const cy = flight.fromY + flight.fromH / 2 + (slot.y + slot.h / 2 - (flight.fromY + flight.fromH / 2)) * e;
+    const x = cx - short / 2;
+    const y = cy - long / 2;
+    const face = flight.face + (1 - flight.face) * e;
+    if (face < 1) {
+      ctx.save();
+      ctx.globalAlpha = 1 - face;
+      drawBack(x, y, short, long);
+      ctx.restore();
     }
-    ctx.fillRect(z.x, z.y, z.w, z.h);
-    ctx.strokeRect(z.x + 0.5, z.y + 0.5, z.w - 1, z.h - 1);
-    ctx.fillStyle = active ? "#fde68a" : "#94a3b8";
-    ctx.font = "700 11px system-ui";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(z.side === "left" ? "Left" : "Right", z.x + z.w / 2, z.y + z.h / 2 - 8);
-    ctx.font = "700 16px system-ui";
-    ctx.fillStyle = active ? "#fff" : "#cbd5e1";
-    ctx.fillText(String(pip), z.x + z.w / 2, z.y + z.h / 2 + 10);
-    ctx.textBaseline = "alphabetic";
-    ctx.restore();
+    if (face > 0) {
+      ctx.save();
+      ctx.globalAlpha = face;
+      drawTile(slot.tile, x, y, short, long, lerpAngle(0, slot.rot, e));
+      ctx.restore();
+    }
   }
 
   function draw() {
     if (!canvas || !ctx || !container) return;
+    tickFlight();
+    tickIntake();
     const { w, h } = beginCanvasFrame(canvas, ctx, container);
     viewW = w;
     viewH = h;
@@ -517,9 +788,11 @@ export function createDominoEngine(): Playable3DEngine {
       extraText: `You ${playerHand.length} · CPU ${cpuHand.length}`,
       coinImage,
       transparent: config.hudTransparent,
+      hideCoin: true,
     });
 
-    const cpuTw = Math.min(26, (w - 20) / Math.max(cpuHand.length, 1) - 4);
+    const cpuMax = turn === "cpu" ? 42 : 26;
+    const cpuTw = Math.min(cpuMax, (w - 20) / Math.max(cpuHand.length, 1) - 4);
     const cpuTh = cpuTw * 1.7;
     const cpuY = CANVAS_HUD_H + 8;
     cpuHand.forEach((_, i) => {
@@ -529,81 +802,91 @@ export function createDominoEngine(): Playable3DEngine {
     ctx.fillStyle = "#94a3b8";
     ctx.font = "11px system-ui";
     ctx.textAlign = "center";
-    ctx.fillText(`CPU · ${cpuHand.length}`, w / 2, cpuY + cpuTh + 12);
+    const cpuLabelY = cpuY + cpuTh + 12;
+    ctx.fillText(`CPU · ${cpuHand.length}`, w / 2, cpuLabelY);
+    const cpuMessage = turn === "cpu";
+    if (cpuMessage) {
+      ctx.fillStyle = "#fbbf24";
+      ctx.font = "700 12px system-ui";
+      ctx.fillText(status, w / 2, cpuLabelY + 16);
+    }
 
     const hw = Math.min(44, (w - 16) / Math.max(playerHand.length, 1) - 6);
     const hh = hw * 2;
     const hy = h - hh - 18;
-    const chainTop = cpuY + cpuTh + 20;
+    const chainTop = cpuY + cpuTh + (cpuMessage ? 42 : 20);
     const chainBottom = hy - 48;
-    const laid = layoutCenteredChain(chain, 2, chainTop, w - 4, Math.max(90, chainBottom - chainTop));
-    leftDrop = laid.leftDrop;
-    rightDrop = laid.rightDrop;
-    for (const s of laid.slots) {
-      drawTile(s.tile, s.x, s.y, s.w, s.h, s.lying);
-    }
+    chainSlots = layoutSnake(chain, 2, chainTop, w - 4, Math.max(90, chainBottom - chainTop));
+    chainSlots.forEach((s, i) => {
+      if (flight && i === flight.index) return;
+      drawTile(s.tile, s.x, s.y, s.w, s.h, s.rot);
+    });
 
     const selTile = selected >= 0 ? playerHand[selected] : null;
     const canSelL = Boolean(selTile && matches(selTile, left));
     const canSelR = Boolean(selTile && matches(selTile, right));
-    drawDropZone(laid.leftDrop, left, turn === "player" && selected >= 0 && canSelL);
-    drawDropZone(laid.rightDrop, right, turn === "player" && selected >= 0 && canSelR);
+    if (turn === "player" && selected >= 0) {
+      const leftEnd = endTarget("left", canSelL);
+      const rightEnd = endTarget("right", canSelR);
+      if (leftEnd) highlightRect(leftEnd);
+      if (rightEnd) highlightRect(rightEnd);
+    }
 
     handLayout = [];
     const playable = new Set(playableIn(playerHand).map((m) => m.i));
     playerHand.forEach((tile, i) => {
       const hx = 8 + i * (hw + 6);
       handLayout.push({ x: hx, y: hy, w: hw, h: hh });
-      drawTile(tile, hx, hy, hw, hh, false, selected === i || (turn === "player" && selected < 0 && playable.has(i)));
+      if (intake && i === intake.index) return;
+      drawTile(tile, hx, hy, hw, hh, 0, selected === i || (turn === "player" && selected < 0 && playable.has(i)));
     });
-
-    drawBtn = null;
-    const canDraw = turn === "player" && !ended && playableIn(playerHand).length === 0 && boneyard.length > 0;
-    if (canDraw) {
-      const bw = 168;
-      const bh = 30;
-      drawBtn = { x: w / 2 - bw / 2, y: hy - 42, w: bw, h: bh };
-      ctx.fillStyle = "#f59e0b";
-      ctx.fillRect(drawBtn.x, drawBtn.y, bw, bh);
-      ctx.fillStyle = "#111827";
-      ctx.font = "700 12px system-ui";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(`Draw until playable (${boneyard.length})`, w / 2, drawBtn.y + bh / 2);
-      ctx.textBaseline = "alphabetic";
-    } else {
-      ctx.fillStyle = "#94a3b8";
-      ctx.font = "11px system-ui";
-      ctx.textAlign = "left";
-      ctx.fillText(`Boneyard ${boneyard.length}`, 10, hy - 12);
+    if (intake && handLayout[intake.index]) {
+      const slot = handLayout[intake.index];
+      const e = easeOut((performance.now() - intake.t0) / REFILL_MS);
+      const fromX = 8;
+      const fromY = hy - hh - 18;
+      const x = fromX + (slot.x - fromX) * e;
+      const y = fromY + (slot.y - fromY) * e;
+      const scale = 0.7 + 0.3 * e;
+      const tile = playerHand[intake.index];
+      if (tile) drawTile(tile, x, y, slot.w * scale, slot.h * scale, 0);
     }
+    if (flight && chainSlots[flight.index]) drawFlightTile(chainSlots[flight.index]);
 
-    ctx.fillStyle = turn === "cpu" ? "#fbbf24" : "#e2e8f0";
-    ctx.font = "700 12px system-ui";
-    ctx.textAlign = "right";
-    ctx.fillText(status, w - 10, hy - 12);
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "11px system-ui";
+    ctx.textAlign = "left";
+    ctx.fillText(`Boneyard ${boneyard.length}`, 10, hy - 12);
+
+    if (!cpuMessage) {
+      ctx.fillStyle = "#e2e8f0";
+      ctx.font = "700 12px system-ui";
+      ctx.textAlign = "right";
+      ctx.fillText(status, w - 10, hy - 12);
+    }
 
     const now = performance.now();
     if (
       turn === "player" &&
       !ended &&
+      !flight &&
+      !intake &&
       config.hintHandEnabled &&
       hintHandVisible &&
       now - lastInputAt >= config.hintDelayMs
     ) {
       if (selected >= 0) {
-        const zone = canSelL ? laid.leftDrop : canSelR ? laid.rightDrop : null;
+        const zone = endTarget("left", canSelL) ?? endTarget("right", canSelR);
         if (zone) drawHintHand(ctx, handImage, zone.x + zone.w / 2, zone.y + zone.h / 2, 36, now);
       } else {
         const moves = playableIn(playerHand);
         if (moves.length && handLayout[moves[0].i]) {
           const b = handLayout[moves[0].i];
           drawHintHand(ctx, handImage, b.x + b.w / 2, b.y + 8, hw, now);
-        } else if (canDraw && drawBtn) {
-          drawHintHand(ctx, handImage, drawBtn.x + drawBtn.w / 2, drawBtn.y + drawBtn.h / 2, 40, now);
         }
       }
     }
+    hud.tick(performance.now());
   }
 
   function loop() {
@@ -650,18 +933,28 @@ export function createDominoEngine(): Playable3DEngine {
       orientation = ctxInit.orientation;
       assets = ctxInit.assets || {};
       if (extra.domino) config = extra.domino;
+      if (extra.audioBus) sfx = extra.audioBus;
       playAllRounds = extra.playAllRounds !== false;
       roundIndex = typeof extra.parkingRoundIndex === "number" ? extra.parkingRoundIndex : 0;
       hintHandUrl = extra.hintHandUrl || "";
       hintHandVisible = extra.hintHandVisible !== false;
       background = extra.background;
+      wireSfx();
+      hud.mount(ctxInit.container);
+      syncHud();
       deal();
       void load(extra).then(() => draw());
       canvas.addEventListener("pointerdown", onPointer);
     },
     setOptions(options) {
       const extra = options as Extra;
-      if (extra.domino) config = extra.domino;
+      if (extra.domino) {
+        config = extra.domino;
+        if (!ended && !holding && !paying && turn === "player" && selected < 0 && playableIn(playerHand).length > 0) {
+          status = yourTurnText();
+        }
+        syncHud();
+      }
       if (typeof extra.playAllRounds === "boolean") playAllRounds = extra.playAllRounds;
       if (typeof extra.parkingRoundIndex === "number" && extra.parkingRoundIndex !== roundIndex) {
         roundIndex = extra.parkingRoundIndex;
@@ -681,13 +974,19 @@ export function createDominoEngine(): Playable3DEngine {
       cancelAnimationFrame(raf);
     },
     reset() {
+      hud.cancel();
+      paying = false;
       earned = 0;
+      syncHud();
       roundIndex = playAllRounds ? 0 : roundIndex;
       deal();
     },
     destroy() {
       running = false;
+      flight = null;
+      intake = null;
       clearCpuTimer();
+      hud.destroy();
       cancelAnimationFrame(raf);
       canvas?.removeEventListener("pointerdown", onPointer);
       container = null;
@@ -702,6 +1001,7 @@ export function createDominoEngine(): Playable3DEngine {
       loseCb = cb;
     },
     resize() {
+      hud.resize();
       draw();
     },
   };

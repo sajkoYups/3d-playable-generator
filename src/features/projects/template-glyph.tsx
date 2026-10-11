@@ -14,6 +14,7 @@ const GAME_COVERS: Partial<Record<GlyphId, string>> = {
   "tappy-plane": "/game-covers/tappy-plane-cover-960x480.png",
   "dress-up": "/game-covers/model-fashion-cover-960x480.png",
   "water-sort": "/game-covers/water-sort-cover-960x480.png",
+  "tower-defense": "/game-covers/Tower-defense-game.png",
 };
 
 export function TemplateGlyph({ templateId }: { templateId: GlyphId }) {

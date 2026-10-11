@@ -2320,7 +2320,7 @@ function GameplaySettings() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <NumberField
-                    label="Imps"
+                    label="Goblins"
                     integer
                     min={0}
                     max={40}
@@ -2332,7 +2332,7 @@ function GameplaySettings() {
                     }
                   />
                   <NumberField
-                    label="Puglins"
+                    label="Zombies"
                     integer
                     min={0}
                     max={20}

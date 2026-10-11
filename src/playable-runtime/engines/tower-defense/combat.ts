@@ -4,29 +4,34 @@ export type TowerKind = "arrow" | "cannon" | "turret";
 export type Waypoint = { x: number; z: number };
 
 export const ENEMY_BASE = {
-  imp: { hp: 14, speed: 1.85, gold: 8, leak: 1, height: 1.2 },
-  puglin: { hp: 42, speed: 1.05, gold: 18, leak: 2, height: 1.5 },
+  imp: { hp: 14, speed: 1.85, gold: 8, leak: 1, height: 0.72 },
+  puglin: { hp: 42, speed: 1.05, gold: 18, leak: 2, height: 0.92 },
 } as const;
 
-/** Keep kit albedo; glow is the packed emissive map (eyes/mouth). Exposure lifts overcast. */
+/** Flat Quaternius colors. Hit flash is the only emissive lift. */
 export const ENEMY_LOOK = {
   imp: {
-    tint: "#ff6a38",
-    glow: 1.25,
-    exposure: 1.28,
-    roughness: 0.45,
-    shadow: "#5a1808",
-    shadowRadius: 0.32,
+    tint: "#6a8f32",
+    glow: 0,
+    exposure: 1,
+    roughness: 0.55,
+    shadow: "#1a2408",
+    shadowRadius: 0.22,
   },
   puglin: {
-    tint: "#7dff5a",
-    glow: 1.15,
-    exposure: 1.22,
-    roughness: 0.45,
-    shadow: "#0a2e08",
-    shadowRadius: 0.42,
+    tint: "#6a8f62",
+    glow: 0,
+    exposure: 1,
+    roughness: 0.55,
+    shadow: "#1a2418",
+    shadowRadius: 0.28,
   },
 } as const;
+
+export const ENEMY_MESH: Record<EnemyKind, readonly [string, string]> = {
+  imp: ["goblin-male", "goblin-female"],
+  puglin: ["zombie-male", "zombie-female"],
+};
 
 export const TOWER_RECIPES: Record<TowerKind, { parts: string[]; weapon: string; ammo: string; splash: number; color: string; label: string }> = {
   arrow: {

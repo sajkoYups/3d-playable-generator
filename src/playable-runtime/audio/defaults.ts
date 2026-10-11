@@ -17,6 +17,12 @@ export const PLAYABLE_SOUNDS = {
   crash: "/sounds/playable/crash.mp3",
   planeLoop: "/sounds/playable/plane-loop.mp3",
   wow: "/sounds/playable/wow.mp3",
+  /** Arrow.wav by EverHeat, CC BY 3.0 — https://freesound.org/people/EverHeat/sounds/205563/ */
+  arrowFire: "/sounds/playable/td-arrow.mp3",
+  /** Little Cannon by vulkanbruder, CC0 — https://freesound.org/people/vulkanbruder/sounds/850499/ */
+  cannonFire: "/sounds/playable/td-cannon.mp3",
+  /** Lazer shot - 2 by colorsCrimsonTears, CC0 — https://freesound.org/people/colorsCrimsonTears/sounds/580308/ */
+  turretFire: "/sounds/playable/td-turret.mp3",
 } as const;
 
 export function pickSoundUrl(override: string | undefined, fallback: string) {

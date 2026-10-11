@@ -46,7 +46,7 @@ export const TEMPLATE_BLURBS: Record<TemplateId, string> = {
   "triple-match": "Tap matching snacks into a tray. Three of a kind clears.",
   "lane-runner": "Swipe lanes, dodge traffic, collect coins across rounds.",
   "parking-jam": "Slide cars out of a jammed lot. Grid puzzle with tinted vehicles.",
-  "tower-defense": "Place towers, stop the dungeon monsters. Short wave defense.",
+  "tower-defense": "Place towers, stop the goblins and zombies. Short wave defense.",
   "water-sort": "Pour matching colors into tubes. Classic 2D puzzle.",
   "match-3": "Swap gems, match three, chase a score across rounds.",
   solitaire: "Classic Klondike. Seven columns, four foundations. A helping hand points at moves.",
@@ -875,8 +875,8 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
     camera:
       templateId === "tower-defense"
         ? {
-            portrait: { fov: 40, position: { x: 0, y: 8.2, z: 7.2 }, target: { x: 0, y: 0.2, z: 0.3 } },
-            landscape: { fov: 34, position: { x: 0, y: 6.6, z: 6 }, target: { x: 0, y: 0.2, z: 0.3 } },
+            portrait: { fov: 40, position: { x: 0, y: 14.6, z: 12.6 }, target: { x: 0, y: 0.2, z: 0.3 } },
+            landscape: { fov: 18, position: { x: 0, y: 6, z: 6 }, target: { x: 0, y: 0.2, z: 0.3 } },
           }
         : templateId === "parking-jam"
         ? {

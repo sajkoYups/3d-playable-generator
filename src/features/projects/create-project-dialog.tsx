@@ -20,7 +20,7 @@ import { TEMPLATE_BLURBS, TEMPLATE_NAMES } from "@/lib/project-defaults";
 import { TemplateGlyph } from "@/features/projects/template-glyph";
 import { UPCOMING_GAMES, type UpcomingGame } from "@/features/projects/upcoming-games";
 
-const TEMPLATES_3D: TemplateId[] = ["stack-tower", "triple-match", "lane-runner", "parking-jam"];
+const TEMPLATES_3D: TemplateId[] = ["stack-tower", "triple-match", "lane-runner", "parking-jam", "tower-defense"];
 const TEMPLATES_2D: TemplateId[] = [
   "water-sort",
   "match-3",

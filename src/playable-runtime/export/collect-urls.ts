@@ -169,9 +169,9 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
     for (const url of TD_MODEL_URLS) add(url);
     add(coinUrl(data, data.gameplay.towerDefense.coinImageUrl));
     const tdSounds = data.gameplay.towerDefense.sounds;
-    add(tdSounds?.arrowFireUrl);
-    add(tdSounds?.cannonFireUrl);
-    add(tdSounds?.turretFireUrl);
+    add(pickSoundUrl(tdSounds?.arrowFireUrl, PLAYABLE_SOUNDS.arrowFire));
+    add(pickSoundUrl(tdSounds?.cannonFireUrl, PLAYABLE_SOUNDS.cannonFire));
+    add(pickSoundUrl(tdSounds?.turretFireUrl, PLAYABLE_SOUNDS.turretFire));
     add(tdSounds?.hitUrl);
     add(tdSounds?.deathUrl);
     add(tdSounds?.leakUrl);

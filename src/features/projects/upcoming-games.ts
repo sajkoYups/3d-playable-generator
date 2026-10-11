@@ -1,10 +1,5 @@
 export const UPCOMING_GAMES = [
   {
-    id: "tower-defense",
-    name: "Tower Defense",
-    blurb: "Place towers, stop the waves.",
-  },
-  {
     id: "racing-lap",
     name: "Racing Lap",
     blurb: "Steer with the joystick. Stay on the oval. Finish the laps.",

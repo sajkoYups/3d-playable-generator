@@ -101,8 +101,20 @@ export const LIBRARY_TD_URLS: Record<string, string> = {
   "tile-crystal": "/models/kenney/td/tile-crystal.glb",
   "tile-tree": "/models/kenney/td/tile-tree.glb",
   "tile-rock": "/models/kenney/td/tile-rock.glb",
+  "tile-hill": "/models/kenney/td/tile-hill.glb",
+  "tile-slope": "/models/kenney/td/tile-slope.glb",
+  "tile-dirt": "/models/kenney/td/tile-dirt.glb",
+  "tile-river-bridge": "/models/kenney/td/tile-river-bridge.glb",
+  "tile-tree-double": "/models/kenney/td/tile-tree-double.glb",
+  "tile-tree-quad": "/models/kenney/td/tile-tree-quad.glb",
   "detail-tree": "/models/kenney/td/detail-tree.glb",
+  "detail-tree-large": "/models/kenney/td/detail-tree-large.glb",
   "detail-rocks": "/models/kenney/td/detail-rocks.glb",
+  "wood-structure": "/models/kenney/td/wood-structure.glb",
+  "wood-structure-high": "/models/kenney/td/wood-structure-high.glb",
+  "wood-structure-part": "/models/kenney/td/wood-structure-part.glb",
+  "tower-square-roof-a": "/models/kenney/td/tower-square-roof-a.glb",
+  "tower-square-roof-b": "/models/kenney/td/tower-square-roof-b.glb",
   "selection-a": "/models/kenney/td/selection-a.glb",
   "spawn-round": "/models/kenney/td/spawn-round.glb",
   "tower-round-base": "/models/kenney/td/tower-round-base.glb",
@@ -118,11 +130,69 @@ export const LIBRARY_TD_URLS: Record<string, string> = {
   "weapon-ammo-arrow": "/models/kenney/td/weapon-ammo-arrow.glb",
   "weapon-ammo-cannonball": "/models/kenney/td/weapon-ammo-cannonball.glb",
   "weapon-ammo-bullet": "/models/kenney/td/weapon-ammo-bullet.glb",
+  "ground-grass": "/models/kenney/nature/ground_grass.glb",
+  "path-straight": "/models/kenney/nature/ground_pathStraight.glb",
+  "path-corner": "/models/kenney/nature/ground_pathCorner.glb",
+  "path-bend": "/models/kenney/nature/ground_pathBend.glb",
+  "path-end": "/models/kenney/nature/ground_pathEnd.glb",
+  "river-straight": "/models/kenney/nature/ground_riverStraight.glb",
+  "river-corner": "/models/kenney/nature/ground_riverCorner.glb",
+  "river-bend": "/models/kenney/nature/ground_riverBend.glb",
+  "river-end": "/models/kenney/nature/ground_riverEnd.glb",
+  "bridge-wood": "/models/kenney/nature/bridge_woodNarrow.glb",
+  "tree-pine": "/models/kenney/nature/tree_pineSmallA.glb",
+  "tree-pine-tall": "/models/kenney/nature/tree_pineDefaultA.glb",
+  "tree-oak": "/models/kenney/nature/tree_oak.glb",
+  "tree-round": "/models/kenney/nature/tree_default.glb",
+  "tent-open": "/models/kenney/nature/tent_smallOpen.glb",
+  "tent-detailed": "/models/kenney/nature/tent_detailedOpen.glb",
+  "tent-closed": "/models/kenney/nature/tent_smallClosed.glb",
+  "rock-small": "/models/kenney/nature/rock_smallA.glb",
+  "rock-large": "/models/kenney/nature/rock_largeA.glb",
+  "campfire": "/models/kenney/nature/campfire_logs.glb",
+  "stump": "/models/kenney/nature/stump_round.glb",
+  "mushroom": "/models/kenney/nature/mushroom_red.glb",
+  "flower-red": "/models/kenney/nature/flower_redA.glb",
+  "flower-yellow": "/models/kenney/nature/flower_yellowA.glb",
+  lily: "/models/kenney/nature/lily_small.glb",
+  sign: "/models/kenney/nature/sign.glb",
+  "cliff-block": "/models/kenney/nature/cliff_block_rock.glb",
+  "cliff-block-stone": "/models/kenney/nature/cliff_block_stone.glb",
+  "cliff-large": "/models/kenney/nature/cliff_large_rock.glb",
+  "cliff-face": "/models/kenney/nature/cliff_rock.glb",
+  "cliff-corner": "/models/kenney/nature/cliff_corner_rock.glb",
+  "cliff-slope": "/models/kenney/nature/cliff_blockSlope_rock.glb",
+  "cliff-steps": "/models/kenney/nature/cliff_steps_rock.glb",
+  "cliff-waterfall": "/models/kenney/nature/cliff_waterfall_rock.glb",
+  "cliff-waterfall-top": "/models/kenney/nature/cliff_waterfallTop_rock.glb",
+  "fence-simple": "/models/kenney/nature/fence_simple.glb",
+  "fence-planks": "/models/kenney/nature/fence_planks.glb",
+  "fence-corner": "/models/kenney/nature/fence_corner.glb",
+  "fence-gate": "/models/kenney/nature/fence_gate.glb",
+  "cactus-tall": "/models/kenney/nature/cactus_tall.glb",
+  "cactus-short": "/models/kenney/nature/cactus_short.glb",
+  palm: "/models/kenney/nature/tree_palm.glb",
+  "palm-short": "/models/kenney/nature/tree_palmShort.glb",
+  bush: "/models/kenney/nature/plant_bush.glb",
+  "bush-large": "/models/kenney/nature/plant_bushLarge.glb",
+  log: "/models/kenney/nature/log.glb",
+  "log-stack": "/models/kenney/nature/log_stack.glb",
+  "mushroom-group": "/models/kenney/nature/mushroom_redGroup.glb",
+  "mushroom-tan": "/models/kenney/nature/mushroom_tanGroup.glb",
+  "flower-purple": "/models/kenney/nature/flower_purpleA.glb",
+  wheat: "/models/kenney/nature/crops_wheatStageB.glb",
+  obelisk: "/models/kenney/nature/statue_obelisk.glb",
+  "rock-tall": "/models/kenney/nature/rock_tallA.glb",
+  "rock-peak": "/models/kenney/nature/rock_tallB.glb",
+  "stump-old": "/models/kenney/nature/stump_old.glb",
+  "campfire-stones": "/models/kenney/nature/campfire_stones.glb",
 };
 
 export const LIBRARY_BESTIARY_URLS: Record<string, string> = {
-  imp: "/models/bestiary/imp.glb",
-  puglin: "/models/bestiary/puglin.glb",
+  "goblin-male": "/models/characters/goblin-male.gltf",
+  "goblin-female": "/models/characters/goblin-female.gltf",
+  "zombie-male": "/models/characters/zombie-male.gltf",
+  "zombie-female": "/models/characters/zombie-female.gltf",
 };
 
 export const CUTTING_BOARD_URL = LIBRARY_FOOD_URLS["cutting-board"];
@@ -204,6 +274,24 @@ export function loadTexture(url: string): Promise<Texture> {
   });
 }
 
+/** Meshes that share a bone name steal the clip. Animation tracks bind by name. */
+function uniqueMeshNames(root: Object3D) {
+  const byName = new Map<string, Object3D[]>();
+  root.traverse((obj) => {
+    if (!obj.name) return;
+    const list = byName.get(obj.name);
+    if (list) list.push(obj);
+    else byName.set(obj.name, [obj]);
+  });
+  for (const [name, list] of byName) {
+    if (list.length < 2) continue;
+    let n = 0;
+    for (const obj of list) {
+      if ((obj as Mesh).isMesh) obj.name = `${name}Mesh${++n}`;
+    }
+  }
+}
+
 export function loadGltfScene(url: string): Promise<Group> {
   const hit = gltfCache.get(url);
   if (hit) return Promise.resolve(hit);
@@ -211,6 +299,7 @@ export function loadGltfScene(url: string): Promise<Group> {
     gltfLoader.load(
       url,
       (gltf) => {
+        uniqueMeshNames(gltf.scene);
         gltf.scene.updateMatrixWorld(true);
         gltf.scene.userData.clips = gltf.animations;
         gltfCache.set(url, gltf.scene);

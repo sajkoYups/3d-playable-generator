@@ -1,25 +1,35 @@
 import {
-  AdditiveBlending,
   AnimationClip,
   AnimationMixer,
   Box3,
   BoxGeometry,
   CircleGeometry,
+  Color,
   CylinderGeometry,
+  DirectionalLight,
   Group,
+  HemisphereLight,
+  LoopOnce,
   LoopRepeat,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
   Object3D,
+  PerspectiveCamera,
+  PlaneGeometry,
+  Quaternion,
   Raycaster,
   RingGeometry,
+  Scene,
   SphereGeometry,
   Vector2,
+  Vector3,
+  WebGLRenderTarget,
 } from "three";
 import type { TowerDefenseConfig, TowerDefenseTowerStats } from "@/types/project";
 import type { EngineInitContext, Playable3DEngine } from "@/playable-runtime/engines/types";
 import { AudioBus } from "@/playable-runtime/audio/bus";
+import { pickSoundUrl, PLAYABLE_SOUNDS } from "@/playable-runtime/audio/defaults";
 import { ThreeHost } from "@/playable-runtime/three/host";
 import { applyLivePresentation } from "@/playable-runtime/three/presentation";
 import { attachPointer } from "@/playable-runtime/three/input";
@@ -37,10 +47,11 @@ import {
 } from "@/playable-runtime/models/assets";
 import { createPayoutHud, DEFAULT_COIN_URL } from "@/playable-runtime/engines/parking-jam/payout";
 import { listTdRounds, tdCoinsTotal } from "@/playable-runtime/engines/tower-defense/rounds";
-import { buildDefaultMap, cellToWorld, pathWaypoints, TILE_SIZE, type TdMap } from "@/playable-runtime/engines/tower-defense/map";
+import { buildTdMap, cellToWorld, MAP_COLS, MAP_ROWS, pathWaypoints, TILE_SIZE, type TdMap } from "@/playable-runtime/engines/tower-defense/map";
 import {
   ENEMY_BASE,
   ENEMY_LOOK,
+  ENEMY_MESH,
   firstInRange,
   polylineLength,
   samplePath,
@@ -62,7 +73,6 @@ type PadActor = {
   z: number;
   hit: Mesh;
   marker: Group;
-  discMat: MeshBasicMaterial;
   ringMat: MeshBasicMaterial;
   tower: CombatTower | null;
   towerGroup: Group | null;
@@ -70,7 +80,8 @@ type PadActor = {
 };
 
 /** Kenney tile slabs are 0.2 tall; markers must sit on the top face, not at y=0. */
-const TILE_TOP = 0.22;
+const TILE_TOP = 0.2;
+const TOWER_SCALE = 1.25;
 
 type EnemyActor = CombatEnemy & {
   group: Group;
@@ -78,9 +89,16 @@ type EnemyActor = CombatEnemy & {
   hitFlash: number;
   mixer: AnimationMixer | null;
   baseScale: { x: number; y: number; z: number };
+  fell: boolean;
+  headY: number;
+  hpBar: Group;
+  hpFill: Mesh;
+  hpFillMat: MeshBasicMaterial;
+  hpWidth: number;
 };
 
-const WAVE_WAIT = 3;
+const _muzzle = new Vector3();
+
 const SHOT_SPEED = 14;
 const HIT_FLASH = 0.12;
 
@@ -124,9 +142,9 @@ function tdSoundUrls(cfg: TowerDefenseConfig, assets: Record<string, string>) {
   const s = cfg.sounds ?? emptyConfig().sounds;
   const pick = (url: string) => resolveRuntimeUrl(url, assets) || url;
   return {
-    arrowFire: pick(s.arrowFireUrl),
-    cannonFire: pick(s.cannonFireUrl),
-    turretFire: pick(s.turretFireUrl),
+    arrowFire: pick(pickSoundUrl(s.arrowFireUrl, PLAYABLE_SOUNDS.arrowFire)),
+    cannonFire: pick(pickSoundUrl(s.cannonFireUrl, PLAYABLE_SOUNDS.cannonFire)),
+    turretFire: pick(pickSoundUrl(s.turretFireUrl, PLAYABLE_SOUNDS.turretFire)),
     hit: pick(s.hitUrl),
     death: pick(s.deathUrl),
     leak: pick(s.leakUrl),
@@ -141,7 +159,7 @@ async function loadTemplate(url: string) {
     return await Promise.race([
       loadGltfScene(url),
       new Promise<never>((_, reject) => {
-        window.setTimeout(() => reject(new Error("gltf timeout")), 8000);
+        window.setTimeout(() => reject(new Error("gltf timeout")), 20000);
       }),
     ]);
   } catch {
@@ -153,6 +171,55 @@ function seatOnGround(object: Group) {
   object.updateWorldMatrix(true, true);
   const box = new Box3().setFromObject(object);
   if (Number.isFinite(box.min.y)) object.position.y -= box.min.y;
+}
+
+function dressPiece(object: Object3D, model: string) {
+  const roof = model.startsWith("tower-square-roof");
+  const wall = model.startsWith("tower-square-bottom") || model.startsWith("tower-square-middle") || model.startsWith("tower-square-top");
+  const lawn = model === "tile" || model.startsWith("tile-tree") || model === "tile-slope" || model === "tile-hill" || model.startsWith("tile-straight") || model.startsWith("tile-corner") || model === "tile-spawn" || model === "tile-end";
+  if (!roof && !wall && !lawn) return;
+  object.traverse((child) => {
+    const mesh = child as Mesh;
+    if (!mesh.isMesh) return;
+    const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const m of list) {
+      if (!(m instanceof MeshStandardMaterial)) continue;
+      if (roof) {
+        m.map = null;
+        m.color.set("#c24b3a");
+      } else if (wall) {
+        m.map = null;
+        m.color.set("#c6a37a");
+      } else if (!m.userData.lawnShift) {
+        m.userData.lawnShift = true;
+        m.onBeforeCompile = (shader) => {
+          shader.fragmentShader = shader.fragmentShader.replace(
+            "#include <color_fragment>",
+            `#include <color_fragment>
+            if (diffuseColor.g > diffuseColor.r + 0.02) {
+              float g = diffuseColor.g;
+              diffuseColor.rgb = vec3(g * 0.42, g * 0.92, g * 0.88);
+            }`,
+          );
+        };
+      }
+      m.needsUpdate = true;
+    }
+  });
+}
+
+function flatColors(object: Object3D) {
+  object.traverse((child) => {
+    const mesh = child as Mesh;
+    if (!mesh.isMesh) return;
+    const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const m of list) {
+      if (!(m instanceof MeshStandardMaterial)) continue;
+      m.metalness = 0;
+      m.roughness = Math.max(m.roughness, 0.72);
+      m.envMapIntensity = 0;
+    }
+  });
 }
 
 function fallbackTile(tracker: ResourceTracker, color: string) {
@@ -183,18 +250,37 @@ function applyEnemyPaint(mats: MeshStandardMaterial[], kind: EnemyKind, flashU =
   const look = ENEMY_LOOK[kind];
   for (const m of mats) {
     if (m.map) m.color.setRGB(look.exposure, look.exposure, look.exposure);
+    else if (!m.userData.tdLit) {
+      m.userData.tdLit = 1;
+      const lin = m.color.r * 0.2126 + m.color.g * 0.7152 + m.color.b * 0.0722;
+      if (lin > 0.0001 && lin < 0.4) m.color.multiplyScalar(Math.min(6.5, 0.58 / lin));
+    }
     if (m.emissiveMap) {
       m.emissive.set("#ffffff");
       m.emissiveIntensity = look.glow + flashU * 1.8;
     } else {
-      m.emissive.set("#ffffff");
-      m.emissiveIntensity = 0.08 + flashU * 1.1;
+      m.emissive.copy(m.color);
+      m.emissiveIntensity = 0.4 + flashU * 0.85;
     }
     m.roughness = Math.min(m.roughness, look.roughness);
     m.metalness = 0;
     m.metalnessMap = null;
+    m.envMapIntensity = 0;
     m.needsUpdate = true;
   }
+}
+
+function playNamedClip(group: Group, mixer: AnimationMixer, name: string, loop: boolean) {
+  const clips = group.userData.clips as AnimationClip[] | undefined;
+  const clip = clips?.find((c) => c.name === name);
+  if (!clip) return false;
+  mixer.stopAllAction();
+  const action = mixer.clipAction(clip);
+  action.reset();
+  action.setLoop(loop ? LoopRepeat : LoopOnce, loop ? Infinity : 1);
+  action.clampWhenFinished = !loop;
+  action.play();
+  return true;
 }
 
 function playEnemyClip(group: Group) {
@@ -202,12 +288,52 @@ function playEnemyClip(group: Group) {
   if (!clips?.length) return null;
   const root = (group.userData.mixerRoot as Object3D | undefined) ?? group;
   const mixer = new AnimationMixer(root);
+  const walked = playNamedClip(group, mixer, "Walk", true);
+  if (walked) return mixer;
   const clip = clips.find((c) => /walk|run|move|locomotion/i.test(c.name)) ?? clips[0];
   if (!clip) return null;
   const action = mixer.clipAction(clip);
   action.setLoop(LoopRepeat, Infinity);
   action.play();
   return mixer;
+}
+
+function enemyHealthBar(tracker: ResourceTracker, width: number) {
+  const group = new Group();
+  group.name = "hp-bar";
+  const barH = 0.14;
+  const bgGeo = new PlaneGeometry(width + 0.06, barH + 0.03);
+  const fillGeo = new PlaneGeometry(width, barH);
+  const bgMat = new MeshBasicMaterial({ color: "#1a120c", depthTest: false, depthWrite: false });
+  const fillMat = new MeshBasicMaterial({ color: "#b6ff4a", depthTest: false, depthWrite: false });
+  tracker.track(bgGeo);
+  tracker.track(fillGeo);
+  tracker.track(bgMat);
+  tracker.track(fillMat);
+  const bg = new Mesh(bgGeo, bgMat);
+  const fill = new Mesh(fillGeo, fillMat);
+  fill.position.z = 0.004;
+  bg.renderOrder = 3;
+  fill.renderOrder = 4;
+  group.add(bg, fill);
+  return { group, fill, fillMat, width };
+}
+
+function syncHealthBar(enemy: EnemyActor) {
+  const ratio = enemy.maxHp > 0 ? Math.max(0, Math.min(1, enemy.hp / enemy.maxHp)) : 0;
+  enemy.hpFill.scale.x = Math.max(ratio, 0.001);
+  enemy.hpFill.position.x = (ratio - 1) * enemy.hpWidth * 0.5;
+  enemy.hpFillMat.color.set(ratio > 0.55 ? "#b6ff4a" : ratio > 0.28 ? "#ffd24a" : "#ff5a3c");
+}
+
+const barQuat = new Quaternion();
+
+function billboardBar(bar: Object3D, camera: Object3D) {
+  bar.quaternion.copy(camera.quaternion);
+  const parent = bar.parent;
+  if (!parent) return;
+  parent.getWorldQuaternion(barQuat);
+  bar.quaternion.premultiply(barQuat.invert());
 }
 
 function paintEnemy(object: Group, kind: EnemyKind) {
@@ -228,7 +354,7 @@ function paintEnemy(object: Group, kind: EnemyKind) {
 function fallbackEnemy(tracker: ResourceTracker, kind: EnemyKind) {
   const g = new Group();
   const look = ENEMY_LOOK[kind];
-  const h = kind === "imp" ? 0.85 : 1.1;
+  const h = kind === "imp" ? 0.55 : 0.72;
   const geo = new CylinderGeometry(0.22, 0.28, h, 8);
   const mat = new MeshStandardMaterial({ color: look.tint, roughness: look.roughness, metalness: 0 });
   tracker.track(geo);
@@ -251,22 +377,7 @@ function fallbackAmmo(tracker: ResourceTracker) {
 
 function createPadBeacon(tracker: ResourceTracker) {
   const group = new Group();
-  const discGeo = new CircleGeometry(TILE_SIZE * 0.44, 28);
-  const discMat = new MeshBasicMaterial({
-    color: "#ffe14a",
-    transparent: true,
-    opacity: 0.85,
-    depthWrite: false,
-    blending: AdditiveBlending,
-  });
-  tracker.track(discGeo);
-  tracker.track(discMat);
-  const disc = new Mesh(discGeo, discMat);
-  disc.rotation.x = -Math.PI / 2;
-  disc.position.y = TILE_TOP;
-  group.add(disc);
-
-  const ringGeo = new RingGeometry(TILE_SIZE * 0.36, TILE_SIZE * 0.48, 32);
+  const ringGeo = new RingGeometry(TILE_SIZE * 0.38, TILE_SIZE * 0.46, 40);
   const ringMat = new MeshBasicMaterial({
     color: "#ffffff",
     transparent: true,
@@ -277,10 +388,9 @@ function createPadBeacon(tracker: ResourceTracker) {
   tracker.track(ringMat);
   const ring = new Mesh(ringGeo, ringMat);
   ring.rotation.x = -Math.PI / 2;
-  ring.position.y = TILE_TOP + 0.014;
+  ring.position.y = TILE_TOP + 0.02;
   group.add(ring);
-
-  return { group, discMat, ringMat };
+  return { group, ringMat };
 }
 
 function clonePart(source: Group | null, tracker: ResourceTracker, skinned: boolean) {
@@ -315,12 +425,13 @@ export function createTowerDefenseEngine(): Playable3DEngine {
   let selected: TowerKind = "arrow";
   let waveTime = 0;
   let waveStarted = false;
+  let thumbsReady = false;
   let spawnQueue: Array<{ kind: EnemyKind; at: number }> = [];
   let spawnIndex = 0;
   let enemySeq = 1;
   let pathLen = 1;
   let waypoints: Waypoint[] = [];
-  let map: TdMap = buildDefaultMap();
+  let map: TdMap = buildTdMap(0);
   const pads: PadActor[] = [];
   const enemies: EnemyActor[] = [];
   const shots: Array<CombatShot & { mesh: Group }> = [];
@@ -345,6 +456,23 @@ export function createTowerDefenseEngine(): Playable3DEngine {
     return { ...st, range };
   }
 
+  const TOWER_KINDS: TowerKind[] = ["arrow", "cannon", "turret"];
+
+  function cheapestCost() {
+    return Math.min(...TOWER_KINDS.map((kind) => statsFor(kind).cost));
+  }
+
+  /** Selected tower when it is affordable, otherwise the best one the player can buy. */
+  function kindForGold(): TowerKind | null {
+    if (gold >= statsFor(selected).cost) return selected;
+    let best: TowerKind | null = null;
+    for (const kind of TOWER_KINDS) {
+      if (gold < statsFor(kind).cost) continue;
+      if (!best || statsFor(kind).cost > statsFor(best).cost) best = kind;
+    }
+    return best;
+  }
+
   function wireSfx(cfg: TowerDefenseConfig) {
     sfx?.setExtraUrls(tdSoundUrls(cfg, ctx?.assets ?? {}));
   }
@@ -358,6 +486,172 @@ export function createTowerDefenseEngine(): Playable3DEngine {
 
   function onSfxUnlock() {
     void sfx?.unlock();
+  }
+
+  /** Frame the board so it fills the play area. Landscape keeps a strip on the right for the tower column. */
+  function fitPortraitCamera() {
+    if (!host || !ctx) return;
+    host.applyCamera(ctx.camera, ctx.orientation, host.camera.aspect);
+    const cam = host.camera;
+    const target = ctx.camera.target;
+    const pos = ctx.camera.position;
+    const ox = pos.x - target.x;
+    const oy = pos.y - target.y;
+    const oz = pos.z - target.z;
+    if (ox * ox + oy * oy + oz * oz < 0.01) return;
+    const landscape = ctx.orientation === "landscape";
+    const viewW = Math.max(1, host.canvas.clientWidth);
+    const gutter = landscape ? (118 / viewW) * 2 : 0;
+    const minX = -0.98;
+    const maxX = landscape ? 1 - gutter - 0.02 : 0.98;
+    const minY = landscape ? -0.9 : -0.7;
+    const maxY = landscape ? 0.9 : 0.9;
+    const hx = (MAP_COLS * TILE_SIZE) / 2;
+    const hz = (MAP_ROWS * TILE_SIZE) / 2;
+    if (root) root.rotation.y = landscape ? Math.PI / 2 : 0;
+    const raw: Array<[number, number, number]> = [
+      [-hx, 1.1, -hz],
+      [hx, 1.1, -hz],
+      [-hx, 0, hz],
+      [hx, 0, hz],
+    ];
+    const corners = landscape
+      ? raw.map(([x, y, z]): [number, number, number] => [z, y, -x])
+      : raw;
+    const probe = new Vector3();
+    const place = (scale: number, dx = 0, dz = 0) => {
+      cam.position.set(target.x + ox * scale + dx, target.y + oy * scale, target.z + oz * scale + dz);
+      cam.lookAt(target.x + dx, target.y, target.z + dz);
+      cam.updateProjectionMatrix();
+      cam.updateMatrixWorld();
+    };
+    const span = () => {
+      let loX = Infinity;
+      let hiX = -Infinity;
+      let loY = Infinity;
+      let hiY = -Infinity;
+      for (const [x, y, z] of corners) {
+        probe.set(x, y, z).project(cam);
+        loX = Math.min(loX, probe.x);
+        hiX = Math.max(hiX, probe.x);
+        loY = Math.min(loY, probe.y);
+        hiY = Math.max(hiY, probe.y);
+      }
+      return { loX, hiX, loY, hiY };
+    };
+    const sizeFits = (scale: number) => {
+      place(scale, 0, 0);
+      const box = span();
+      return box.hiX - box.loX <= maxX - minX - 0.02 && box.hiY - box.loY <= maxY - minY - 0.02;
+    };
+    let lo = 0.25;
+    let hi = 1.5;
+    while (!sizeFits(hi) && hi < 8) hi *= 1.35;
+    for (let step = 0; step < 16; step++) {
+      const mid = (lo + hi) / 2;
+      if (sizeFits(mid)) hi = mid;
+      else lo = mid;
+    }
+    let dx = 0;
+    if (landscape) {
+      const aim = (minX + maxX) / 2;
+      let a = -8;
+      let b = 8;
+      const centerAt = (shift: number) => {
+        place(hi, shift);
+        const box = span();
+        return (box.loX + box.hiX) / 2;
+      };
+      const grows = centerAt(1) > centerAt(0);
+      for (let step = 0; step < 18; step++) {
+        const mid = (a + b) / 2;
+        const center = centerAt(mid);
+        if (center > aim) {
+          if (grows) b = mid;
+          else a = mid;
+        } else if (grows) a = mid;
+        else b = mid;
+      }
+      dx = (a + b) / 2;
+    }
+    place(hi, dx, 0);
+  }
+
+  function captureTowerThumbs() {
+    if (thumbsReady || !host) return;
+    const renderer = host.renderer;
+    const size = 160;
+    const rt = new WebGLRenderTarget(size, size);
+    const scene = new Scene();
+    scene.add(new HemisphereLight(0xf3ede0, 0x243040, 1.15));
+    const sun = new DirectionalLight(0xffffff, 1.35);
+    sun.position.set(2.5, 6, 3);
+    scene.add(sun);
+    const cam = new PerspectiveCamera(28, 1, 0.05, 40);
+    const urls: Partial<Record<TowerKind, string>> = {};
+    const prevTarget = renderer.getRenderTarget();
+    const prevColor = new Color();
+    renderer.getClearColor(prevColor);
+    const prevAlpha = renderer.getClearAlpha();
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx2d = canvas.getContext("2d");
+    const pixels = new Uint8Array(size * size * 4);
+    try {
+      if (!ctx2d) return;
+      for (const kind of Object.keys(TOWER_RECIPES) as TowerKind[]) {
+        const recipe = TOWER_RECIPES[kind];
+        const group = new Group();
+        for (const part of recipe.parts) {
+          const piece = clonePart(templates[part], host.tracker, false);
+          if (!piece) continue;
+          seatOnGround(piece);
+          group.add(piece);
+        }
+        const weapon = clonePart(templates[recipe.weapon], host.tracker, false);
+        if (weapon) {
+          const box = new Box3().setFromObject(group);
+          weapon.position.y = Number.isFinite(box.max.y) ? box.max.y : 1.1;
+          group.add(weapon);
+        }
+        if (group.children.length === 0) continue;
+        scene.add(group);
+        group.updateWorldMatrix(true, true);
+        const box = new Box3().setFromObject(group);
+        const center = box.getCenter(new Vector3());
+        const dims = box.getSize(new Vector3());
+        const span = Math.max(dims.x, dims.z, 0.4);
+        const weaponY = box.max.y;
+        cam.fov = 34;
+        cam.position.set(center.x, weaponY + span * 1.05, center.z - span * 0.42);
+        cam.lookAt(center.x, weaponY - span * 0.2, center.z);
+        cam.updateProjectionMatrix();
+        renderer.setRenderTarget(rt);
+        renderer.setClearColor(0x000000, 0);
+        renderer.clear();
+        renderer.render(scene, cam);
+        renderer.readRenderTargetPixels(rt, 0, 0, size, size, pixels);
+        const image = ctx2d.createImageData(size, size);
+        for (let y = 0; y < size; y++) {
+          const src = (size - 1 - y) * size * 4;
+          image.data.set(pixels.subarray(src, src + size * 4), y * size * 4);
+        }
+        ctx2d.putImageData(image, 0, 0);
+        urls[kind] = canvas.toDataURL("image/png");
+        scene.remove(group);
+      }
+      if (Object.keys(urls).length > 0) {
+        thumbsReady = true;
+        tdHud.setThumbs(urls);
+      }
+    } catch {
+      thumbsReady = false;
+    } finally {
+      renderer.setRenderTarget(prevTarget);
+      renderer.setClearColor(prevColor, prevAlpha);
+      rt.dispose();
+    }
   }
 
   function costs() {
@@ -391,6 +685,8 @@ export function createTowerDefenseEngine(): Playable3DEngine {
       gold,
       selected,
       costs: costs(),
+      coinUrl: url || DEFAULT_COIN_URL,
+      canStart: placed && !waveStarted && !ended,
       hint: placed ? "" : "PICK A TOWER, TAP A GLOWING PAD",
     });
   }
@@ -447,7 +743,10 @@ export function createTowerDefenseEngine(): Playable3DEngine {
     waveStarted = false;
     spawnQueue = spawnWaveQueue(round.impCount, round.puglinCount, round.spawnInterval);
     spawnIndex = 0;
-    for (const e of enemies) e.group.removeFromParent();
+    for (const e of enemies) {
+      e.group.removeFromParent();
+      e.hpBar.removeFromParent();
+    }
     enemies.length = 0;
     for (const s of shots) s.mesh.visible = false;
     ended = false;
@@ -462,8 +761,19 @@ export function createTowerDefenseEngine(): Playable3DEngine {
       lives = config.lives;
     } else {
       gold += round.goldBonus;
+      const floor = cheapestCost();
+      if (gold < floor) gold = floor;
     }
     hideRange();
+    syncHud();
+  }
+
+  function startWave() {
+    if (!config || waveStarted || ended || hud.busy()) return;
+    if (!pads.some((p) => p.tower)) return;
+    waveStarted = true;
+    waveTime = 0;
+    playCue("wave");
     syncHud();
   }
 
@@ -474,7 +784,7 @@ export function createTowerDefenseEngine(): Playable3DEngine {
     gold -= st.cost;
     const recipe = TOWER_RECIPES[kind];
     const group = new Group();
-    group.position.set(pad.x, 0, pad.z);
+    group.position.set(pad.x, TILE_TOP, pad.z);
     let built = false;
     for (const part of recipe.parts) {
       const piece = clonePart(templates[part], host.tracker, false);
@@ -494,6 +804,7 @@ export function createTowerDefenseEngine(): Playable3DEngine {
     const shadow = blobShadow(host.tracker, 0.45);
     shadow.position.y = 0.02;
     group.add(shadow);
+    group.scale.setScalar(TOWER_SCALE);
     root.add(group);
     pad.towerGroup = group;
     pad.weapon = weapon;
@@ -520,17 +831,25 @@ export function createTowerDefenseEngine(): Playable3DEngine {
     const { round } = liveRound();
     const base = ENEMY_BASE[kind];
     const look = ENEMY_LOOK[kind];
-    const group = clonePart(templates[kind], host.tracker, true) ?? fallbackEnemy(host.tracker, kind);
+    const modelId = ENEMY_MESH[kind][enemySeq % 2];
+    const group = clonePart(templates[modelId], host.tracker, true) ?? fallbackEnemy(host.tracker, kind);
     const glowMats = paintEnemy(group, kind);
     fitObjectToMax(group, base.height);
-    seatOnGround(group);
+    group.position.y = TILE_TOP;
+    group.updateWorldMatrix(true, true);
+    const fitted = new Box3().setFromObject(group);
+    const headY = (Number.isFinite(fitted.max.y) ? fitted.max.y : base.height) + 0.12;
     const mixer = playEnemyClip(group);
     const shadow = blobShadow(host.tracker, look.shadowRadius, look.shadow);
     group.add(shadow);
+    const barWidth = kind === "puglin" ? 0.78 : 0.62;
+    const bar = enemyHealthBar(host.tracker, barWidth);
     const sample = samplePath(waypoints, 0);
-    group.position.set(sample.x, 0, sample.z);
+    group.position.set(sample.x, TILE_TOP, sample.z);
+    bar.group.position.set(sample.x, headY, sample.z);
     root.add(group);
-    enemies.push({
+    root.add(bar.group);
+    const actor: EnemyActor = {
       id: enemySeq++,
       kind,
       dist: 0,
@@ -550,7 +869,15 @@ export function createTowerDefenseEngine(): Playable3DEngine {
       hitFlash: 0,
       mixer,
       baseScale: { x: group.scale.x, y: group.scale.y, z: group.scale.z },
-    });
+      fell: false,
+      headY,
+      hpBar: bar.group,
+      hpFill: bar.fill,
+      hpFillMat: bar.fillMat,
+      hpWidth: bar.width,
+    };
+    syncHealthBar(actor);
+    enemies.push(actor);
   }
 
   function obtainShot(ammo: string) {
@@ -591,6 +918,7 @@ export function createTowerDefenseEngine(): Playable3DEngine {
       playCue("hit", 90);
       return;
     }
+    enemy.hpBar.removeFromParent();
     enemy.dying = 0.001;
     gold += enemy.gold;
     playCue("death", 50);
@@ -612,7 +940,11 @@ export function createTowerDefenseEngine(): Playable3DEngine {
     const recipe = TOWER_RECIPES[pad.tower.kind];
     const shot = obtainShot(recipe.ammo);
     if (!shot) return;
-    const muzzleY = pad.weapon ? pad.weapon.position.y + 0.15 : 1.1;
+    let muzzleY = 1.15 * TOWER_SCALE;
+    if (pad.weapon) {
+      pad.weapon.getWorldPosition(_muzzle);
+      muzzleY = _muzzle.y;
+    }
     shot.x = pad.x;
     shot.z = pad.z;
     shot.y = muzzleY;
@@ -633,17 +965,7 @@ export function createTowerDefenseEngine(): Playable3DEngine {
 
   function tickCombat(dt: number) {
     if (!config || ended || hud.busy()) return;
-    if (!waveStarted) {
-      waveTime += dt;
-      if (pads.some((p) => p.tower) || waveTime >= WAVE_WAIT) {
-        waveStarted = true;
-        waveTime = 0;
-        playCue("wave");
-        syncHud();
-      } else {
-        return;
-      }
-    }
+    if (!waveStarted) return;
 
     waveTime += dt;
     while (spawnIndex < spawnQueue.length && spawnQueue[spawnIndex].at <= waveTime) {
@@ -654,11 +976,19 @@ export function createTowerDefenseEngine(): Playable3DEngine {
     for (const enemy of enemies) {
       if (!enemy.alive) continue;
       if (enemy.dying > 0) {
+        if (!enemy.fell && enemy.mixer) {
+          enemy.fell = true;
+          playNamedClip(enemy.group, enemy.mixer, "Death", false);
+          enemy.mixer.timeScale = 1.6;
+        }
+        enemy.hpBar.removeFromParent();
         enemy.dying += dt;
-        const u = Math.min(1, enemy.dying / 0.28);
+        const u = Math.min(1, enemy.dying / 0.7);
         enemy.mixer?.update(dt);
-        enemy.group.scale.y = enemy.baseScale.y * (1 - u * 0.85);
-        enemy.group.position.y = -u * 0.2;
+        if (!enemy.mixer) {
+          enemy.group.scale.y = enemy.baseScale.y * (1 - u * 0.85);
+          enemy.group.position.y = TILE_TOP - u * 0.35;
+        }
         if (u >= 1) {
           enemy.alive = false;
           enemy.group.visible = false;
@@ -678,13 +1008,16 @@ export function createTowerDefenseEngine(): Playable3DEngine {
       enemy.group.position.x = sample.x;
       enemy.group.position.z = sample.z;
       enemy.group.rotation.y = Math.atan2(sample.tx, sample.tz);
+      syncHealthBar(enemy);
+      enemy.hpBar.position.set(enemy.group.position.x, enemy.group.position.y + enemy.headY, enemy.group.position.z);
+      if (host) billboardBar(enemy.hpBar, host.camera);
       if (enemy.mixer) {
         enemy.mixer.timeScale = 0.85 + enemy.speed * 0.28;
         enemy.mixer.update(dt);
-        enemy.group.position.y = 0;
+        enemy.group.position.y = TILE_TOP;
       } else {
         const bob = Math.abs(Math.sin(waveTime * (5.4 + enemy.speed * 1.5) + enemy.id));
-        enemy.group.position.y = bob * 0.11;
+        enemy.group.position.y = TILE_TOP + bob * 0.11;
         enemy.group.scale.set(
           enemy.baseScale.x * (1 + bob * 0.05),
           enemy.baseScale.y * (1 - bob * 0.1),
@@ -694,6 +1027,7 @@ export function createTowerDefenseEngine(): Playable3DEngine {
       if (sample.leaked || enemy.dist >= pathLen) {
         enemy.alive = false;
         enemy.group.visible = false;
+        enemy.hpBar.removeFromParent();
         lives = Math.max(0, lives - enemy.leak);
         playCue("leak", 80);
         syncHud();
@@ -732,6 +1066,7 @@ export function createTowerDefenseEngine(): Playable3DEngine {
       }
       shot.x += shot.vx * shot.speed * dt;
       shot.z += shot.vz * shot.speed * dt;
+      if (target) shot.y += (0.4 - shot.y) * Math.min(1, dt * 7);
       shot.mesh.position.set(shot.x, shot.y, shot.z);
       shot.mesh.rotation.y = Math.atan2(shot.vx, shot.vz);
       let hit = false;
@@ -770,7 +1105,7 @@ export function createTowerDefenseEngine(): Playable3DEngine {
     return pads.find((p) => p.hit.id === id) ?? null;
   }
 
-  async function rebuild() {
+  async function rebuild(keepProgress = false) {
     if (!host || !config || !root) return;
     const gen = ++buildGen;
     building = true;
@@ -796,34 +1131,61 @@ export function createTowerDefenseEngine(): Playable3DEngine {
       pads.length = 0;
       enemies.length = 0;
       shots.length = 0;
-      map = buildDefaultMap();
+      map = buildTdMap(roundIndex);
       waypoints = pathWaypoints(map);
       pathLen = polylineLength(waypoints);
 
       for (const cell of map.cells) {
         const { x, z } = cellToWorld(cell.col, cell.row);
-        const model = clonePart(templates[cell.model], host.tracker, false) ?? fallbackTile(host.tracker, cell.kind === "grass" || cell.kind === "build" ? "#5a8f3a" : "#7a5a32");
-        model.position.set(x, 0, z);
+        const fallbackColor = cell.kind === "river" ? "#8fd4ea" : cell.kind === "grass" || cell.kind === "build" ? "#3dba9a" : "#c4845a";
+        const model = clonePart(templates[cell.model], host.tracker, false) ?? fallbackTile(host.tracker, fallbackColor);
+        model.position.set(x, cell.y ?? 0, z);
         model.rotation.y = cell.rot * (Math.PI / 2);
-        seatOnGround(model);
+        flatColors(model);
+        dressPiece(model, cell.model);
         root.add(model);
-        if (cell.kind === "spawn") {
-          const spawn = clonePart(templates["spawn-round"], host.tracker, false);
-          if (spawn) {
-            spawn.position.set(x, 0.02, z);
-            seatOnGround(spawn);
-            root.add(spawn);
+        if (cell.support) {
+          const base = clonePart(templates[cell.support.model], host.tracker, false);
+          if (base) {
+            base.position.set(x, 0, z);
+            base.rotation.y = cell.support.rot * (Math.PI / 2);
+            flatColors(base);
+            root.add(base);
           }
         }
         if (cell.kind === "end") {
           const crystal = clonePart(templates["tile-crystal"], host.tracker, false);
           if (crystal) {
-            crystal.position.set(x, 0.02, z);
-            crystal.scale.setScalar(0.85);
+            crystal.position.set(x, 0, z);
+            crystal.scale.setScalar(0.55);
+            flatColors(crystal);
             seatOnGround(crystal);
+            crystal.position.y += TILE_TOP;
             root.add(crystal);
           }
         }
+      }
+
+      for (const prop of map.props) {
+        const { x, z } = cellToWorld(prop.col, prop.row);
+        const piece = clonePart(templates[prop.model], host.tracker, false);
+        if (!piece) continue;
+        piece.position.set(x + (prop.ox ?? 0), prop.y ?? 0, z + (prop.oz ?? 0));
+        piece.rotation.y = prop.rot * (Math.PI / 2);
+        if (prop.model === "cliff-waterfall" || prop.model === "cliff-waterfall-top") {
+          const face = [
+            { x: 0, z: 1 },
+            { x: 1, z: 0 },
+            { x: 0, z: -1 },
+            { x: -1, z: 0 },
+          ][((prop.rot % 4) + 4) % 4];
+          piece.position.x += face.x * 0.03;
+          piece.position.z += face.z * 0.03;
+        }
+        piece.scale.setScalar(prop.scale);
+        flatColors(piece);
+        dressPiece(piece, prop.model);
+        root.add(piece);
       }
 
       const ringGeo = new RingGeometry(1.85, 2.02, 32);
@@ -860,7 +1222,6 @@ export function createTowerDefenseEngine(): Playable3DEngine {
           z,
           hit,
           marker: beacon.group,
-          discMat: beacon.discMat,
           ringMat: beacon.ringMat,
           tower: null,
           towerGroup: null,
@@ -868,7 +1229,9 @@ export function createTowerDefenseEngine(): Playable3DEngine {
         });
       }
 
-      beginWave(false);
+      beginWave(keepProgress);
+      captureTowerThumbs();
+      fitPortraitCamera();
     } finally {
       if (gen === buildGen) building = false;
     }
@@ -904,15 +1267,17 @@ export function createTowerDefenseEngine(): Playable3DEngine {
       init.container.addEventListener("pointerdown", onSfxUnlock, true);
       host = new ThreeHost(init.container);
       host.applyLighting(init.lighting);
-      host.applyCamera(init.camera, init.orientation, host.camera.aspect);
+      fitPortraitCamera();
       root = new Group();
       host.scene.add(root);
       hud.mount(init.container);
       tdHud.mount(init.container);
+      tdHud.setOrientation(init.orientation);
       tdHud.onSelect((kind) => {
         selected = kind;
         syncHud();
       });
+      tdHud.onStart(() => startWave());
       syncHud();
       void rebuild();
       detach = attachPointer(host.canvas, (e) => {
@@ -928,25 +1293,29 @@ export function createTowerDefenseEngine(): Playable3DEngine {
           showRange(pad.x, pad.z, pad.tower.range);
           return;
         }
-        placeTower(pad, selected);
+        const kind = kindForGold();
+        if (!kind) return;
+        if (kind !== selected) {
+          selected = kind;
+          syncHud();
+        }
+        placeTower(pad, kind);
       });
     },
     start() {
       started = true;
       host?.start((dt) => {
         pulseT += dt;
-        const firstEmpty = pads.find((p) => !p.tower);
+        const canPlace = kindForGold() != null && !ended;
         const beat = 0.5 + 0.5 * Math.sin(pulseT * 5);
         for (const pad of pads) {
-          if (pad.tower) {
+          if (pad.tower || !canPlace) {
             pad.marker.visible = false;
             continue;
           }
           pad.marker.visible = true;
-          const strong = pad === firstEmpty;
-          pad.discMat.opacity = strong ? 0.5 + beat * 0.45 : 0.42;
-          pad.ringMat.opacity = strong ? 0.6 + beat * 0.4 : 0.55;
-          pad.marker.scale.setScalar(strong ? 1 + beat * 0.16 : 1);
+          pad.ringMat.opacity = 0.55 + beat * 0.45;
+          pad.marker.scale.setScalar(1);
         }
         tickCombat(dt);
         hud.tick(performance.now());
@@ -1003,10 +1372,15 @@ export function createTowerDefenseEngine(): Playable3DEngine {
         if (!prevKey || prevKey !== nextKey) void rebuild();
         else syncHud();
       }
-      if (ctx) applyLivePresentation(host, options, ctx);
+      if (ctx) {
+        applyLivePresentation(host, options, ctx);
+        fitPortraitCamera();
+        tdHud.setOrientation(ctx.orientation);
+      }
     },
     resize(w, h) {
       host?.resize(w, h);
+      fitPortraitCamera();
       hud.resize();
     },
   };

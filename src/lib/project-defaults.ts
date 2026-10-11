@@ -401,17 +401,11 @@ export function stampCoinImage(data: ProjectData, url: string) {
   data.gameplay.topDownShooter.coinImageUrl = url;
 }
 
-export const TRIPLE_STACK_KITCHEN_PORTRAIT = "/playforge-triple-stack/kitchen-portrait-882x1920.jpg";
-export const TRIPLE_STACK_KITCHEN_LANDSCAPE = "/playforge-triple-stack/kitchen-landscape-1920x882.jpg";
 const KITCHEN_CREAM = "#f4ead8";
 const KITCHEN_INK = "#3a2a18";
 const KITCHEN_SHADOW = "0 2px 8px rgba(58,42,24,0.18)";
 
 export function applyTripleMatchKitchenChrome(gameplay: ProjectData["gameplay"]): void {
-  gameplay.fullBackground.enabled = true;
-  gameplay.fullBackground.portraitImageUrl = TRIPLE_STACK_KITCHEN_PORTRAIT;
-  gameplay.fullBackground.landscapeImageUrl = TRIPLE_STACK_KITCHEN_LANDSCAPE;
-  gameplay.fullBackground.imageFit = "cover";
   gameplay.stageBackground = {
     portrait: canvasBackground("solid", "#f3ead8", "#f3ead8", "#e8dcc8"),
     landscape: canvasBackground("solid", "#f3ead8", "#f3ead8", "#e8dcc8"),
@@ -784,9 +778,9 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
   const gameplay: ProjectData["gameplay"] = {
     allowBackgroundReplace: true,
     fullBackground: {
-      enabled: false,
-      portraitImageUrl: "",
-      landscapeImageUrl: "",
+      enabled: true,
+      portraitImageUrl: "/demo-assets/bg-gameplay.webp",
+      landscapeImageUrl: "/demo-assets/bg-gameplay.webp",
       imageFit: "cover" as const,
     },
     background:
@@ -1095,6 +1089,14 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
   };
   if (templateId === "triple-match") applyTripleMatchKitchenChrome(gameplay);
   if (templateId === "water-sort") applyWaterSortChrome(gameplay);
+  if (templateId === "domino") {
+    gameplay.fullBackground = {
+      enabled: true,
+      portraitImageUrl: "/demo-assets/bg-domino.webp",
+      landscapeImageUrl: "/demo-assets/bg-domino.webp",
+      imageFit: "cover",
+    };
+  }
   return gameplay;
 }
 

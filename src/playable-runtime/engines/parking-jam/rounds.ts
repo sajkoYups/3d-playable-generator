@@ -87,6 +87,33 @@ function step(
   return cars.map((c) => (c.id === id ? { ...c, col: ncol, row: nrow } : c));
 }
 
+export type ParkingSlide = {
+  kind: "exit" | "moved" | "blocked";
+  cells: number;
+  cars: ParkingCar[];
+};
+
+/** Slide until blocked. On exit, `cars` is the last in-bounds layout. */
+export function slideParkingCar(
+  cars: ParkingCar[],
+  id: string,
+  dCol: number,
+  dRow: number,
+  cols: number,
+  rows: number,
+): ParkingSlide {
+  let current = cars.map((c) => ({ ...c }));
+  let cells = 0;
+  for (let i = 0; i < 12; i++) {
+    const next = step(current, id, dCol, dRow, cols, rows);
+    if (next === "exit") return { kind: "exit", cells, cars: current };
+    if (!next) break;
+    current = next;
+    cells += 1;
+  }
+  return { kind: cells > 0 ? "moved" : "blocked", cells, cars: current };
+}
+
 /** BFS: min 1-cell moves to drive the hero off the right edge, or null if impossible. */
 export function parkingRoundMinMoves(lot: ParkingRound): number | null {
   const cols = lot.gridCols;

@@ -1,9 +1,18 @@
-import type { ParkingCar, ParkingJamConfig, ParkingRound } from "@/types/project";
+import type { ParkingCar, ParkingRound } from "@/types/project";
 import {
   cloneParkingRound,
   defaultParkingRoundsPack,
   DEFAULT_PARKING_ROUNDS,
 } from "@/playable-runtime/engines/parking-jam/rounds";
+
+/** Shared by the 3D lot and the canvas lot. */
+export type ParkingRoundSource = {
+  rounds: ParkingRound[];
+  cars: ParkingCar[];
+  gridCols: number;
+  gridRows: number;
+  movesLimit: number;
+};
 
 export function parkingCells(car: ParkingCar): Array<[number, number]> {
   const cells: Array<[number, number]> = [];
@@ -51,7 +60,7 @@ function roundCoins(value: number | undefined) {
   return Math.min(9999, Math.max(0, Math.round(value as number)));
 }
 
-export function listParkingRounds(jam: ParkingJamConfig): ParkingRound[] {
+export function listParkingRounds(jam: ParkingRoundSource): ParkingRound[] {
   if (jam.rounds?.length) {
     return jam.rounds.slice(0, 9).map((r) => ({
       gridCols: r.gridCols,
@@ -72,13 +81,13 @@ export function listParkingRounds(jam: ParkingJamConfig): ParkingRound[] {
   ];
 }
 
-export function parkingCoinsTotal(jam: ParkingJamConfig) {
+export function parkingCoinsTotal(jam: ParkingRoundSource) {
   return listParkingRounds(jam).reduce((sum, r) => sum + r.coins, 0);
 }
 
 const MAX_PARKING_ROUNDS = 9;
 
-function applyParkingRoundCount(jam: ParkingJamConfig, count: number) {
+function applyParkingRoundCount(jam: ParkingRoundSource, count: number) {
   const pack = defaultParkingRoundsPack();
   const n = Math.min(MAX_PARKING_ROUNDS, Math.max(1, Math.round(count)));
   const prev = jam.rounds ?? [];
@@ -94,17 +103,17 @@ function applyParkingRoundCount(jam: ParkingJamConfig, count: number) {
 }
 
 /** Keep the current round count (1–9). Empty lists hydrate to the full pack. */
-export function ensureParkingRounds(jam: ParkingJamConfig) {
+export function ensureParkingRounds(jam: ParkingRoundSource) {
   const prev = jam.rounds ?? [];
   applyParkingRoundCount(jam, prev.length || defaultParkingRoundsPack().length);
 }
 
 /** Slice or grow the pack prefix so the playable has exactly `count` rounds. */
-export function setParkingRoundCount(jam: ParkingJamConfig, count: number) {
+export function setParkingRoundCount(jam: ParkingRoundSource, count: number) {
   applyParkingRoundCount(jam, count);
 }
 
-export function syncParkingRound(jam: ParkingJamConfig, index: number) {
+export function syncParkingRound(jam: ParkingRoundSource, index: number) {
   const round = jam.rounds[Math.max(0, Math.min(index, jam.rounds.length - 1))];
   if (!round) return;
   jam.cars = round.cars;

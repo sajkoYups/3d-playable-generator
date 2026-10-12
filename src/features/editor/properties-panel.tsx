@@ -73,6 +73,22 @@ function patchParkingRound(
   });
 }
 
+function patchParking2DRound(
+  updateData: (updater: (draft: ProjectData) => void) => void,
+  index: number,
+  patch: (round: ParkingRound) => void,
+) {
+  updateData((d) => {
+    const lot = d.gameplay.parking2d;
+    ensureParkingRounds(lot);
+    const i = Math.max(0, Math.min(index, lot.rounds.length - 1));
+    const round = lot.rounds[i];
+    if (!round) return;
+    patch(round);
+    syncParkingRound(lot, i);
+  });
+}
+
 function patchTdRound(
   updateData: (updater: (draft: ProjectData) => void) => void,
   index: number,
@@ -257,6 +273,7 @@ function CoinIconField({ locked }: { locked?: boolean }) {
   const value =
     data.coinImageUrl ||
     data.gameplay.parkingJam.coinImageUrl ||
+    data.gameplay.parking2d.coinImageUrl ||
     data.gameplay.tripleMatch.coinImageUrl ||
     data.gameplay.laneRunner.coinImageUrl ||
     data.gameplay.towerDefense.coinImageUrl ||
@@ -489,7 +506,7 @@ function GameplaySettings() {
           <h4 className="text-sm font-medium">Audio</h4>
           <FieldHint
             text={
-              ["tower-defense", "triple-match", "parking-jam", "lane-runner", "stack-tower", "water-sort", "match-3", "solitaire", "tappy-plane", "dress-up"].includes(templateId)
+              ["tower-defense", "triple-match", "parking-jam", "parking-2d", "lane-runner", "stack-tower", "water-sort", "match-3", "solitaire", "tappy-plane", "dress-up"].includes(templateId)
                 ? "Start and end screen sounds. In-game clips are under the game section below. First tap on the canvas unlocks audio."
                 : "Start and end screen sounds. First tap on the canvas unlocks audio."
             }
@@ -529,7 +546,7 @@ function GameplaySettings() {
         <AssetUrlField
           label="Win"
           hint={
-            ["triple-match", "parking-jam", "water-sort", "match-3", "solitaire"].includes(templateId)
+            ["triple-match", "parking-jam", "parking-2d", "water-sort", "match-3", "solitaire"].includes(templateId)
               ? "Final win screen after the last round. Round payouts use Round win under the game section."
               : "Plays on the win / end screen."
           }
@@ -2219,6 +2236,168 @@ function GameplaySettings() {
                 updateData((d) => {
                   d.gameplay.parkingJam.sounds ??= { ambienceUrl: "", moveUrl: "", payoutUrl: "" };
                   d.gameplay.parkingJam.sounds[key] = url;
+                })
+              }
+            />
+          ))}
+        </>
+      )}
+
+      {templateId === "parking-2d" && (
+        <>
+          <Separator />
+          <h4 className="text-sm font-medium">Parking Jam 2D</h4>
+          <p className="text-[11px] leading-snug text-muted">
+            Drag a car along its lane. Slide the red car out the right side before you run out of moves.
+          </p>
+          {(() => {
+            const lot = data.gameplay.parking2d;
+            const rounds = lot.rounds.length
+              ? lot.rounds
+              : [{ gridCols: lot.gridCols, gridRows: lot.gridRows, movesLimit: lot.movesLimit, coins: 50, cars: lot.cars }];
+            const roundIdx = Math.max(0, Math.min(parkingRoundIndex, rounds.length - 1));
+            const round = rounds[roundIdx];
+            return (
+              <>
+                <Label>How many rounds</Label>
+                <p className="text-[11px] text-muted">
+                  Click a number to set the playable length. 4 means rounds 1–4 play in order.
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({ length: 9 }, (_, i) => {
+                    const count = i + 1;
+                    const included = count <= rounds.length;
+                    const selected = count === rounds.length;
+                    return (
+                      <Button
+                        key={count}
+                        size="sm"
+                        variant={selected ? "default" : included ? "secondary" : "outline"}
+                        aria-pressed={included}
+                        onClick={() => {
+                          if (count === rounds.length) return;
+                          const preview = Math.min(roundIdx, count - 1);
+                          updateData((d) => {
+                            const next = d.gameplay.parking2d;
+                            setParkingRoundCount(next, count);
+                            syncParkingRound(next, preview);
+                          });
+                          setParkingRoundIndex(preview);
+                        }}
+                      >
+                        {count}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Label>Preview</Label>
+                <p className="text-[11px] text-muted">Shows this round in the canvas. Does not change how many rounds play.</p>
+                <div className="flex flex-wrap gap-1">
+                  {rounds.map((_, i) => (
+                    <Button
+                      key={i}
+                      size="sm"
+                      variant={i === roundIdx ? "default" : "outline"}
+                      aria-current={i === roundIdx ? "true" : undefined}
+                      onClick={() => setParkingRoundIndex(i)}
+                    >
+                      {i + 1}
+                    </Button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <NumberField
+                    label="Moves limit"
+                    integer
+                    min={8}
+                    max={80}
+                    value={round.movesLimit}
+                    onChange={(n) =>
+                      patchParking2DRound(updateData, roundIdx, (r) => {
+                        r.movesLimit = n;
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Coins"
+                    integer
+                    min={0}
+                    max={9999}
+                    value={round.coins}
+                    onChange={(n) =>
+                      patchParking2DRound(updateData, roundIdx, (r) => {
+                        r.coins = n;
+                      })
+                    }
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <NumberField
+                    label="Grid cols"
+                    integer
+                    min={4}
+                    max={8}
+                    value={round.gridCols}
+                    onChange={(n) =>
+                      patchParking2DRound(updateData, roundIdx, (r) => {
+                        r.gridCols = n;
+                        r.cars = repairParkingCars(r.cars, r.gridCols, r.gridRows);
+                      })
+                    }
+                  />
+                  <NumberField
+                    label="Grid rows"
+                    integer
+                    min={4}
+                    max={8}
+                    value={round.gridRows}
+                    onChange={(n) =>
+                      patchParking2DRound(updateData, roundIdx, (r) => {
+                        r.gridRows = n;
+                        r.cars = repairParkingCars(r.cars, r.gridCols, r.gridRows);
+                      })
+                    }
+                  />
+                </div>
+                <p className="text-[11px] text-muted">Car colors. The red exit car keeps its own sprite.</p>
+                {round.cars.map((car) => (
+                  <div key={car.id} className="flex items-center gap-2">
+                    <Label className="w-16 truncate text-xs">{car.isHero ? "Hero" : car.id}</Label>
+                    <input
+                      type="color"
+                      value={car.color}
+                      onChange={(e) =>
+                        patchParking2DRound(updateData, roundIdx, (r) => {
+                          const target = r.cars.find((c) => c.id === car.id);
+                          if (target) target.color = e.target.value;
+                        })
+                      }
+                    />
+                  </div>
+                ))}
+              </>
+            );
+          })()}
+          <SoundsHintLabel text="In-game clips. Leave a slot empty to keep the built-in sound. First tap on the canvas unlocks audio." />
+          {(
+            [
+              ["ambienceUrl", "Background", "Loop while the lot is on screen. Leave empty for the built-in traffic ambience."],
+              ["moveUrl", "Move", "Plays when a car slides."],
+              ["coinUrl", "Coins", "Plays as the round coins collect."],
+              ["payoutUrl", "Round win", "Plays when a round is cleared. The shared Win clip is only the final end screen."],
+            ] as const
+          ).map(([key, label, hint]) => (
+            <AssetUrlField
+              key={key}
+              label={label}
+              hint={hint}
+              kind="audio"
+              accept="audio/*"
+              value={data.gameplay.parking2d.sounds?.[key] ?? ""}
+              onChange={(url) =>
+                updateData((d) => {
+                  d.gameplay.parking2d.sounds ??= { ambienceUrl: "", moveUrl: "", coinUrl: "", payoutUrl: "" };
+                  d.gameplay.parking2d.sounds[key] = url;
                 })
               }
             />

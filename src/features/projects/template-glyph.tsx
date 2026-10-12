@@ -6,6 +6,7 @@ export type GlyphId = TemplateId | UpcomingGameId;
 const GAME_COVERS: Partial<Record<GlyphId, string>> = {
   "lane-runner": "/game-covers/endless-car-runner-playable.png",
   "parking-jam": "/game-covers/parking-jam-3d.png",
+  "parking-2d": "/game-covers/parking-project-card-960x480.png",
   "triple-match": "/game-covers/triple-stack-3d-960x480.png",
   "match-3": "/game-covers/match-3-cover-960x480.png",
   "stack-tower": "/game-covers/stack-tower-3d-960x480.png",
@@ -158,6 +159,17 @@ export function TemplateGlyph({ templateId }: { templateId: GlyphId }) {
           <rect x="164" y="46" width="28" height="36" rx="6" fill="#f8e7dc" />
           <rect x="134" y="54" width="16" height="20" rx="3" fill="#c45a6a" />
           <rect x="170" y="58" width="16" height="16" rx="3" fill="#2bb5a0" />
+        </>
+      )}
+      {templateId === "parking-2d" && (
+        <>
+          <rect x="16" y="16" width="208" height="88" rx="10" fill="#4f8f38" />
+          <rect x="36" y="28" width="148" height="64" rx="8" fill="#d7dbe0" />
+          <rect x="42" y="34" width="136" height="52" rx="4" fill="#3c4046" />
+          <rect x="178" y="50" width="28" height="16" fill="#3c4046" />
+          <rect x="52" y="42" width="28" height="14" rx="3" fill="#ff3b30" />
+          <rect x="96" y="36" width="14" height="28" rx="3" fill="#2bb5a0" />
+          <rect x="124" y="58" width="28" height="14" rx="3" fill="#7c5cff" />
         </>
       )}
     </svg>

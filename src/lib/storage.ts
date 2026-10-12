@@ -89,6 +89,7 @@ export async function readObjectBuffer(keyOrUrl: string): Promise<Buffer | null>
     keyOrUrl.startsWith("/kenney_") ||
     keyOrUrl.startsWith("/playforge-") ||
     keyOrUrl.startsWith("/sounds/") ||
+    keyOrUrl.startsWith("/forge-2d-parking-assets/") ||
     keyOrUrl.startsWith("/public/")
   ) {
     const relative = decodeURIComponent(keyOrUrl.replace(/^\/public\//, "").replace(/^\//, ""));

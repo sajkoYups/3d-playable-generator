@@ -30,6 +30,7 @@ export const TEMPLATE_NAMES: Record<TemplateId, string> = {
   "triple-match": "Triple Stack 3D",
   "lane-runner": "Endless Car Driving",
   "parking-jam": "Parking Jam",
+  "parking-2d": "Parking Jam 2D",
   "tower-defense": "Tower Defense",
   "water-sort": "Water Sort",
   "match-3": "Match-3",
@@ -46,6 +47,7 @@ export const TEMPLATE_BLURBS: Record<TemplateId, string> = {
   "triple-match": "Tap matching snacks into a tray. Three of a kind clears.",
   "lane-runner": "Swipe lanes, dodge traffic, collect coins across rounds.",
   "parking-jam": "Slide cars out of a jammed lot. Grid puzzle with tinted vehicles.",
+  "parking-2d": "Slide the red car out. Same jam, flat top-down lot.",
   "tower-defense": "Place towers, stop the goblins and zombies. Short wave defense.",
   "water-sort": "Pour matching colors into tubes. Classic 2D puzzle.",
   "match-3": "Swap gems, match three, chase a score across rounds.",
@@ -390,6 +392,7 @@ export function stampCoinImage(data: ProjectData, url: string) {
   data.gameplay.tripleMatch.coinImageUrl = url;
   data.gameplay.laneRunner.coinImageUrl = url;
   data.gameplay.parkingJam.coinImageUrl = url;
+  data.gameplay.parking2d.coinImageUrl = url;
   data.gameplay.towerDefense.coinImageUrl = url;
   data.gameplay.stackTower.coinImageUrl = url;
   data.gameplay.match3.coinImageUrl = url;
@@ -572,6 +575,33 @@ export function ensureWaterSortChrome(data: ProjectData): void {
   applyWaterSortChrome(data.gameplay);
 }
 
+const PARKING_2D_GRASS = "#4f8f38";
+
+/** Drop the shared sky-and-trees scene and let the lot fill the phone. */
+export function applyParking2DChrome(gameplay: ProjectData["gameplay"]): void {
+  const full = gameplay.fullBackground;
+  const portrait = full.portraitImageUrl || "";
+  const landscape = full.landscapeImageUrl || "";
+  if (portrait.includes("bg-gameplay") || landscape.includes("bg-gameplay")) {
+    full.enabled = false;
+    full.portraitImageUrl = "";
+    full.landscapeImageUrl = "";
+  }
+  gameplay.stageBackground = {
+    portrait: canvasBackground("solid", PARKING_2D_GRASS, PARKING_2D_GRASS, "#3d7330"),
+    landscape: canvasBackground("solid", PARKING_2D_GRASS, PARKING_2D_GRASS, "#3d7330"),
+  };
+  const box = gameplay.overlays.find((el) => el.id === "gameplay-container");
+  if (box) {
+    box.layout.portrait = layout({ x: 0, y: 0.1, width: 1, height: 0.9, zIndex: 1, locked: true });
+    box.layout.landscape = layout({ x: 0, y: 0, width: 1, height: 1, zIndex: 1, locked: true });
+  }
+}
+
+export function ensureParking2DChrome(data: ProjectData): void {
+  applyParking2DChrome(data.gameplay);
+}
+
 export function createGameplayTimerOverlay(): PlayableElement {
   return {
     id: "gameplay-timer",
@@ -631,6 +661,8 @@ function createStartScreen(templateId: TemplateId): ProjectData["startScreen"] {
         "Subtitle",
         templateId === "tower-defense"
           ? "Pick a tower, tap a glowing pad. Stop the monsters."
+          : templateId === "parking-2d"
+            ? "Slide cars. Free the red one."
           : templateId === "water-sort"
             ? "Pour matching colors. Fill every tube."
             : templateId === "match-3"
@@ -837,7 +869,12 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
             landscape: canvasBackground("gradient", "#12141a", "#1c1f2a", "#12141a"),
           },
     stageBackground:
-      templateId === "parking-jam" || templateId === "tower-defense"
+      templateId === "parking-2d"
+        ? {
+            portrait: canvasBackground("solid", "#4f8f38", "#4f8f38", "#3d7330"),
+            landscape: canvasBackground("solid", "#4f8f38", "#4f8f38", "#3d7330"),
+          }
+        : templateId === "parking-jam" || templateId === "tower-defense"
         ? {
             portrait: canvasBackground("gradient", "#1c2430", "#9aafc2", "#1a2230"),
             landscape: canvasBackground("gradient", "#1c2430", "#9aafc2", "#1a2230"),
@@ -950,6 +987,21 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
       rounds: defaultParkingRoundsPack(),
       coinImageUrl: "",
       sounds: { ambienceUrl: "", moveUrl: "", payoutUrl: "" },
+    },
+    parking2d: {
+      heroCarUrl: "",
+      shortCarUrl: "",
+      longCarUrl: "",
+      exitArrowUrl: "",
+      asphaltUrl: "",
+      grassUrl: "",
+      movesLimit: 24,
+      gridCols: 6,
+      gridRows: 6,
+      cars: DEFAULT_PARKING_CARS.map((c) => ({ ...c })),
+      rounds: defaultParkingRoundsPack(),
+      coinImageUrl: "",
+      sounds: { ambienceUrl: "", moveUrl: "", coinUrl: "", payoutUrl: "" },
     },
     towerDefense: {
       lives: 8,
@@ -1089,6 +1141,7 @@ function createGameplayOverlays(templateId: TemplateId): ProjectData["gameplay"]
   };
   if (templateId === "triple-match") applyTripleMatchKitchenChrome(gameplay);
   if (templateId === "water-sort") applyWaterSortChrome(gameplay);
+  if (templateId === "parking-2d") applyParking2DChrome(gameplay);
   if (templateId === "domino") {
     gameplay.fullBackground = {
       enabled: true,

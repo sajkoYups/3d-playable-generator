@@ -8,6 +8,7 @@ import {
   solitaireSpriteUrls,
   tappySpriteUrls,
 } from "@/playable-runtime/engines/kenney-2d-assets";
+import { parking2dSpriteUrls } from "@/playable-runtime/engines/parking-2d/sprites";
 import { dressUpAssetUrls } from "@/playable-runtime/engines/dress-up/catalog";
 import { pickSoundUrl, PLAYABLE_SOUNDS } from "@/playable-runtime/audio/defaults";
 
@@ -104,6 +105,15 @@ export function collectAssetUrls(data: ProjectData, templateId?: TemplateId): st
       add(pickSoundUrl(dressSounds?.selectUrl, PLAYABLE_SOUNDS.swoosh));
       add(pickSoundUrl(dressSounds?.dressUrl, PLAYABLE_SOUNDS.swoosh));
       add(pickSoundUrl(dressSounds?.revealUrl, PLAYABLE_SOUNDS.wow));
+    } else if (templateId === "parking-2d") {
+      const lot = data.gameplay.parking2d;
+      add(coinUrl(data, lot.coinImageUrl));
+      for (const url of parking2dSpriteUrls(lot)) add(url);
+      const lotSounds = lot.sounds;
+      add(pickSoundUrl(lotSounds?.ambienceUrl, PLAYABLE_SOUNDS.trafficAmbience));
+      add(pickSoundUrl(lotSounds?.moveUrl, PLAYABLE_SOUNDS.swoosh));
+      add(pickSoundUrl(lotSounds?.coinUrl, PLAYABLE_SOUNDS.coin));
+      add(pickSoundUrl(lotSounds?.payoutUrl, PLAYABLE_SOUNDS.payout));
     } else if (templateId === "water-sort") {
       const sortSounds = data.gameplay.waterSort.sounds;
       add(pickSoundUrl(sortSounds?.pourUrl, PLAYABLE_SOUNDS.pour));

@@ -118,14 +118,15 @@ export function ExportDialog({
         }
       }}
     >
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-3xl flex-col overflow-hidden">
+        <DialogHeader className="shrink-0 pr-6">
           <DialogTitle>Export playable</DialogTitle>
           <DialogDescription>
             Bundles Three.js + the selected engine into one HTML file. Pick networks to wrap CTA APIs.
           </DialogDescription>
         </DialogHeader>
 
+        <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
         <div className="grid grid-cols-2 gap-2">
           {NETWORK_IDS.map((id) => {
             const enabled = ENABLED_NETWORK_IDS.includes(id);
@@ -179,12 +180,13 @@ export function ExportDialog({
               </div>
             )}
             {previewHtml && (
-              <iframe title="Export preview" className="h-64 w-full rounded-md border border-border bg-black" srcDoc={previewHtml} />
+              <iframe title="Export preview" className="h-48 max-h-[32vh] w-full rounded-md border border-border bg-black" srcDoc={previewHtml} />
             )}
           </div>
         )}
+        </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           {!result ? (
             <Button onClick={runExport} disabled={loading || selected.length === 0}>
               {loading ? "Exporting..." : "Generate export"}

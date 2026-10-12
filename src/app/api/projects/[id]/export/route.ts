@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAccessibleVariation, requireOrgApi } from "@/lib/api-auth";
-import { exportPlayableHtml } from "@/lib/export-playable";
+import { exportPlayableHtml, sumExportBreakdown } from "@/lib/export-playable";
 import { resolveVariationPlayable } from "@/lib/resolve-variation";
 import type { NetworkId, TemplateId } from "@/types/project";
 import { prisma } from "@/lib/db";
@@ -67,20 +67,11 @@ export async function POST(
     zip.file(`${slug}-${r.networkId}.html`, r.html);
   }
   const zipBuf = await zip.generateAsync({ type: "nodebuffer" });
-  const total = results.reduce((n, r) => n + r.size, 0);
   return NextResponse.json({
     zipBase64: zipBuf.toString("base64"),
     results,
     size: zipBuf.length,
     warnings: [...new Set(results.flatMap((r) => r.warnings))],
-    breakdown: {
-      htmlShell: 0,
-      javascript: total,
-      images: 0,
-      models: 0,
-      audio: 0,
-      video: 0,
-      total,
-    },
+    breakdown: sumExportBreakdown(results, zipBuf.length),
   });
 }

@@ -22,6 +22,7 @@ import { UPCOMING_GAMES, type UpcomingGame } from "@/features/projects/upcoming-
 
 const TEMPLATES_3D: TemplateId[] = ["stack-tower", "triple-match", "lane-runner", "parking-jam", "tower-defense"];
 const TEMPLATES_2D: TemplateId[] = [
+  "parking-2d",
   "water-sort",
   "match-3",
   "solitaire",

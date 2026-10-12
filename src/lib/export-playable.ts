@@ -1,6 +1,6 @@
 import type { NetworkId, ProjectData, TemplateId } from "@/types/project";
 import { ProjectDataSchema } from "@/types/project";
-import { ensureTripleMatchKitchenChrome, ensureWaterSortChrome } from "@/lib/project-defaults";
+import { ensureParking2DChrome, ensureTripleMatchKitchenChrome, ensureWaterSortChrome } from "@/lib/project-defaults";
 import { readObjectBuffer } from "@/lib/storage";
 import { createNetworkAdapter, META_CTA_CALL, NETWORK_LIMITS } from "@/playable-runtime/networks";
 import { collectAssetUrls } from "@/playable-runtime/export/collect-urls";
@@ -25,11 +25,33 @@ export type ExportResult = {
   warnings: string[];
 };
 
+export function sumExportBreakdown(results: ExportResult[], total: number): ExportBreakdown {
+  const breakdown: ExportBreakdown = {
+    htmlShell: 0,
+    javascript: 0,
+    images: 0,
+    models: 0,
+    audio: 0,
+    video: 0,
+    total,
+  };
+  for (const result of results) {
+    breakdown.htmlShell += result.breakdown.htmlShell;
+    breakdown.javascript += result.breakdown.javascript;
+    breakdown.images += result.breakdown.images;
+    breakdown.models += result.breakdown.models;
+    breakdown.audio += result.breakdown.audio;
+    breakdown.video += result.breakdown.video;
+  }
+  return breakdown;
+}
+
 const ENGINE_FACTORY: Record<TemplateId, string> = {
   "stack-tower": "createStackTowerEngine",
   "triple-match": "createTripleMatchEngine",
   "lane-runner": "createLaneRunnerEngine",
   "parking-jam": "createParkingJamEngine",
+  "parking-2d": "createParking2DEngine",
   "tower-defense": "createTowerDefenseEngine",
   "water-sort": "createWaterSortEngine",
   "match-3": "createMatch3Engine",
@@ -46,6 +68,7 @@ const ENGINE_FILE: Record<TemplateId, string> = {
   "triple-match": "src/playable-runtime/engines/triple-match/index.ts",
   "lane-runner": "src/playable-runtime/engines/lane-runner/index.ts",
   "parking-jam": "src/playable-runtime/engines/parking-jam/index.ts",
+  "parking-2d": "src/playable-runtime/engines/parking-2d/index.ts",
   "tower-defense": "src/playable-runtime/engines/tower-defense/index.ts",
   "water-sort": "src/playable-runtime/engines/water-sort/index.ts",
   "match-3": "src/playable-runtime/engines/match-3/index.ts",
@@ -116,6 +139,7 @@ export async function exportPlayableHtml(options: {
   const data = ProjectDataSchema.parse(options.projectData);
   if (options.templateId === "triple-match") ensureTripleMatchKitchenChrome(data);
   if (options.templateId === "water-sort") ensureWaterSortChrome(data);
+  if (options.templateId === "parking-2d") ensureParking2DChrome(data);
   const networkId = options.networkId ?? "generic";
   const adapter = createNetworkAdapter(networkId);
   const warnings: string[] = [];

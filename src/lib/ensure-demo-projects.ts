@@ -9,6 +9,7 @@ const DEMO_TEMPLATES: TemplateId[] = [
   "triple-match",
   "lane-runner",
   "parking-jam",
+  "parking-2d",
   "water-sort",
   "match-3",
   "solitaire",

@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import type { Orientation, PlayableElement, ProjectData, TemplateId } from "@/types/project";
 import { BRAND_LOGO_SLOT_IDS, END_POLICY_SLOT_ID, isBrandSlotId, isOverridableSlotId, ProjectDataSchema } from "@/types/project";
-import { createDefaultProjectData, createEndPolicyElement, ensureAppBrandLayers, ensureTripleMatchKitchenChrome, ensureWaterSortChrome } from "@/lib/project-defaults";
+import { createDefaultProjectData, createEndPolicyElement, ensureAppBrandLayers, ensureParking2DChrome, ensureTripleMatchKitchenChrome, ensureWaterSortChrome } from "@/lib/project-defaults";
 import { ensureParkingRounds, syncParkingRound } from "@/playable-runtime/engines/parking-jam/layout";
 import { ensureMatchRounds, propagateMatchFoods, syncMatchRound } from "@/playable-runtime/engines/triple-match/rounds";
 import { ensureLaneRounds, syncLaneRound } from "@/playable-runtime/engines/lane-runner/rounds";
@@ -26,6 +26,7 @@ function cloneData(data: ProjectData): ProjectData {
 function activeRoundCount(templateId: TemplateId, data: ProjectData) {
   if (templateId === "triple-match") return data.gameplay.tripleMatch.rounds.length;
   if (templateId === "parking-jam") return data.gameplay.parkingJam.rounds.length;
+  if (templateId === "parking-2d") return data.gameplay.parking2d.rounds.length;
   if (templateId === "lane-runner") return data.gameplay.laneRunner.rounds.length;
   if (templateId === "tower-defense") return data.gameplay.towerDefense.rounds.length;
   if (templateId === "stack-tower") return data.gameplay.stackTower.rounds.length;
@@ -164,6 +165,12 @@ export const useEditorStore = create<EditorState>()(
         ensureParkingRounds(jam);
         state.parkingRoundIndex = 0;
         syncParkingRound(jam, 0);
+        if (payload.templateId === "parking-2d") {
+          const lot = state.data.gameplay.parking2d;
+          ensureParkingRounds(lot);
+          syncParkingRound(lot, 0);
+          ensureParking2DChrome(state.data);
+        }
         if (payload.templateId === "triple-match") {
           const match = state.data.gameplay.tripleMatch;
           ensureMatchRounds(match);

@@ -8,6 +8,7 @@ export const TemplateIdSchema = z.enum([
   "triple-match",
   "lane-runner",
   "parking-jam",
+  "parking-2d",
   "tower-defense",
   "water-sort",
   "match-3",
@@ -21,6 +22,7 @@ export const TemplateIdSchema = z.enum([
 export type TemplateId = z.infer<typeof TemplateIdSchema>;
 
 export const TEMPLATE_2D_IDS = [
+  "parking-2d",
   "water-sort",
   "match-3",
   "solitaire",
@@ -444,6 +446,31 @@ export const ParkingJamConfigSchema = z.object({
 });
 export type ParkingJamConfig = z.infer<typeof ParkingJamConfigSchema>;
 
+export const Parking2DSoundsSchema = z.object({
+  ambienceUrl: z.string().default(""),
+  moveUrl: z.string().default(""),
+  coinUrl: z.string().default(""),
+  payoutUrl: z.string().default(""),
+});
+export type Parking2DSounds = z.infer<typeof Parking2DSoundsSchema>;
+
+export const Parking2DConfigSchema = z.object({
+  heroCarUrl: z.string().default(""),
+  shortCarUrl: z.string().default(""),
+  longCarUrl: z.string().default(""),
+  exitArrowUrl: z.string().default(""),
+  asphaltUrl: z.string().default(""),
+  grassUrl: z.string().default(""),
+  movesLimit: z.number().int().min(8).max(80).default(24),
+  gridCols: z.number().int().min(4).max(8).default(6),
+  gridRows: z.number().int().min(4).max(8).default(6),
+  cars: z.array(ParkingCarSchema).default(DefaultParkingCars),
+  rounds: z.array(ParkingRoundSchema).max(9).default([]),
+  coinImageUrl: z.string().default(""),
+  sounds: Parking2DSoundsSchema.prefault({}),
+});
+export type Parking2DConfig = z.infer<typeof Parking2DConfigSchema>;
+
 export const TowerDefenseTowerStatsSchema = z.object({
   cost: z.number().int().min(1).max(999).default(50),
   damage: z.number().min(0.5).max(100).default(8),
@@ -820,6 +847,7 @@ export const GameplaySchema = z.object({
   tripleMatch: TripleMatchConfigSchema.prefault({}),
   laneRunner: LaneRunnerConfigSchema.prefault({}),
   parkingJam: ParkingJamConfigSchema.prefault({}),
+  parking2d: Parking2DConfigSchema.prefault({}),
   towerDefense: TowerDefenseConfigSchema.prefault({}),
   pieceImages: z
     .array(z.string())

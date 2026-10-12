@@ -1,0 +1,21 @@
+Generated with the built-in image generation tool. PNGs resized for import.
+short-car
+Transparent PNG sprite for a 2D parking puzzle. Single short compact car, strict orthographic top down, nose straight UP. Canvas 128x256 aspect 1:2, car fills with small even transparent padding. Neutral flat white/light gray body suitable for multiplicative tinting, dark charcoal windows and tires, crisp restrained outlines, polished simple 2D casual game art. Bilaterally symmetric, no perspective, no ground, no cast/drop shadow, no text.
+
+long-car
+Transparent PNG sprite for a 2D parking puzzle. Single long estate van blocker, strict orthographic top down, nose straight UP. Canvas 128x384 aspect 1:3, same width as a compact car sprite, small even transparent padding. Neutral flat white/light gray body suitable for multiplicative tinting, charcoal windows and tires, crisp restrained outlines, polished simple 2D casual game art. Long three-grid-cell body. Bilaterally symmetric, no perspective, no ground, no cast/drop shadow, no text.
+
+hero-car
+Transparent PNG sprite for a 2D parking puzzle. Single short compact hero car, strict orthographic top down, nose straight UP. Canvas 128x256 aspect 1:2 with small even transparent padding. Bright coral red flat body, dark charcoal windows and tires, a clear white upward-pointing arrow centered on roof. Crisp restrained outlines, polished simple 2D casual game art. Bilaterally symmetric, no perspective, no ground, no cast/drop shadow, no text.
+
+exit-arrow
+Transparent PNG game sprite, single bold right-pointing exit arrow, centered, horizontal canvas 256x128. Clean flat white arrow with restrained dark charcoal outline, readable small in a 2D top-down casual parking puzzle. Small transparent padding. No lettering, no background, no cast shadow.
+
+asphalt-tile
+Square 512x512 seamless repeatable asphalt texture tile for a clean casual 2D top-down parking puzzle. Flat orthographic charcoal gray asphalt, very subtle fine grain, low contrast, uniform lighting, understated stylized 2D game art. Seamless on all four edges. No lines, no markings, no objects, no shadows, no perspective.
+
+grass-tile
+Square 512x512 seamless repeatable grass texture tile for a clean casual 2D top-down parking puzzle. Flat orthographic muted fresh green grass, very subtle small blade marks, low contrast, uniform lighting, understated stylized 2D game art. Seamless on all four edges. No flowers, no objects, no shadows, no perspective.
+
+parking-background
+Square 1536x1536 background for a clean casual 2D top-down parking puzzle. Strict orthographic aerial view. Large empty charcoal asphalt parking area occupying central 80 percent, surrounded by a narrow tidy light gray curb and muted fresh green grass border. An open exit gap at center of right edge leads to a short asphalt driveway through grass. Play area completely empty and unmarked so arbitrary puzzle grids can be overlaid. Subtle fine asphalt and grass textures, crisp simple polished 2D game art, uniform ambient lighting. No cars, no grid, no parking lines, no arrows, no text, no interface, no buildings, no cast shadows, no perspective.

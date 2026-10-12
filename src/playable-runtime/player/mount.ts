@@ -211,6 +211,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         tripleMatch: data.gameplay.tripleMatch,
         laneRunner: data.gameplay.laneRunner,
         parkingJam: data.gameplay.parkingJam,
+        parking2d: data.gameplay.parking2d,
         towerDefense: data.gameplay.towerDefense,
         playAllRounds: true,
         audioBus: audio,
@@ -445,6 +446,7 @@ export function mountPlayable(root: HTMLElement, options: MountOptions): Mounted
         tripleMatch: data.gameplay.tripleMatch,
         laneRunner: data.gameplay.laneRunner,
         parkingJam: data.gameplay.parkingJam,
+        parking2d: data.gameplay.parking2d,
         towerDefense: data.gameplay.towerDefense,
         background: boardBackgroundForPlay(
           data.gameplay.background[orientation],
